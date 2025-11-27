@@ -13,7 +13,7 @@ await esbuild.build({
   outfile: "dist/handler.js",
   format: "cjs",
   sourcemap: true,
-  external: [],
+  external: ["@aws-sdk/client-lambda", "@aws-sdk/client-sqs"],
 });
 
 // Copy RDS CA certificate to dist folder

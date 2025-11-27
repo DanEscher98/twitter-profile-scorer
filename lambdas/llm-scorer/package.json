@@ -1,5 +1,5 @@
 {
-  "name": "@profile-scorer/query-twitter-api",
+  "name": "@profile-scorer/llm-scorer",
   "packageManager": "yarn@4.12.0",
   "version": "1.0.0",
   "private": true,
@@ -8,8 +8,7 @@
     "build": "node esbuild.config.mjs"
   },
   "dependencies": {
-    "@profile-scorer/db": "workspace:*",
-    "@profile-scorer/twitterx-api": "workspace:*"
+    "@profile-scorer/db": "workspace:*"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145",

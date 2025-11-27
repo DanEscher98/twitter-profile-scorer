@@ -17,6 +17,7 @@ export default tseslint.config(
       "infra/",
       "certs/",
       "**/*.min.js",
+      "**/*.d.ts",
     ],
   },
   {
@@ -30,6 +31,10 @@ export default tseslint.config(
           caughtErrorsIgnorePattern: "^_",
         },
       ],
+      // Allow explicit any
+      "@typescript-eslint/no-explicit-any": "off",
+      // Allow control characters in regex (needed for sanitization)
+      "no-control-regex": "off",
       // Enforce semicolons (Prettier handles this, but good to have)
       semi: "off",
       "@typescript-eslint/semi": "off",

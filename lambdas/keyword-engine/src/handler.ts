@@ -1,53 +1,73 @@
 import { Handler } from "aws-lambda";
 import { sql } from "drizzle-orm";
 
-import { getDb, userProfiles } from "@profile-scorer/db";
+import { getDb, xapiSearchUsage } from "@profile-scorer/db";
 
-export const handler: Handler = async () => {
-  const twitterxApiKey = process.env.TWITTERX_APIKEY;
-  const anthropicApiKey = process.env.ANTHROPIC_APIKEY;
+// Seed keywords for qualitative researchers
+const SEED_KEYWORDS = ["researcher", "phd", "psychiatry", "neuroscience", "pharma"];
 
-  // Check secrets access
-  const secretsStatus = {
-    twitterx: twitterxApiKey ? "✓ accessible" : "✗ missing",
-    anthropic: anthropicApiKey ? "✓ accessible" : "✗ missing",
+export interface KeywordEngineEvent {
+  action?: "get_keywords" | "health_check";
+  count?: number;
+}
+
+export interface KeywordEngineResponse {
+  keywords: string[];
+  stats?: {
+    totalSearches: number;
+    keywordYields: Record<string, number>;
   };
+}
 
-  console.log("Secrets status:", JSON.stringify(secretsStatus));
+export const handler: Handler<KeywordEngineEvent, KeywordEngineResponse> = async (event) => {
+  const action = event?.action ?? "get_keywords";
+  const count = event?.count ?? 5;
 
-  // Test DB connection
+  console.log(`[keyword-engine] Action: ${action}, Count: ${count}`);
+
+  if (action === "health_check") {
+    return {
+      keywords: [],
+      stats: { totalSearches: 0, keywordYields: {} },
+    };
+  }
+
   try {
     const db = getDb();
-    const result = await db.execute(sql`SELECT NOW() as time`);
-    const profileCount = await db.select({ count: sql<number>`count(*)` }).from(userProfiles);
 
-    console.log("DB connection successful");
+    // Get keyword performance stats from xapi_usage_search
+    const keywordStats = await db
+      .select({
+        keyword: xapiSearchUsage.keyword,
+        totalSearches: sql<number>`count(*)`,
+        totalNewProfiles: sql<number>`sum(${xapiSearchUsage.newProfiles})`,
+      })
+      .from(xapiSearchUsage)
+      .groupBy(xapiSearchUsage.keyword);
+
+    const keywordYields: Record<string, number> = {};
+    for (const stat of keywordStats) {
+      keywordYields[stat.keyword] = Number(stat.totalNewProfiles) || 0;
+    }
+
+    // For now, return seed keywords (future: rank by yield)
+    const keywords = SEED_KEYWORDS.slice(0, count);
+
+    console.log(`[keyword-engine] Returning ${keywords.length} keywords:`, keywords);
 
     return {
-      statusCode: 200,
-      body: JSON.stringify({
-        status: "healthy",
-        secrets: secretsStatus,
-        database: {
-          connected: true,
-          serverTime: result.rows[0]?.time,
-          profileCount: profileCount[0]?.count ?? 0,
-        },
-      }),
+      keywords,
+      stats: {
+        totalSearches: keywordStats.length,
+        keywordYields,
+      },
     };
   } catch (error) {
-    console.error("DB connection failed:", error);
+    console.error("[keyword-engine] Error:", error);
 
+    // Fallback to seed keywords on error
     return {
-      statusCode: 500,
-      body: JSON.stringify({
-        status: "unhealthy",
-        secrets: secretsStatus,
-        database: {
-          connected: false,
-          error: error instanceof Error ? error.message : "Unknown error",
-        },
-      }),
+      keywords: SEED_KEYWORDS.slice(0, count),
     };
   }
 };

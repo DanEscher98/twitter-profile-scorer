@@ -1,70 +1,70 @@
-import { Handler } from "aws-lambda";
-import { sql } from "drizzle-orm";
+import { SQSHandler, SQSBatchResponse, SQSBatchItemFailure } from "aws-lambda";
+import { wrappers } from "@profile-scorer/twitterx-api";
 
-import { getDb, userProfiles } from "@profile-scorer/db";
+// Simple JSON logger for Lambda
+const log = {
+  info: (msg: string, meta?: object) => console.log(JSON.stringify({ level: "info", service: "query-twitter-api", message: msg, timestamp: new Date().toISOString(), ...meta })),
+  warn: (msg: string, meta?: object) => console.warn(JSON.stringify({ level: "warn", service: "query-twitter-api", message: msg, timestamp: new Date().toISOString(), ...meta })),
+  error: (msg: string, meta?: object) => console.error(JSON.stringify({ level: "error", service: "query-twitter-api", message: msg, timestamp: new Date().toISOString(), ...meta })),
+};
 
-export const handler: Handler = async () => {
-  const twitterxApiKey = process.env.TWITTERX_APIKEY;
-  const anthropicApiKey = process.env.ANTHROPIC_APIKEY;
+interface KeywordMessage {
+  keyword: string;
+}
 
-  // Check secrets access
-  const secretsStatus = {
-    twitterx: twitterxApiKey ? "✓ accessible" : "✗ missing",
-    anthropic: anthropicApiKey ? "✓ accessible" : "✗ missing",
-  };
+export const handler: SQSHandler = async (event): Promise<SQSBatchResponse> => {
+  const batchItemFailures: SQSBatchItemFailure[] = [];
 
-  console.log("Secrets status:", JSON.stringify(secretsStatus));
+  log.info("Lambda invoked", { recordCount: event.Records.length });
 
-  // Test external API (httpbin - simple echo service)
-  let externalApiResult: { success: boolean; data?: unknown; error?: string };
-  try {
-    const response = await fetch("https://httpbin.org/get?test=lambda");
-    const data = await response.json();
-    externalApiResult = { success: true, data };
-    console.log("External API call successful");
-  } catch (error) {
-    externalApiResult = {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-    console.error("External API call failed:", error);
+  for (const record of event.Records) {
+    try {
+      const message: KeywordMessage = JSON.parse(record.body);
+      const { keyword } = message;
+
+      if (!keyword) {
+        log.error("Missing keyword in message", { messageId: record.messageId });
+        batchItemFailures.push({ itemIdentifier: record.messageId });
+        continue;
+      }
+
+      log.info("Processing keyword", { keyword, messageId: record.messageId });
+
+      const result = await wrappers.processKeyword(keyword);
+
+      log.info("Keyword processed successfully", {
+        keyword,
+        newProfiles: result.newProfiles,
+        humanProfiles: result.humanProfiles,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      const errorCause = error instanceof Error && 'cause' in error ? (error.cause as Error)?.message : undefined;
+      const errorCode = error instanceof Error && 'code' in error ? (error as any).code : undefined;
+
+      // Check if it's a "fully paginated" error - don't retry these
+      if (errorMessage.includes("fully paginated")) {
+        log.warn("Keyword fully paginated, skipping", { messageId: record.messageId });
+        continue;
+      }
+
+      log.error("Failed to process record", {
+        messageId: record.messageId,
+        error: errorMessage,
+        cause: errorCause,
+        code: errorCode,
+        stack: errorStack
+      });
+
+      batchItemFailures.push({ itemIdentifier: record.messageId });
+    }
   }
 
-  // Test DB connection
-  let dbResult: {
-    connected: boolean;
-    serverTime?: unknown;
-    profileCount?: number;
-    error?: string;
-  };
-  try {
-    const db = getDb();
-    const result = await db.execute(sql`SELECT NOW() as time`);
-    const profileCount = await db.select({ count: sql<number>`count(*)` }).from(userProfiles);
+  log.info("Lambda completed", {
+    processed: event.Records.length,
+    failed: batchItemFailures.length
+  });
 
-    dbResult = {
-      connected: true,
-      serverTime: result.rows[0]?.time,
-      profileCount: profileCount[0]?.count ?? 0,
-    };
-    console.log("DB connection successful");
-  } catch (error) {
-    dbResult = {
-      connected: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-    console.error("DB connection failed:", error);
-  }
-
-  const allHealthy = externalApiResult.success && dbResult.connected;
-
-  return {
-    statusCode: allHealthy ? 200 : 500,
-    body: JSON.stringify({
-      status: allHealthy ? "healthy" : "unhealthy",
-      secrets: secretsStatus,
-      externalApi: externalApiResult,
-      database: dbResult,
-    }),
-  };
+  return { batchItemFailures };
 };

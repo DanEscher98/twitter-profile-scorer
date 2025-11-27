@@ -103,4 +103,5 @@ export interface TwitterXapiMetadata {
   retries: number;
   next_page: string | null;
   page: number;
+  new_profiles?: number;
 }

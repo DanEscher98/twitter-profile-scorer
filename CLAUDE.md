@@ -11,15 +11,18 @@ Profile Scorer is an AWS-based Twitter profile analysis pipeline. It uses Pulumi
 ```
 VPC (10.0.0.0/16)
 ├── Public Subnets → NAT Gateway → Internet
-├── Private Subnets → Lambda: query-twitter-api (internet via NAT)
+├── Private Subnets → Lambda: orchestrator, query-twitter-api, llm-scorer (internet via NAT)
 └── Isolated Subnets → RDS PostgreSQL + Lambda: keyword-engine (DB-only)
 ```
 
 **Key components:**
 
 - `packages/db/` - Shared database layer (Drizzle ORM, TypeScript)
-- `lambdas/keyword-engine/` - DB operations lambda (isolated subnet)
-- `lambdas/query-twitter-api/` - External API lambda (private subnet with NAT)
+- `packages/twitterx-api/` - Twitter API wrapper with HAS scoring (RapidAPI client, Winston logging)
+- `lambdas/orchestrator/` - Pipeline coordinator (EventBridge triggered every 15 min)
+- `lambdas/keyword-engine/` - Keyword selection lambda (isolated subnet)
+- `lambdas/query-twitter-api/` - Profile fetching lambda (private subnet with NAT)
+- `lambdas/llm-scorer/` - LLM scoring lambda (private subnet with NAT)
 - `infra/` - Pulumi infrastructure (Python, uv package manager)
 
 ## Build Commands
@@ -77,8 +80,37 @@ Tables defined in `packages/db/src/schema.ts`:
 ## Deployment Workflow
 
 ```bash
-yarn build                                          # 1. Build packages
+yarn build                                          # 1. Build packages (includes RDS CA cert copy)
 export DATABASE_URL=$(cd infra && uv run pulumi stack output db_connection_string --show-secrets)
 yarn push                                           # 2. Push schema
 cd infra && uv run pulumi up --yes                 # 3. Deploy infra
+```
+
+Or use the Justfile:
+
+```bash
+just deploy                                         # Build + Pulumi up
+just db-push                                        # Push schema with SSL cert
+```
+
+## SSL/TLS Configuration
+
+AWS RDS requires SSL for connections. The `packages/db/` client automatically loads the RDS CA certificate bundle:
+
+- Certificate location: `certs/aws-rds-global-bundle.pem`
+- Each Lambda bundles this cert in its dist folder (via esbuild config)
+- The client searches `/var/task/` at runtime (Lambda extraction path)
+
+## Pipeline Flow
+
+```
+EventBridge (15 min) → orchestrator → keyword-engine → SQS:keywords-queue
+                                                              ↓
+                                                      query-twitter-api (×3 concurrent)
+                                                              ↓
+                                                      DB: user_profiles, user_stats, user_keywords
+                                                              ↓
+                                                      profiles_to_score (HAS > 0.65)
+                                                              ↓
+                                                      SQS:scoring-queue → llm-scorer
 ```

@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "build": "yarn workspaces foreach -A --topological run build",
-    "build:lambdas": "yarn workspaces foreach -A --include '@profile-scorer/keyword-engine' --include '@profile-scorer/query-twitter-api' run build",
+    "build:lambdas": "yarn workspaces foreach -A --include '@profile-scorer/keyword-engine' --include '@profile-scorer/query-twitter-api' --include '@profile-scorer/orchestrator' --include '@profile-scorer/llm-scorer' run build",
     "generate": "yarn workspace @profile-scorer/db run generate",
     "push": "yarn workspace @profile-scorer/db run push",
     "deploy": "cd infra && uv run pulumi up --yes",
