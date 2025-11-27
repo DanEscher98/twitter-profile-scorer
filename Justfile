@@ -23,9 +23,13 @@ db-push:
 db-generate:
     cd packages/db && NODE_EXTRA_CA_CERTS=../../certs/aws-rds-global-bundle.pem yarn generate
 
-# Launch Drizzle Studio (database GUI)
+# Launch Drizzle Studio (database GUI) - kills previous instance if running
 db-studio:
-    cd packages/db && NODE_EXTRA_CA_CERTS=../../certs/aws-rds-global-bundle.pem npx drizzle-kit studio
+    #!/usr/bin/env bash
+    # Kill any existing drizzle-kit studio process on port 4983
+    lsof -ti:4983 | xargs -r kill -9 2>/dev/null || true
+    cd packages/db && NODE_EXTRA_CA_CERTS=../../certs/aws-rds-global-bundle.pem npx drizzle-kit studio &
+    echo "Drizzle Studio starting at https://local.drizzle.studio"
 
 # Build all packages
 build:
@@ -59,6 +63,12 @@ install:
     yarn install
     cd infra && uv sync
 
-# Full setup: install, build, and push schema
-setup: install build
+# Download AWS RDS CA certificate bundle
+download-rds-cert:
+    mkdir -p certs
+    curl -o certs/aws-rds-global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+    @echo "Downloaded AWS RDS CA certificate to certs/aws-rds-global-bundle.pem"
+
+# Full setup: install, build, download cert, and push schema
+setup: install download-rds-cert build
     @echo "Setup complete! Run 'just db-push' after deploying infrastructure."
