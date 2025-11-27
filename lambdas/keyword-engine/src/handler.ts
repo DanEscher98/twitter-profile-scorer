@@ -3,8 +3,85 @@ import { sql } from "drizzle-orm";
 
 import { getDb, xapiSearchUsage } from "@profile-scorer/db";
 
-// Seed keywords for qualitative researchers
-const SEED_KEYWORDS = ["researcher", "phd", "psychiatry", "neuroscience", "pharma"];
+/**
+ * Seed keywords for finding qualitative researchers in academia.
+ *
+ * Categories:
+ * - Academic titles and roles
+ * - Research methodology terms
+ * - Academic disciplines (social sciences, humanities, health)
+ * - Institutional affiliations
+ * - Research output indicators
+ */
+const SEED_KEYWORDS = [
+  // Academic titles and credentials
+  "professor",
+  "phd",
+  "postdoc",
+  "lecturer",
+  "academic",
+  "faculty",
+  "tenure",
+  "emeritus",
+
+  // Research roles
+  "researcher",
+  "scientist",
+  "scholar",
+  "principal investigator",
+  "research fellow",
+  "doctoral candidate",
+  "research associate",
+
+  // Social sciences
+  "sociologist",
+  "anthropologist",
+  "psychologist",
+  "political scientist",
+  "economist",
+  "geographer",
+  "demographer",
+
+  // Health and medical research
+  "epidemiologist",
+  "public health researcher",
+  "health services research",
+  "clinical researcher",
+  "bioethicist",
+  "medical anthropology",
+  "health policy",
+  "psychiatry",
+  "neuroscience",
+  "immunologist",
+  "oncologist",
+
+  // Industry/applied research
+  "pharma",
+  "biotech researcher",
+  "UX researcher",
+  "market researcher",
+  "policy analyst",
+
+  // Research indicators
+  "peer reviewed",
+  "published author",
+  "grant funded",
+  "NIH funded",
+  "NSF funded",
+  "h-index",
+];
+
+/**
+ * Fisher-Yates shuffle algorithm for randomizing array.
+ */
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 export interface KeywordEngineEvent {
   action?: "get_keywords" | "health_check";
@@ -50,10 +127,11 @@ export const handler: Handler<KeywordEngineEvent, KeywordEngineResponse> = async
       keywordYields[stat.keyword] = Number(stat.totalNewProfiles) || 0;
     }
 
-    // For now, return seed keywords (future: rank by yield)
-    const keywords = SEED_KEYWORDS.slice(0, count);
+    // Shuffle and sample keywords (future: rank by yield and prioritize high-performing)
+    const shuffled = shuffleArray(SEED_KEYWORDS);
+    const keywords = shuffled.slice(0, count);
 
-    console.log(`[keyword-engine] Returning ${keywords.length} keywords:`, keywords);
+    console.log(`[keyword-engine] Returning ${keywords.length} randomized keywords from pool of ${SEED_KEYWORDS.length}:`, keywords);
 
     return {
       keywords,
@@ -65,9 +143,10 @@ export const handler: Handler<KeywordEngineEvent, KeywordEngineResponse> = async
   } catch (error) {
     console.error("[keyword-engine] Error:", error);
 
-    // Fallback to seed keywords on error
+    // Fallback to randomized seed keywords on error
+    const shuffled = shuffleArray(SEED_KEYWORDS);
     return {
-      keywords: SEED_KEYWORDS.slice(0, count),
+      keywords: shuffled.slice(0, count),
     };
   }
 };
