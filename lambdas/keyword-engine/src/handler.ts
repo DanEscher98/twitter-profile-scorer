@@ -1,6 +1,7 @@
 import { Handler } from "aws-lambda";
-import { getDb, userProfiles } from "@profile-scorer/db";
 import { sql } from "drizzle-orm";
+
+import { getDb, userProfiles } from "@profile-scorer/db";
 
 export const handler: Handler = async () => {
   const twitterxApiKey = process.env.TWITTERX_APIKEY;
@@ -18,9 +19,7 @@ export const handler: Handler = async () => {
   try {
     const db = getDb();
     const result = await db.execute(sql`SELECT NOW() as time`);
-    const profileCount = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(userProfiles);
+    const profileCount = await db.select({ count: sql<number>`count(*)` }).from(userProfiles);
 
     console.log("DB connection successful");
 

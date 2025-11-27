@@ -1,5 +1,6 @@
 {
   "name": "profile-scorer",
+  "type": "module",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -10,7 +11,20 @@
     "build:lambdas": "yarn workspaces foreach -A --include '@profile-scorer/keyword-engine' --include '@profile-scorer/query-twitter-api' run build",
     "generate": "yarn workspace @profile-scorer/db run generate",
     "push": "yarn workspace @profile-scorer/db run push",
-    "deploy": "cd infra && uv run pulumi up --yes"
+    "deploy": "cd infra && uv run pulumi up --yes",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
-  "packageManager": "yarn@4.12.0"
+  "packageManager": "yarn@4.12.0",
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.0",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.5.0",
+    "prettier": "^3.6.2",
+    "typescript-eslint": "^8.48.0"
+  }
 }

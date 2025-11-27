@@ -41,14 +41,14 @@ export interface TwitterXapiUser {
     withheld_in_countries: string[];
   };
   professional: {
-    rest_id: string,
-    professional_type: string,
+    rest_id: string;
+    professional_type: string;
     category: {
-      id: number,
-      name: string,
-      icon_name: string
-    }[]
-  } | null,
+      id: number;
+      name: string;
+      icon_name: string;
+    }[];
+  } | null;
   parody_commentary_fan_label: string;
   profile_image_shape: string;
   tipjar_settings: object;
@@ -81,7 +81,7 @@ export enum TwitterUserType {
   Creator = "Creator",
   Entity = "Entity",
   Other = "Other",
-  Bot = "Bot"
+  Bot = "Bot",
 }
 
 export interface ScoredUser {

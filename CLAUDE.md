@@ -16,6 +16,7 @@ VPC (10.0.0.0/16)
 ```
 
 **Key components:**
+
 - `packages/db/` - Shared database layer (Drizzle ORM, TypeScript)
 - `lambdas/keyword-engine/` - DB operations lambda (isolated subnet)
 - `lambdas/query-twitter-api/` - External API lambda (private subnet with NAT)
@@ -44,11 +45,13 @@ cd infra && uv run pulumi up   # Interactive deploy
 ## Environment Variables
 
 Required for database operations:
+
 ```bash
 export DATABASE_URL=$(cd infra && uv run pulumi stack output db_connection_string --show-secrets)
 ```
 
 Pulumi secrets (set via `pulumi config set --secret`):
+
 - `db_password`
 - `twitterx_apikey`
 - `anthropic_apikey`
@@ -63,6 +66,7 @@ Pulumi secrets (set via `pulumi config set --secret`):
 ## Database Schema
 
 Tables defined in `packages/db/src/schema.ts`:
+
 - `user_profiles` - Core Twitter user data
 - `profile_scores` - Scoring records
 - `user_stats` - Aggregated statistics

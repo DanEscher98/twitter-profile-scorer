@@ -1,3 +1,3 @@
 export { getDb, type Database } from "./client";
 export * from "./schema";
-export * from "./models"
+export * from "./models";

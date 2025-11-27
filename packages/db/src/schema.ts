@@ -1,21 +1,21 @@
 import {
-  pgTable,
-  uuid,
-  varchar,
-  text,
-  numeric,
-  timestamp,
-  uniqueIndex,
+  boolean,
   index,
   integer,
+  numeric,
   pgEnum,
-  boolean,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
 
 import { TwitterUserType } from "./models";
 
 export const twitterUserType = pgEnum(
-  'twitter_user_type',
+  "twitter_user_type",
   Object.values(TwitterUserType) as [string, ...string[]]
 );
 
@@ -36,9 +36,7 @@ export const userProfiles = pgTable(
     humanScore: numeric("human_score"),
     likelyIs: twitterUserType("likely_is"),
   },
-  (table) => [
-    uniqueIndex("uq_username").on(table.username),
-  ]
+  (table) => [uniqueIndex("uq_username").on(table.username)]
 );
 
 export const profileScores = pgTable(
@@ -83,9 +81,7 @@ export const xapiSearchUsage = pgTable(
       mode: "string",
     }).defaultNow(),
   },
-  (table) => [
-    uniqueIndex("uq_xapi_usage_search").on(table.keyword, table.items, table.nextPage),
-  ]
+  (table) => [uniqueIndex("uq_xapi_usage_search").on(table.keyword, table.items, table.nextPage)]
 );
 
 export const profilesToScore = pgTable(
@@ -99,13 +95,9 @@ export const profilesToScore = pgTable(
         onUpdate: "cascade",
       }),
     username: varchar("username", { length: 255 }).notNull(),
-    addedAt: timestamp("added_at", { withTimezone: false, mode: "string" })
-      .defaultNow()
-      .notNull(),
+    addedAt: timestamp("added_at", { withTimezone: false, mode: "string" }).defaultNow().notNull(),
   },
-  (table) => [
-    index("idx_added_at").on(table.addedAt),
-  ]
+  (table) => [index("idx_added_at").on(table.addedAt)]
 );
 
 export const userKeywords = pgTable(
@@ -123,9 +115,7 @@ export const userKeywords = pgTable(
       onDelete: "set null",
       onUpdate: "cascade",
     }),
-    addedAt: timestamp("added_at", { withTimezone: false, mode: "string" })
-      .defaultNow()
-      .notNull(),
+    addedAt: timestamp("added_at", { withTimezone: false, mode: "string" }).defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("uq_user_keyword").on(table.twitterId, table.keyword),
@@ -134,32 +124,29 @@ export const userKeywords = pgTable(
   ]
 );
 
-export const userStats = pgTable(
-  "user_stats",
-  {
-    twitterId: varchar("twitter_id", { length: 25 })
-      .primaryKey()
-      .references(() => userProfiles.twitterId, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      }),
-    // Counts
-    followers: integer("followers"),
-    following: integer("following"),
-    statuses: integer("statuses"),
-    favorites: integer("favorites"),
-    listed: integer("listed"),
-    media: integer("media"),
-    // Booleans
-    verified: boolean("verified"),
-    blueVerified: boolean("blue_verified"),
-    defaultProfile: boolean("default_profile"),
-    defaultImage: boolean("default_image"),
-    sensitive: boolean("sensitive"),
-    canDm: boolean("can_dm"),
-    // Metadata
-    updatedAt: timestamp("updated_at", { withTimezone: false, mode: "string" })
-      .defaultNow()
-      .notNull(),
-  }
-);
+export const userStats = pgTable("user_stats", {
+  twitterId: varchar("twitter_id", { length: 25 })
+    .primaryKey()
+    .references(() => userProfiles.twitterId, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+  // Counts
+  followers: integer("followers"),
+  following: integer("following"),
+  statuses: integer("statuses"),
+  favorites: integer("favorites"),
+  listed: integer("listed"),
+  media: integer("media"),
+  // Booleans
+  verified: boolean("verified"),
+  blueVerified: boolean("blue_verified"),
+  defaultProfile: boolean("default_profile"),
+  defaultImage: boolean("default_image"),
+  sensitive: boolean("sensitive"),
+  canDm: boolean("can_dm"),
+  // Metadata
+  updatedAt: timestamp("updated_at", { withTimezone: false, mode: "string" })
+    .defaultNow()
+    .notNull(),
+});

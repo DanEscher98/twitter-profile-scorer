@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+out/
+
+# Package manager
+.yarn/
+yarn.lock
+pnpm-lock.yaml
+package-lock.json
+
+# Infrastructure
+infra/.venv/
+infra/__pycache__/
+infra/uv.lock
+
+# Generated
+*.min.js
+*.min.css
+
+# Certs
+certs/
