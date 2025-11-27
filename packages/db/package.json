@@ -1,0 +1,26 @@
+{
+  "name": "@profile-scorer/db",
+  "packageManager": "yarn@4.12.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "generate": "drizzle-kit generate",
+    "push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "drizzle-kit": "^0.31.7",
+    "drizzle-orm": "^0.44.7",
+    "pg": "^8.16.3",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/pg": "^8.15.6",
+    "dotenv": "^17.2.3",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

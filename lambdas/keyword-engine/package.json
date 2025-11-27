@@ -1,0 +1,19 @@
+{
+  "name": "@profile-scorer/keyword-engine",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/handler.js",
+  "scripts": {
+    "build": "node esbuild.config.mjs"
+  },
+  "dependencies": {
+    "@profile-scorer/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  },
+  "packageManager": "yarn@4.12.0"
+}

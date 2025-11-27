@@ -1,4 +1,16 @@
 {
   "name": "profile-scorer",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "lambdas/*"
+  ],
+  "scripts": {
+    "build": "yarn workspaces foreach -A --topological run build",
+    "build:lambdas": "yarn workspaces foreach -A --include '@profile-scorer/keyword-engine' --include '@profile-scorer/query-twitter-api' run build",
+    "generate": "yarn workspace @profile-scorer/db run generate",
+    "push": "yarn workspace @profile-scorer/db run push",
+    "deploy": "cd infra && uv run pulumi up --yes"
+  },
   "packageManager": "yarn@4.12.0"
 }
