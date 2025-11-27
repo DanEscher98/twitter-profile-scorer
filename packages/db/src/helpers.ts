@@ -1,7 +1,7 @@
 import { getDb } from "./client";
-import { userProfiles, userKeywords, userStats, profilesToScore, xapiSearchUsage } from "./schema";
+import { userProfiles, userKeywords, userStats, profilesToScore, profileScores, xapiSearchUsage } from "./schema";
 import { TwitterProfile, TwitterXapiUser, TwitterXapiMetadata } from "./models"
-import { sql, eq, desc } from "drizzle-orm";
+import { sql, eq, desc, and, isNull, gt } from "drizzle-orm";
 
 const db = getDb()
 
@@ -175,4 +175,93 @@ export async function insertMetadata(metadata: TwitterXapiMetadata) {
       newProfiles: metadata.new_profiles!,
     });
   log.debug("Inserted search metadata", { id: metadata.id, keyword: metadata.keyword, page: metadata.page, newProfiles: metadata.new_profiles });
+}
+
+/**
+ * Profile data returned by getProfilesToScore
+ */
+export interface ProfileToScore {
+  twitterId: string;
+  username: string;
+  displayName: string;
+  bio: string;
+  likelyIs: string;
+  category: string;
+}
+
+/**
+ * Retrieves profiles that haven't been scored by the specified model.
+ * Uses LEFT JOIN to filter out already-scored profiles.
+ *
+ * Note: This doesn't use FOR UPDATE SKIP LOCKED because Drizzle doesn't support it natively.
+ * For atomic claiming, use claimProfilesToScore() instead.
+ *
+ * @param model - The LLM model name to check against `profile_scores.scored_by`
+ * @param limit - Maximum number of profiles to return (default 25)
+ * @param threshold - Minimum human_score to consider (default 0.6)
+ * @returns Array of profiles ready for scoring
+ */
+export async function getProfilesToScore(
+  model: string,
+  limit: number = 25,
+  threshold: number = 0.6
+): Promise<ProfileToScore[]> {
+  const rows = await db
+    .select({
+      twitterId: userProfiles.twitterId,
+      username: userProfiles.username,
+      displayName: userProfiles.displayName,
+      bio: userProfiles.bio,
+      likelyIs: userProfiles.likelyIs,
+      category: userProfiles.category,
+    })
+    .from(userProfiles)
+    .innerJoin(profilesToScore, eq(profilesToScore.twitterId, userProfiles.twitterId))
+    .leftJoin(
+      profileScores,
+      and(
+        eq(profileScores.twitterId, userProfiles.twitterId),
+        eq(profileScores.scoredBy, model)
+      )
+    )
+    .where(
+      and(
+        isNull(profileScores.id),
+        gt(userProfiles.humanScore, threshold.toString())
+      )
+    )
+    .orderBy(profilesToScore.addedAt)
+    .limit(limit);
+
+  return rows.map((row) => ({
+    twitterId: row.twitterId,
+    username: row.username,
+    displayName: row.displayName ?? "",
+    bio: row.bio ?? "",
+    likelyIs: row.likelyIs ?? "",
+    category: row.category ?? "",
+  }));
+}
+
+/**
+ * Inserts a score for a profile.
+ *
+ * @param twitterId - Twitter ID of the profile
+ * @param score - Score between 0 and 1
+ * @param reason - Explanation for the score
+ * @param scoredBy - Model name that generated the score
+ */
+export async function insertProfileScore(
+  twitterId: string,
+  score: number,
+  reason: string,
+  scoredBy: string
+): Promise<void> {
+  await db.insert(profileScores).values({
+    twitterId,
+    score: score.toFixed(2),
+    reason,
+    scoredBy,
+  });
+  log.debug("Inserted profile score", { twitterId, score: score.toFixed(2), scoredBy });
 }

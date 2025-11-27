@@ -20,9 +20,9 @@ VPC (10.0.0.0/16)
 - `packages/db/` - Shared database layer (Drizzle ORM, TypeScript)
 - `packages/twitterx-api/` - Twitter API wrapper with HAS scoring (RapidAPI client, Winston logging)
 - `lambdas/orchestrator/` - Pipeline coordinator (EventBridge triggered every 15 min)
-- `lambdas/keyword-engine/` - Keyword selection lambda (isolated subnet)
+- `lambdas/keyword-engine/` - Keyword selection lambda (isolated subnet, ~80 academic research keywords)
 - `lambdas/query-twitter-api/` - Profile fetching lambda (private subnet with NAT)
-- `lambdas/llm-scorer/` - LLM scoring lambda (private subnet with NAT)
+- `lambdas/llm-scorer/` - Multi-model LLM scoring lambda (private subnet with NAT)
 - `infra/` - Pulumi infrastructure (Python, uv package manager)
 
 ## Build Commands
@@ -43,6 +43,10 @@ yarn push                       # Apply schema to RDS (requires DATABASE_URL)
 # Infrastructure
 yarn deploy                     # Deploy with pulumi up --yes
 cd infra && uv run pulumi up   # Interactive deploy
+
+# Testing
+just test                       # Run E2E tests
+just test-debug                 # Run E2E tests with DEBUG logging
 ```
 
 ## Environment Variables
@@ -55,9 +59,10 @@ export DATABASE_URL=$(cd infra && uv run pulumi stack output db_connection_strin
 
 Pulumi secrets (set via `pulumi config set --secret`):
 
-- `db_password`
-- `twitterx_apikey`
-- `anthropic_apikey`
+- `db_password` - PostgreSQL password
+- `twitterx_apikey` - RapidAPI key for TwitterX
+- `anthropic_apikey` - Claude API key for LLM scoring
+- `gemini_apikey` - Google AI API key for Gemini scoring
 
 ## Tech Stack
 
@@ -65,17 +70,46 @@ Pulumi secrets (set via `pulumi config set --secret`):
 - **Python**: uv package manager, Pulumi 3.x/4.x
 - **Database**: PostgreSQL 16.3, Drizzle ORM
 - **Lambda Runtime**: Node.js 20.x, 256MB memory, 30s timeout
+- **LLM SDKs**: @anthropic-ai/sdk, @google/generative-ai
+- **Validation**: Zod for LLM response validation
+- **Serialization**: TOON format for LLM input
 
 ## Database Schema
 
 Tables defined in `packages/db/src/schema.ts`:
 
-- `user_profiles` - Core Twitter user data
-- `profile_scores` - Scoring records
-- `user_stats` - Aggregated statistics
-- `xapi_search_usage` - API call tracking
-- `profiles_to_score` - Processing queue
-- `user_keywords` - Keywords for profiles
+- `user_profiles` - Core Twitter user data with HAS (Human Authenticity Score)
+- `profile_scores` - LLM scoring records (unique per twitter_id + scored_by model)
+- `user_stats` - Raw numeric fields for ML training
+- `xapi_search_usage` - API call tracking and pagination state
+- `profiles_to_score` - Queue of profiles pending LLM evaluation (HAS > 0.65)
+- `user_keywords` - Many-to-many linking profiles to search keywords
+
+## LLM Scoring System
+
+The `llm-scorer` lambda supports multiple models with probability-based invocation:
+
+| Model | Probability | Batch Size | Notes |
+|-------|-------------|------------|-------|
+| claude-3-haiku-20240307 | 1.0 (100%) | 25 | Primary scorer, cost-effective |
+| claude-sonnet-4-20250514 | 0.5 (50%) | 10 | Premium quality, higher cost |
+| gemini-2.0-flash | 0.2 (20%) | 15 | Free tier, contrast data |
+
+**Architecture:**
+- Orchestrator invokes llm-scorer directly (no SQS queue)
+- DB-as-queue pattern: `profiles_to_score` + LEFT JOIN filters already-scored
+- Unique constraint on `(twitter_id, scored_by)` prevents duplicate scoring
+- Each model scores independently - profiles accumulate scores from multiple models
+
+**Input/Output:**
+- Input: Profiles serialized in TOON format
+- Output: JSON array validated with Zod schema `{ username, score, reason }[]`
+- Handles `\`\`\`json` blocks (common with Haiku)
+
+**Error Handling:**
+- Quota/rate limit errors logged with `action: "PURCHASE_TOKENS_OR_WAIT"`
+- Returns empty array on error (allows other models to continue)
+- Invalid model names rejected at handler level with available models list
 
 ## Deployment Workflow
 
@@ -104,13 +138,37 @@ AWS RDS requires SSL for connections. The `packages/db/` client automatically lo
 ## Pipeline Flow
 
 ```
-EventBridge (15 min) → orchestrator → keyword-engine → SQS:keywords-queue
-                                                              ↓
-                                                      query-twitter-api (×3 concurrent)
-                                                              ↓
-                                                      DB: user_profiles, user_stats, user_keywords
-                                                              ↓
-                                                      profiles_to_score (HAS > 0.65)
-                                                              ↓
-                                                      SQS:scoring-queue → llm-scorer
+EventBridge (15 min) → orchestrator
+                           │
+                           ├─→ keyword-engine (get randomized keywords)
+                           │         │
+                           │         ↓
+                           │   SQS:keywords-queue → query-twitter-api
+                           │                              │
+                           │                              ↓
+                           │                    DB: user_profiles, user_stats, user_keywords
+                           │                              │
+                           │                              ↓
+                           │                    profiles_to_score (HAS > 0.65)
+                           │
+                           └─→ llm-scorer (per model, probability-based)
+                                     │
+                                     ↓
+                               DB: profile_scores
 ```
+
+## Testing
+
+E2E tests located in `infra/tests/e2e/`:
+
+```bash
+just test                    # Run all tests
+just test-debug              # Run with DEBUG logging
+```
+
+Test coverage:
+- `test_keyword_engine.py` - Keyword retrieval and randomization
+- `test_query_twitter_api.py` - Profile fetching and HAS scoring
+- `test_orchestrator.py` - Pipeline coordination
+- `test_llm_scorer.py` - LLM scoring with multiple models
+- `test_database.py` - Data integrity and FK constraints

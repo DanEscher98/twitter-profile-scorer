@@ -5,6 +5,15 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
+"@anthropic-ai/sdk@npm:^0.52.0":
+  version: 0.52.0
+  resolution: "@anthropic-ai/sdk@npm:0.52.0"
+  bin:
+    anthropic-ai-sdk: bin/cli
+  checksum: 10c0/4cf4512ab0a4302b97b91860686ff988f5fcef7bceac4cacb9477f56942cc0c1fb1e48969deefa81d896d2ff659f478892bc66057dc088e0cd4e3f15e7ae93d2
+  languageName: node
+  linkType: hard
+
 "@aws-crypto/crc32@npm:5.2.0":
   version: 5.2.0
   resolution: "@aws-crypto/crc32@npm:5.2.0"
@@ -1328,6 +1337,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@google/generative-ai@npm:^0.21.0":
+  version: 0.21.0
+  resolution: "@google/generative-ai@npm:0.21.0"
+  checksum: 10c0/cff5946c5964f2380e5097d82bd563d79be27a1a5ac604aaaad3f9ba3382992e4f0a371bd255baabfba4e5bdf296d8ce1410cbd65424afa98e64b2590fe49f3b
+  languageName: node
+  linkType: hard
+
 "@humanfs/core@npm:^0.19.1":
   version: 0.19.1
   resolution: "@humanfs/core@npm:0.19.1"
@@ -1483,11 +1499,15 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@profile-scorer/llm-scorer@workspace:lambdas/llm-scorer"
   dependencies:
+    "@anthropic-ai/sdk": "npm:^0.52.0"
+    "@google/generative-ai": "npm:^0.21.0"
     "@profile-scorer/db": "workspace:*"
+    "@toon-format/toon": "npm:^2.0.1"
     "@types/aws-lambda": "npm:^8.10.145"
     "@types/node": "npm:^22.0.0"
     esbuild: "npm:^0.24.0"
     typescript: "npm:^5.6.0"
+    zod: "npm:^3.24.0"
   languageName: unknown
   linkType: soft
 
@@ -1515,6 +1535,19 @@ __metadata:
     "@types/node": "npm:^22.0.0"
     esbuild: "npm:^0.24.0"
     typescript: "npm:^5.6.0"
+  languageName: unknown
+  linkType: soft
+
+"@profile-scorer/scripts@workspace:scripts":
+  version: 0.0.0-use.local
+  resolution: "@profile-scorer/scripts@workspace:scripts"
+  dependencies:
+    "@profile-scorer/db": "workspace:*"
+    "@profile-scorer/twitterx-api": "workspace:*"
+    "@types/node": "npm:^24.10.1"
+    ts-node: "npm:^10.9.2"
+    tsx: "npm:^4.20.6"
+    typescript: "npm:^5.9.3"
   languageName: unknown
   linkType: soft
 
@@ -2103,6 +2136,13 @@ __metadata:
     color: "npm:^5.0.2"
     text-hex: "npm:1.0.x"
   checksum: 10c0/f3ad26afefbb8d6101ea7c385cd5f402d4291c2ffc9cabe37030d5fdb8bda980ee534a0d7c250f8233fc3a59b99272410177cd98b219f6b3770f91a0fdb6eb3e
+  languageName: node
+  linkType: hard
+
+"@toon-format/toon@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "@toon-format/toon@npm:2.0.1"
+  checksum: 10c0/fc413f03309677745d4e0e73772bdd9df4b573609b1bd075c8f5e0e697848fe741aacc1974b513538ee917575be2c99a843372ad3d64ef87988840b62a2361ed
   languageName: node
   linkType: hard
 
@@ -4562,5 +4602,12 @@ __metadata:
   version: 0.1.0
   resolution: "yocto-queue@npm:0.1.0"
   checksum: 10c0/dceb44c28578b31641e13695d200d34ec4ab3966a5729814d5445b194933c096b7ced71494ce53a0e8820685d1d010df8b2422e5bf2cdea7e469d97ffbea306f
+  languageName: node
+  linkType: hard
+
+"zod@npm:^3.24.0":
+  version: 3.25.76
+  resolution: "zod@npm:3.25.76"
+  checksum: 10c0/5718ec35e3c40b600316c5b4c5e4976f7fee68151bc8f8d90ec18a469be9571f072e1bbaace10f1e85cf8892ea12d90821b200e980ab46916a6166a4260a983c
   languageName: node
   linkType: hard

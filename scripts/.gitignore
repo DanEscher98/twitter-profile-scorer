@@ -1,0 +1,10 @@
+# Build output
+dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Generated plots/data
+output/

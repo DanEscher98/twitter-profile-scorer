@@ -1,121 +1,151 @@
-import { SQSHandler } from "aws-lambda";
-import { and, eq, notExists, sql } from "drizzle-orm";
+import { Handler } from "aws-lambda";
 
-import { getDb, profileScores, profilesToScore, userProfiles } from "@profile-scorer/db";
+import {
+  getDb,
+  getProfilesToScore,
+  insertProfileScore,
+  ProfileToScore,
+} from "@profile-scorer/db";
 
-interface ScoringMessage {
+// Import model wrappers
+import { scoreWithAnthropic } from "./wrappers/anthropic";
+import { scoreWithGemini } from "./wrappers/gemini";
+
+/**
+ * Event payload for llm-scorer Lambda.
+ * Invoked directly by orchestrator (no SQS).
+ */
+export interface LlmScorerEvent {
   model: string;
-  batchSize: number;
+  batchSize?: number;
 }
 
-interface ProfileToScore {
+/**
+ * Response from llm-scorer Lambda.
+ */
+export interface LlmScorerResponse {
+  model: string;
+  scored: number;
+  errors: number;
+  profiles: string[];
+}
+
+/**
+ * Score result from LLM wrapper.
+ */
+export interface ScoreResult {
   twitterId: string;
-  username: string;
-  displayName: string | null;
-  bio: string | null;
-  likelyIs: string | null;
-  category: string | null;
+  score: number;
+  reason: string;
 }
 
-export const handler: SQSHandler = async (event) => {
-  console.log(`[llm-scorer] Processing ${event.Records.length} messages`);
+/**
+ * LLM wrapper function signature.
+ * @param profiles - Profiles to score
+ * @param model - Model identifier to use for the API call
+ */
+export type LlmWrapper = (profiles: ProfileToScore[], model: string) => Promise<ScoreResult[]>;
 
-  for (const record of event.Records) {
-    const message: ScoringMessage = JSON.parse(record.body);
-    const { model, batchSize } = message;
-
-    console.log(`[llm-scorer] Scoring batch for model: ${model}, batchSize: ${batchSize}`);
-
-    try {
-      const db = getDb();
-
-      // Fetch profiles not yet scored by this model
-      const profiles = await db
-        .select({
-          twitterId: userProfiles.twitterId,
-          username: userProfiles.username,
-          displayName: userProfiles.displayName,
-          bio: userProfiles.bio,
-          likelyIs: userProfiles.likelyIs,
-          category: userProfiles.category,
-        })
-        .from(profilesToScore)
-        .innerJoin(userProfiles, eq(profilesToScore.twitterId, userProfiles.twitterId))
-        .where(
-          notExists(
-            db
-              .select({ one: sql`1` })
-              .from(profileScores)
-              .where(
-                and(
-                  eq(profileScores.twitterId, userProfiles.twitterId),
-                  eq(profileScores.scoredBy, model)
-                )
-              )
-          )
-        )
-        .orderBy(profilesToScore.addedAt)
-        .limit(batchSize);
-
-      console.log(`[llm-scorer] Found ${profiles.length} profiles to score`);
-
-      if (profiles.length === 0) {
-        console.log("[llm-scorer] No profiles to score for this model");
-        continue;
-      }
-
-      // TODO: Implement actual LLM scoring
-      // For now, generate dummy scores for testing
-      const scores = profiles.map((profile) => ({
-        twitterId: profile.twitterId,
-        username: profile.username,
-        score: generateDummyScore(profile),
-        reason: `Dummy score for testing - ${profile.likelyIs ?? "Unknown"} profile`,
-      }));
-
-      console.log(`[llm-scorer] Generated ${scores.length} scores`);
-
-      // Store scores in database
-      for (const scoreData of scores) {
-        await db.insert(profileScores).values({
-          twitterId: scoreData.twitterId,
-          score: scoreData.score.toFixed(2),
-          reason: scoreData.reason,
-          scoredBy: model,
-        });
-
-        console.log(
-          `[llm-scorer] Stored score for @${scoreData.username}: ${scoreData.score.toFixed(2)}`
-        );
-      }
-
-      // Remove scored profiles from queue (only if scored by all models)
-      // For now, we don't remove - let profiles accumulate scores from multiple models
-
-      console.log(`[llm-scorer] Completed batch for model: ${model}`);
-    } catch (error) {
-      console.error(`[llm-scorer] Error processing batch:`, error);
-      throw error; // Re-throw to trigger retry/DLQ
-    }
-  }
+/**
+ * Available LLM models and their wrappers.
+ * The wrapper receives the model name to configure the API call.
+ */
+const MODEL_WRAPPERS: Record<string, LlmWrapper> = {
+  // Anthropic models - wrapper uses model name for API call
+  "claude-sonnet-4-20250514": scoreWithAnthropic,
+  "claude-3-haiku-20240307": scoreWithAnthropic,
+  // Google Gemini models
+  "gemini-2.0-flash": scoreWithGemini,
+  "gemini-1.5-flash": scoreWithGemini,
 };
 
-// Dummy scoring function for testing
-function generateDummyScore(profile: ProfileToScore): number {
-  let score = 0.5;
+/**
+ * LLM Scorer Lambda Handler
+ *
+ * Invoked directly by orchestrator with model and batchSize parameters.
+ * Uses DB-as-queue pattern:
+ * 1. Queries profiles_to_score for profiles not yet scored by this model
+ * 2. Sends profiles to appropriate LLM wrapper
+ * 3. Stores scores in profile_scores table
+ *
+ * Concurrency safety: Each model is scored independently, and the
+ * profile_scores table has a unique constraint on (twitter_id, scored_by).
+ * This prevents duplicate scoring even if multiple Lambdas run simultaneously.
+ */
+export const handler: Handler<LlmScorerEvent, LlmScorerResponse> = async (event) => {
+  const { model, batchSize = 25 } = event;
 
-  // Boost for human classification
-  if (profile.likelyIs === "Human") score += 0.2;
-  if (profile.likelyIs === "Creator") score += 0.15;
+  console.log(`[llm-scorer] Starting scoring for model: ${model}, batchSize: ${batchSize}`);
 
-  // Boost for having a bio
-  if (profile.bio && profile.bio.length > 50) score += 0.1;
+  // Validate model
+  const wrapper = MODEL_WRAPPERS[model];
+  if (!wrapper) {
+    const availableModels = Object.keys(MODEL_WRAPPERS).join(", ");
+    throw new Error(`Unknown model: ${model}. Available models: ${availableModels}`);
+  }
 
-  // Boost for having a category
-  if (profile.category) score += 0.05;
+  // Initialize DB connection
+  getDb();
 
-  // Add some randomness for testing
-  score += (Math.random() - 0.5) * 0.2;
+  // Get profiles to score for this model
+  const profiles = await getProfilesToScore(model, batchSize);
 
-  return Math.max(0, Math.min(1, score));
-}
+  console.log(`[llm-scorer] Found ${profiles.length} profiles to score`);
+
+  if (profiles.length === 0) {
+    return {
+      model,
+      scored: 0,
+      errors: 0,
+      profiles: [],
+    };
+  }
+
+  // Score profiles using the appropriate wrapper
+  let scores: ScoreResult[];
+  try {
+    scores = await wrapper(profiles, model);
+    console.log(`[llm-scorer] Got ${scores.length} scores from ${model}`);
+  } catch (error) {
+    console.error(`[llm-scorer] Error calling ${model}:`, error);
+    throw error;
+  }
+
+  // Store scores in database
+  let scored = 0;
+  let errors = 0;
+  const scoredProfiles: string[] = [];
+
+  for (const score of scores) {
+    try {
+      await insertProfileScore(
+        score.twitterId,
+        score.score,
+        score.reason,
+        model
+      );
+      scored++;
+      scoredProfiles.push(score.twitterId);
+      console.log(
+        `[llm-scorer] Stored score for ${score.twitterId}: ${score.score.toFixed(2)}`
+      );
+    } catch (error: any) {
+      if (error.code === "23505") {
+        // Unique violation - already scored by this model
+        console.log(`[llm-scorer] Profile ${score.twitterId} already scored by ${model}`);
+      } else {
+        console.error(`[llm-scorer] Error storing score for ${score.twitterId}:`, error);
+        errors++;
+      }
+    }
+  }
+
+  console.log(`[llm-scorer] Completed: ${scored} scored, ${errors} errors`);
+
+  return {
+    model,
+    scored,
+    errors,
+    profiles: scoredProfiles,
+  };
+};

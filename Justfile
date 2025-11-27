@@ -128,3 +128,15 @@ test-orchestrator: test-install
 # Run llm-scorer tests
 test-scorer: test-install
     cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/test_llm_scorer.py -v --log-level=INFO
+
+# ============================================================================
+# Scripts
+# ============================================================================
+
+# Run a TypeScript script (e.g., just ts-script js_src/inspect-profiles.ts)
+ts-script path:
+    NODE_EXTRA_CA_CERTS=certs/aws-rds-global-bundle.pem yarn workspace @profile-scorer/scripts run run {{path}}
+
+# Run a Python script (e.g., just py-script py_src/plot_has_distribution.py)
+py-script path:
+    cd scripts && uv run {{path}}

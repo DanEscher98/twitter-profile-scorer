@@ -96,15 +96,11 @@ keywords_queue = SqsQueue(
     max_receive_count=3,              # 3 attempts before DLQ
 )
 
-# Scoring Queue: Orchestrator → llm-scorer
-# - visibility_timeout: 120s (LLM calls can be slow)
-# - max_receive_count: 2 (LLM failures are usually not transient)
-scoring_queue = SqsQueue(
-    "scoring",
-    visibility_timeout_seconds=120,  # LLM calls need more time
-    message_retention_seconds=86400,
-    max_receive_count=2,              # Fewer retries for LLM (expensive)
-)
+# NOTE: Scoring queue removed - llm-scorer now pulls work directly from DB
+# The profiles_to_score table + LEFT JOIN pattern serves as the queue:
+# - Persistence: profiles don't get lost
+# - Idempotency: already-scored profiles filtered via profile_scores table
+# - No duplicate work: atomic claims via FOR UPDATE SKIP LOCKED
 
 # =============================================================================
 # Lambda Functions - Pipeline Stages
@@ -157,12 +153,12 @@ query_twitter_lambda = LambdaFunction(
 
 # Lambda 3: LLM Scorer
 # ---------------------
-# Private subnet: Needs internet via NAT for Claude API calls.
-# Processes batches of 25 profiles:
-# 1. Fetches pending profiles from profiles_to_score
-# 2. Formats as TOON prompt for Claude
-# 3. Parses LLM response and stores in profile_scores
-# 4. Removes scored profiles from queue
+# Private subnet: Needs internet via NAT for LLM API calls.
+# Invoked directly by orchestrator (no SQS queue) with model parameter.
+# Uses DB-as-queue pattern:
+# 1. Claims batch of profiles atomically via FOR UPDATE SKIP LOCKED
+# 2. Sends profiles to appropriate LLM (Claude, Gemini)
+# 3. Stores scores in profile_scores (prevents re-scoring)
 #
 # Memory: 512MB for handling larger batches
 # Timeout: 120s for LLM response latency
@@ -171,12 +167,13 @@ llm_scorer_lambda = LambdaFunction(
     code_path="../lambdas/llm-scorer/dist",
     handler="handler.handler",
     vpc_id=vpc.vpc.id,
-    subnet_ids=vpc.private_subnet_ids,  # Internet via NAT for Claude API
+    subnet_ids=vpc.private_subnet_ids,  # Internet via NAT for LLM APIs
     timeout=120,  # LLM calls can be slow
     memory_size=512,  # More memory for batch processing
     environment={
         "DATABASE_URL": db.connection_string,
-        "ANTHROPIC_APIKEY": anthropic_apikey,
+        "ANTHROPIC_API_KEY": anthropic_apikey,
+        "GEMINI_API_KEY": config.require_secret("gemini_apikey"),
     },
 )
 
@@ -186,8 +183,7 @@ llm_scorer_lambda = LambdaFunction(
 # This is the pipeline heartbeat, triggered every 15 minutes:
 # 1. Invokes keyword-engine to get keyword list
 # 2. Sends keywords to keywords-queue (triggers query-twitter-api)
-# 3. Checks profiles_to_score count
-# 4. Sends scoring jobs to scoring-queue if work exists
+# 3. Invokes llm-scorer directly for each configured model
 #
 # Why NAT instead of VPC endpoints? Cost - NAT is cheaper for low traffic.
 orchestrator_lambda = LambdaFunction(
@@ -200,7 +196,7 @@ orchestrator_lambda = LambdaFunction(
         "DATABASE_URL": db.connection_string,
         "KEYWORD_ENGINE_ARN": keyword_engine_lambda.function.arn,
         "KEYWORDS_QUEUE_URL": keywords_queue.queue.url,
-        "SCORING_QUEUE_URL": scoring_queue.queue.url,
+        "LLM_SCORER_ARN": llm_scorer_lambda.function.arn,
     },
 )
 
@@ -210,18 +206,21 @@ orchestrator_lambda = LambdaFunction(
 # The orchestrator needs explicit permissions to invoke other services.
 # Following least-privilege principle: only the specific actions needed.
 
-# Permission: Orchestrator → invoke keyword-engine Lambda
-# Why: Orchestrator calls keyword-engine synchronously to get keyword list
+# Permission: Orchestrator → invoke keyword-engine and llm-scorer Lambdas
+# Why: Orchestrator calls keyword-engine synchronously and invokes llm-scorer per model
 orchestrator_invoke_policy = aws.iam.Policy(
     "orchestrator-invoke-policy",
-    policy=keyword_engine_lambda.function.arn.apply(
-        lambda arn: f"""{{
+    policy=pulumi.Output.all(
+        keyword_engine_lambda.function.arn,
+        llm_scorer_lambda.function.arn
+    ).apply(
+        lambda arns: f"""{{
             "Version": "2012-10-17",
             "Statement": [
                 {{
                     "Effect": "Allow",
                     "Action": "lambda:InvokeFunction",
-                    "Resource": "{arn}"
+                    "Resource": ["{arns[0]}", "{arns[1]}"]
                 }}
             ]
         }}"""
@@ -234,18 +233,18 @@ aws.iam.RolePolicyAttachment(
     policy_arn=orchestrator_invoke_policy.arn,
 )
 
-# Permission: Orchestrator → send messages to SQS queues
-# Why: Orchestrator enqueues keywords and scoring jobs
+# Permission: Orchestrator → send messages to keywords queue
+# Why: Orchestrator enqueues keywords for query-twitter-api
 orchestrator_sqs_policy = aws.iam.Policy(
     "orchestrator-sqs-policy",
-    policy=pulumi.Output.all(keywords_queue.queue.arn, scoring_queue.queue.arn).apply(
-        lambda arns: f"""{{
+    policy=keywords_queue.queue.arn.apply(
+        lambda arn: f"""{{
             "Version": "2012-10-17",
             "Statement": [
                 {{
                     "Effect": "Allow",
                     "Action": "sqs:SendMessage",
-                    "Resource": ["{arns[0]}", "{arns[1]}"]
+                    "Resource": "{arn}"
                 }}
             ]
         }}"""
@@ -275,14 +274,8 @@ SqsTriggeredLambda(
     batch_size=1,  # One keyword per invocation for isolation
 )
 
-# Scoring queue → llm-scorer
-# Each message triggers a batch scoring job
-SqsTriggeredLambda(
-    "scoring-to-llm",
-    queue=scoring_queue,
-    lambda_function=llm_scorer_lambda,
-    batch_size=1,  # One scoring batch per invocation
-)
+# NOTE: scoring-to-llm SQS trigger removed
+# llm-scorer is now invoked directly by orchestrator with model parameter
 
 # =============================================================================
 # Database Security Group Rules
@@ -394,6 +387,4 @@ pulumi.export("orchestrator_name", orchestrator_lambda.function.name)
 
 # Queue URLs (for sending messages, monitoring)
 pulumi.export("keywords_queue_url", keywords_queue.queue.url)
-pulumi.export("scoring_queue_url", scoring_queue.queue.url)
 pulumi.export("keywords_dlq_url", keywords_queue.dlq.url)
-pulumi.export("scoring_dlq_url", scoring_queue.dlq.url)

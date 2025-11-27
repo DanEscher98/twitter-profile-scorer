@@ -11,7 +11,33 @@ const sqs = new SQSClient({});
 // Environment variables (set by Pulumi)
 const KEYWORD_ENGINE_ARN = process.env.KEYWORD_ENGINE_ARN ?? "";
 const KEYWORDS_QUEUE_URL = process.env.KEYWORDS_QUEUE_URL ?? "";
-const SCORING_QUEUE_URL = process.env.SCORING_QUEUE_URL ?? "";
+const LLM_SCORER_ARN = process.env.LLM_SCORER_ARN ?? "";
+
+/**
+ * Model configuration with priority and probability.
+ *
+ * Priority Strategy:
+ * - Haiku (1.0): Always runs, cost-effective for bulk scoring
+ * - Sonnet (0.5): Higher quality but more expensive, runs ~50% of the time
+ * - Gemini (0.2): Free tier contrast data, runs ~20% of the time
+ *
+ * This balances cost vs quality while ensuring all profiles get scored
+ * by at least one model (Haiku) and building comparison data over time.
+ */
+interface ModelConfig {
+  model: string;
+  probability: number;  // 0.0 to 1.0 - chance of running each orchestrator cycle
+  batchSize: number;    // profiles per invocation
+}
+
+const SCORING_MODELS: ModelConfig[] = [
+  // Primary scorer - always runs, cost-effective
+  { model: "claude-3-haiku-20240307", probability: 1.0, batchSize: 25 },
+  // Premium scorer - runs 50% of cycles for quality comparison
+  { model: "claude-sonnet-4-20250514", probability: 0.5, batchSize: 10 },
+  // Free tier contrast - runs 20% of cycles
+  { model: "gemini-2.0-flash", probability: 0.2, batchSize: 15 },
+];
 
 interface KeywordEngineResponse {
   keywords: string[];
@@ -21,13 +47,20 @@ interface KeywordEngineResponse {
   };
 }
 
+interface LlmScorerResponse {
+  model: string;
+  scored: number;
+  errors: number;
+  profiles: string[];
+}
+
 export const handler: ScheduledHandler = async (event) => {
   console.log("[orchestrator] Starting pipeline orchestration");
   console.log("[orchestrator] Event:", JSON.stringify(event));
 
   const results = {
     keywordsQueued: 0,
-    scoringJobsQueued: 0,
+    scoringResults: [] as { model: string; scored: number; errors: number; skipped?: boolean }[],
     errors: [] as string[],
   };
 
@@ -84,25 +117,76 @@ export const handler: ScheduledHandler = async (event) => {
     console.log(`[orchestrator] Profiles pending scoring: ${count}`);
 
     if (count > 0) {
-      // Queue scoring jobs for each model
-      const models = ["claude-haiku-20240307", "gemini-2.0-flash"];
+      // Step 4: Invoke llm-scorer for each model based on probability
+      // Each invocation is independent - models don't interfere with each other
+      // because profile_scores tracks (twitter_id, scored_by) uniquely
+      for (const config of SCORING_MODELS) {
+        const roll = Math.random();
+        const shouldRun = roll < config.probability;
 
-      for (const model of models) {
+        console.log(
+          `[orchestrator] Model ${config.model}: probability=${config.probability}, roll=${roll.toFixed(2)}, shouldRun=${shouldRun}`
+        );
+
+        if (!shouldRun) {
+          results.scoringResults.push({
+            model: config.model,
+            scored: 0,
+            errors: 0,
+            skipped: true,
+          });
+          continue;
+        }
+
         try {
-          await sqs.send(
-            new SendMessageCommand({
-              QueueUrl: SCORING_QUEUE_URL,
-              MessageBody: JSON.stringify({ model, batchSize: 25 }),
+          console.log(
+            `[orchestrator] Invoking llm-scorer for model: ${config.model}, batchSize: ${config.batchSize}`
+          );
+
+          const scorerResponse = await lambda.send(
+            new InvokeCommand({
+              FunctionName: LLM_SCORER_ARN,
+              InvocationType: "RequestResponse",
+              Payload: JSON.stringify({
+                model: config.model,
+                batchSize: config.batchSize,
+              }),
             })
           );
-          results.scoringJobsQueued++;
-          console.log(`[orchestrator] Queued scoring job for model: ${model}`);
+
+          const responseStr = scorerResponse.Payload
+            ? new TextDecoder().decode(scorerResponse.Payload)
+            : "{}";
+
+          // Check for Lambda error
+          if (scorerResponse.FunctionError) {
+            const errorPayload = JSON.parse(responseStr);
+            const msg = `llm-scorer error for ${config.model}: ${errorPayload.errorMessage || "Unknown error"}`;
+            console.error(`[orchestrator] ${msg}`);
+            results.errors.push(msg);
+            results.scoringResults.push({ model: config.model, scored: 0, errors: 1 });
+            continue;
+          }
+
+          const scorerResult: LlmScorerResponse = JSON.parse(responseStr);
+          results.scoringResults.push({
+            model: config.model,
+            scored: scorerResult.scored,
+            errors: scorerResult.errors,
+          });
+
+          console.log(
+            `[orchestrator] llm-scorer completed for ${config.model}: ${scorerResult.scored} scored, ${scorerResult.errors} errors`
+          );
         } catch (err) {
-          const msg = `Failed to queue scoring job for ${model}: ${err}`;
+          const msg = `Failed to invoke llm-scorer for ${config.model}: ${err}`;
           console.error(`[orchestrator] ${msg}`);
           results.errors.push(msg);
+          results.scoringResults.push({ model: config.model, scored: 0, errors: 1 });
         }
       }
+    } else {
+      console.log("[orchestrator] No profiles to score, skipping llm-scorer");
     }
   } catch (error) {
     const msg = `Failed to check profiles_to_score: ${error}`;
@@ -110,7 +194,7 @@ export const handler: ScheduledHandler = async (event) => {
     results.errors.push(msg);
   }
 
-  console.log("[orchestrator] Completed:", results);
+  console.log("[orchestrator] Completed:", JSON.stringify(results, null, 2));
 
   return results;
 };
