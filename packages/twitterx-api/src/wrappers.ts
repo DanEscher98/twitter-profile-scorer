@@ -1,13 +1,56 @@
-import { TwitterXapiUser, TwitterXapiMetadata, TwitterProfile, upsertUserStats, upsertUserProfile, keywordLastUsages, insertToScore, insertMetadata } from "@profile-scorer/db";
-import { computeHAS } from "./compute_has"
-import { normalizeString } from "./utils"
+/**
+ * Twitter API Wrappers
+ *
+ * This module provides high-level functions for fetching and processing Twitter profiles.
+ * The main entry point is `processKeyword()` which orchestrates the full pipeline.
+ *
+ * Data Flow:
+ * 1. Fetch users from RapidAPI (xapiSearch)
+ * 2. Extract profiles and count new vs existing (read-only DB queries)
+ * 3. Insert search metadata with accurate new_profiles count
+ * 4. Insert user data: profiles → keywords (with searchId) → stats
+ * 5. Queue high-HAS profiles for LLM scoring
+ *
+ * This order ensures:
+ * - new_profiles count is accurate (counted before any inserts)
+ * - FK constraint satisfied (metadata inserted before user_keywords)
+ * - All records are immutable once inserted (no updates needed)
+ */
+
+import {
+  TwitterXapiUser,
+  TwitterXapiMetadata,
+  TwitterProfile,
+  upsertUserStats,
+  upsertUserProfile,
+  keywordLastUsages,
+  insertToScore,
+  insertMetadata,
+  profileExists,
+} from "@profile-scorer/db";
+import { computeHAS } from "./compute_has";
+import { normalizeString } from "./utils";
 import { xapiSearch } from "./fetch";
 import logger from "./logger";
 
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** HAS threshold for queuing profiles to LLM scoring */
+const HAS_THRESHOLD = 0.65;
+
+// ============================================================================
+// Profile Extraction
+// ============================================================================
+
+/**
+ * Extract a TwitterProfile from raw API response.
+ * Computes HAS score and normalizes string fields.
+ */
 export function extractTwitterProfile(user: TwitterXapiUser): TwitterProfile {
   const { score, likely_is } = computeHAS(user);
-
-  const category = user.professional?.category[0]?.name as (string | null)
+  const category = user.professional?.category[0]?.name as string | null;
 
   return {
     twitter_id: user.rest_id,
@@ -24,53 +67,131 @@ export function extractTwitterProfile(user: TwitterXapiUser): TwitterProfile {
   };
 }
 
+// ============================================================================
+// Single User Processing
+// ============================================================================
+
+/**
+ * Process a single Twitter user: save profile, keyword relation, and stats.
+ *
+ * Database operations (in order):
+ * 1. user_profiles - insert or update profile data
+ * 2. user_keywords - insert relation with searchId (FK to xapi_usage_search)
+ * 3. user_stats - upsert raw stats for future ML training
+ *
+ * IMPORTANT: searchId must reference an existing xapi_usage_search record.
+ * Call insertMetadata() before calling this function.
+ *
+ * @param user - Raw user data from API
+ * @param keyword - Search keyword that found this user
+ * @param searchId - UUID of xapi_usage_search record (must exist for FK)
+ * @returns Profile (is_new is not returned - use profileExists() before calling)
+ */
 export async function handleTwitterXapiUser(
   user: TwitterXapiUser,
-  keyword: string = "@manual",
-  searchId?: string):
-  Promise<{ profile: TwitterProfile, is_new: number }> {
+  keyword: string,
+  searchId: string
+): Promise<TwitterProfile> {
   const profile = extractTwitterProfile(user);
 
-  logger.debug("Processing user - start", {
+  logger.debug("Processing user", {
     twitterId: profile.twitter_id,
     username: profile.username,
     humanScore: profile.human_score,
-    likelyIs: profile.likely_is,
-    keyword,
-    searchId
   });
 
-  try {
-    const is_new = await upsertUserProfile(profile, keyword, searchId);
-    logger.debug("Processing user - profile upserted", { twitterId: profile.twitter_id, isNew: is_new });
+  // Step 1 & 2: Insert/update profile + create keyword relation
+  await upsertUserProfile(profile, keyword, searchId);
 
-    await upsertUserStats(user);
-    logger.debug("Processing user - stats upserted", { twitterId: profile.twitter_id });
+  // Step 3: Save raw stats
+  await upsertUserStats(user);
 
-    logger.debug("Processing user - complete", { twitterId: profile.twitter_id, username: profile.username, isNew: is_new });
-    return { profile, is_new };
-  } catch (e: any) {
-    logger.error("Processing user - FAILED", {
-      twitterId: profile.twitter_id,
-      username: profile.username,
-      error: e.message,
-      cause: e.cause?.message,
-      code: e.code
-    });
-    throw e;
-  }
+  return profile;
 }
 
-export async function searchUsers(keyword: string): Promise<{
-  profiles: TwitterProfile[];
-  metadata: TwitterXapiMetadata;
-}> {
-  const items = 20;
+// ============================================================================
+// Batch User Processing
+// ============================================================================
 
+interface ProcessUsersResult {
+  profiles: TwitterProfile[];
+  failedCount: number;
+}
+
+/**
+ * Process a batch of users in parallel.
+ * Failures are logged but don't stop other users from being processed.
+ *
+ * IMPORTANT: searchId must reference an existing xapi_usage_search record.
+ * Call insertMetadata() before calling this function.
+ */
+async function processUsers(
+  users: TwitterXapiUser[],
+  keyword: string,
+  searchId: string
+): Promise<ProcessUsersResult> {
+  const results = await Promise.allSettled(
+    users.map((u) => handleTwitterXapiUser(u, keyword, searchId))
+  );
+
+  const fulfilled = results.filter(
+    (r): r is PromiseFulfilledResult<TwitterProfile> => r.status === "fulfilled"
+  );
+  const rejected = results.filter(
+    (r): r is PromiseRejectedResult => r.status === "rejected"
+  );
+
+  if (rejected.length > 0) {
+    const firstError = rejected[0]!;
+    logger.warn("Some users failed processing", {
+      keyword,
+      failed: rejected.length,
+      total: users.length,
+      firstError: firstError.reason?.message || String(firstError.reason),
+    });
+  }
+
+  return {
+    profiles: fulfilled.map((r) => r.value),
+    failedCount: rejected.length,
+  };
+}
+
+// ============================================================================
+// Keyword Search
+// ============================================================================
+
+interface SearchUsersResult {
+  profiles: TwitterProfile[];
+  newProfiles: number;
+  metadata: TwitterXapiMetadata;
+}
+
+/**
+ * Search for users by keyword and save to database.
+ *
+ * Operation order (critical for FK constraints and accurate counts):
+ * 1. Check pagination state (keywordLastUsages)
+ * 2. Fetch users from API (xapiSearch)
+ * 3. Extract profiles and count new vs existing (read-only queries)
+ * 4. Insert search metadata with accurate new_profiles count
+ *    → Creates xapi_usage_search record (required for FK)
+ * 5. Insert user data (handleTwitterXapiUser)
+ *    → user_profiles, user_keywords (with searchId), user_stats
+ *
+ * This order ensures:
+ * - new_profiles is accurate (counted before inserts)
+ * - FK constraint satisfied (metadata exists before user_keywords)
+ * - All records immutable once inserted
+ *
+ * @param keyword - Search term
+ * @returns Processed profiles and metadata
+ */
+export async function searchUsers(keyword: string): Promise<SearchUsersResult> {
   logger.info("searchUsers starting", { keyword });
 
-  // Check if keyword has been used
-  const lastUsages = await keywordLastUsages(keyword)
+  // Step 1: Check pagination state
+  const lastUsages = await keywordLastUsages(keyword);
   let cursor: string | null = null;
   let page = 0;
 
@@ -82,88 +203,83 @@ export async function searchUsers(keyword: string): Promise<{
     }
     cursor = last.nextPage;
     page = last.page + 1;
-    logger.info("Resuming from previous pagination", { keyword, page, cursor: cursor.substring(0, 20) + "..." });
+    logger.info("Resuming pagination", { keyword, page });
   }
 
-  const { users, metadata } = await xapiSearch(keyword, items, cursor, page);
+  // Step 2: Fetch users from API
+  const { users, metadata } = await xapiSearch(keyword, 20, cursor, page);
+  logger.info("Fetched users from API", { keyword, count: users.length });
 
-  logger.info("Processing fetched users", { keyword, userCount: users.length });
-
-  // Insert metadata FIRST so foreign key constraint is satisfied
-  // (user_keywords.search_id references xapi_usage_search.id)
-  // We'll update new_profiles count later
-  metadata.new_profiles = 0;
-  await insertMetadata(metadata);
-
-  const settledResults = await Promise.allSettled(
-    users.map((u) => handleTwitterXapiUser(u, keyword, metadata.id))
+  // Step 3: Extract profiles and count new ones (read-only)
+  const extractedProfiles = users.map(extractTwitterProfile);
+  const existenceChecks = await Promise.all(
+    extractedProfiles.map((p) => profileExists(p.twitter_id))
   );
+  const newCount = existenceChecks.filter((exists) => !exists).length;
+  logger.debug("Counted new profiles", { keyword, total: users.length, newCount });
 
-  const resultProfiles = settledResults.filter(result => result.status === 'fulfilled');
-  const failedResults = settledResults.filter(result => result.status === 'rejected') as PromiseRejectedResult[];
+  // Step 4: Insert metadata FIRST (required for user_keywords FK)
+  metadata.new_profiles = newCount;
+  await insertMetadata(metadata);
+  logger.debug("Inserted metadata", { id: metadata.id, newProfiles: newCount });
 
-  if (failedResults.length > 0) {
-    // Log first failure reason for debugging
-    const firstError = failedResults[0]!;
-    logger.warn("Some users failed processing", {
-      keyword,
-      failed: failedResults.length,
-      total: users.length,
-      firstError: firstError.reason?.message || String(firstError.reason),
-      firstErrorCause: firstError.reason?.cause?.message
-    });
-  }
-
-  const newProfiles = resultProfiles.map(result => result.value.is_new).reduce((a, b) => a + b, 0);
-  const profiles = resultProfiles.map(result => result.value.profile)
-
-  metadata.new_profiles = newProfiles;
+  // Step 5: Process all users (inserts with searchId)
+  const { profiles, failedCount } = await processUsers(users, keyword, metadata.id);
 
   logger.info("searchUsers completed", {
     keyword,
     totalProfiles: profiles.length,
-    newProfiles,
-    page: metadata.page
+    newProfiles: newCount,
+    failed: failedCount,
+    page: metadata.page,
   });
 
-  return { profiles, metadata }
+  return { profiles, newProfiles: newCount, metadata };
 }
 
-interface SearchResult {
+// ============================================================================
+// Main Entry Point
+// ============================================================================
+
+interface ProcessKeywordResult {
   newProfiles: number;
   humanProfiles: number;
 }
 
-export async function processKeyword(keyword: string): Promise<SearchResult> {
+/**
+ * Main entry point: fetch profiles by keyword, filter by HAS, queue for scoring.
+ *
+ * This is the function called by the query-twitter-api Lambda.
+ *
+ * @param keyword - Search term to query
+ * @returns Count of new profiles and profiles queued for LLM scoring
+ */
+export async function processKeyword(keyword: string): Promise<ProcessKeywordResult> {
   logger.info("processKeyword starting", { keyword });
 
-  const { profiles, metadata } = await searchUsers(keyword);
+  // Fetch and save profiles
+  const { profiles, newProfiles } = await searchUsers(keyword);
 
-  // Filter human profiles and insert to scoring queue
-  const humanProfiles = profiles.filter((p) => p.human_score > 0.65);
+  // Filter high-HAS profiles for LLM scoring
+  const humanProfiles = profiles.filter((p) => p.human_score > HAS_THRESHOLD);
 
-  logger.info("Filtering human profiles", {
+  logger.info("Filtering for LLM scoring", {
     keyword,
     total: profiles.length,
-    humanCount: humanProfiles.length,
-    threshold: 0.65
+    aboveThreshold: humanProfiles.length,
+    threshold: HAS_THRESHOLD,
   });
 
+  // Queue for LLM scoring
   await Promise.all(
     humanProfiles.map((p) => insertToScore(p.twitter_id, p.username))
   );
 
-  // Note: metadata was already inserted in searchUsers() to satisfy FK constraint
-  // The new_profiles count is set there
-
   logger.info("processKeyword completed", {
     keyword,
-    newProfiles: metadata.new_profiles,
-    humanProfiles: humanProfiles.length
+    newProfiles,
+    humanProfiles: humanProfiles.length,
   });
 
-  return {
-    newProfiles: metadata.new_profiles!,
-    humanProfiles: humanProfiles.length,
-  };
+  return { newProfiles, humanProfiles: humanProfiles.length };
 }

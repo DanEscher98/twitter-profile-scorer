@@ -23,13 +23,39 @@ export async function insertToScore(twitterId: string, username: string): Promis
   }
 }
 
+/**
+ * Check if a profile already exists in the database.
+ * Used to count new_profiles before inserting metadata.
+ */
+export async function profileExists(twitterId: string): Promise<boolean> {
+  const result = await db
+    .select({ twitterId: userProfiles.twitterId })
+    .from(userProfiles)
+    .where(eq(userProfiles.twitterId, twitterId))
+    .limit(1);
+  return result.length > 0;
+}
+
+/**
+ * Upsert a user profile and create keyword association.
+ *
+ * Database operations:
+ * 1. user_profiles - insert new or update existing (appends keyword to got_by_keywords)
+ * 2. user_keywords - insert relation with searchId (FK to xapi_usage_search)
+ *
+ * IMPORTANT: searchId must reference an existing xapi_usage_search record.
+ * Call insertMetadata() before calling this function.
+ *
+ * @returns 1 if new profile inserted, 0 if existing profile updated
+ */
 export async function upsertUserProfile(
   profile: TwitterProfile,
   keyword: string,
-  searchId?: string
+  searchId: string
 ): Promise<number> {
   let isNew = 0;
 
+  // Step 1: Insert or update user_profiles
   try {
     await db.insert(userProfiles).values({
       twitterId: profile.twitter_id,
@@ -49,7 +75,7 @@ export async function upsertUserProfile(
     log.debug("Inserted new user profile", { twitterId: profile.twitter_id, username: profile.username });
   } catch (e: any) {
     if (e.code === '23505') {
-      // unique violation - update existing profile
+      // Unique violation - update existing profile
       await db
         .update(userProfiles)
         .set({
@@ -62,14 +88,14 @@ export async function upsertUserProfile(
           `,
         })
         .where(eq(userProfiles.twitterId, profile.twitter_id));
-      log.debug("Updated existing user profile", { twitterId: profile.twitter_id, username: profile.username, keyword });
+      log.debug("Updated existing user profile", { twitterId: profile.twitter_id, keyword });
     } else {
       log.error("Failed to upsert user profile", { twitterId: profile.twitter_id, error: e.message, code: e.code });
       throw e;
     }
   }
 
-  // Always insert user_keywords (for both new and existing profiles)
+  // Step 2: Insert user_keywords with searchId (always insert, onConflictDoNothing for idempotency)
   try {
     await db
       .insert(userKeywords)
@@ -127,11 +153,19 @@ export async function keywordLastUsages(keyword: string) {
     .orderBy(desc(xapiSearchUsage.page))
 }
 
+/**
+ * Insert search metadata record.
+ *
+ * IMPORTANT: Must be called BEFORE upsertUserProfile() to satisfy FK constraint.
+ * user_keywords.search_id references xapi_usage_search.id.
+ *
+ * @param metadata - Search metadata with new_profiles already calculated
+ */
 export async function insertMetadata(metadata: TwitterXapiMetadata) {
   await db
     .insert(xapiSearchUsage)
     .values({
-      id: metadata.id, // Use the pre-generated UUID so FK references work
+      id: metadata.id,
       idsHash: metadata.ids_hash!,
       keyword: metadata.keyword,
       items: metadata.items,
@@ -140,4 +174,5 @@ export async function insertMetadata(metadata: TwitterXapiMetadata) {
       page: metadata.page,
       newProfiles: metadata.new_profiles!,
     });
+  log.debug("Inserted search metadata", { id: metadata.id, keyword: metadata.keyword, page: metadata.page, newProfiles: metadata.new_profiles });
 }
