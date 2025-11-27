@@ -7,6 +7,27 @@ dependencies = [
     "pulumi-aws>=7.0.0,<8.0.0",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "boto3>=1.35.0",
+    "psycopg2-binary>=2.9.0",
+    "rich>=13.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "e2e: End-to-end tests that require deployed AWS infrastructure",
+    "slow: Tests that may take longer to run",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
 #[build-system]
 #requires = ["hatchling"]
 #build-backend = "hatchling.build"

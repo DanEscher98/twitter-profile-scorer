@@ -72,3 +72,59 @@ download-rds-cert:
 # Full setup: install, build, download cert, and push schema
 setup: install download-rds-cert build
     @echo "Setup complete! Run 'just db-push' after deploying infrastructure."
+
+# ============================================================================
+# E2E Testing
+# ============================================================================
+
+# Install test dependencies
+test-install:
+    cd infra && uv sync --extra test
+
+# Run all E2E tests with INFO level logging
+test: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/ -v --log-level=INFO
+
+# Run E2E tests with DEBUG level logging (verbose)
+test-debug: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/ -v --log-level=DEBUG
+
+# Run E2E tests with WARN level logging (quiet)
+test-quiet: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/ -v --log-level=WARN
+
+# Run E2E tests with ERROR level logging (minimal)
+test-errors: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/ -v --log-level=ERROR
+
+# Run specific test file (e.g., just test-file test_orchestrator)
+test-file file: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/{{file}}.py -v --log-level=INFO
+
+# Run tests matching a pattern (e.g., just test-match "orchestrator")
+test-match pattern: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/ -v -k "{{pattern}}" --log-level=INFO
+
+# Run only fast tests (excludes slow integration tests)
+test-fast: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/ -v -m "not slow" --log-level=INFO
+
+# Run slow integration tests only
+test-slow: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/ -v -m "slow" --log-level=INFO
+
+# Run database integrity tests only
+test-db: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/test_database.py -v --log-level=INFO
+
+# Run query-twitter-api tests
+test-twitter: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/test_query_twitter_api.py -v --log-level=INFO
+
+# Run orchestrator tests
+test-orchestrator: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/test_orchestrator.py -v --log-level=INFO
+
+# Run llm-scorer tests
+test-scorer: test-install
+    cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/test_llm_scorer.py -v --log-level=INFO
