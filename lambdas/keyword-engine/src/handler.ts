@@ -1,6 +1,6 @@
 import { Handler } from "aws-lambda";
 import { sql } from "drizzle-orm";
-import { createLogger } from "@profile-scorer/logger";
+import { createLogger } from "@profile-scorer/utils";
 import { getDb, xapiSearchUsage } from "@profile-scorer/db";
 
 const log = createLogger("keyword-engine");

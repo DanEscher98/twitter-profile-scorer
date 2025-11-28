@@ -1,5 +1,5 @@
 import { Handler } from "aws-lambda";
-import { createLogger } from "@profile-scorer/logger";
+import { createLogger } from "@profile-scorer/utils";
 import {
   getDb,
   getProfilesToScore,

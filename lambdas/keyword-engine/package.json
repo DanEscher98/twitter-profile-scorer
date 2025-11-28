@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@profile-scorer/db": "workspace:*",
-    "@profile-scorer/logger": "workspace:*"
+    "@profile-scorer/utils": "workspace:*"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145",

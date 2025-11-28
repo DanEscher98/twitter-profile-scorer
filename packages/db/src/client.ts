@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import fs from "fs";
 import path from "path";
-import { createLogger } from "@profile-scorer/logger";
+import { createLogger } from "@profile-scorer/utils";
 
 import * as schema from "./schema";
 

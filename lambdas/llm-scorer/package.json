@@ -11,7 +11,7 @@
     "@anthropic-ai/sdk": "^0.52.0",
     "@google/generative-ai": "^0.21.0",
     "@profile-scorer/db": "workspace:*",
-    "@profile-scorer/logger": "workspace:*",
+    "@profile-scorer/utils": "workspace:*",
     "@toon-format/toon": "^2.0.1",
     "zod": "^3.24.0"
   },

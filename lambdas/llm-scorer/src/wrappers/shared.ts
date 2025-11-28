@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { encode as toToon } from "@toon-format/toon";
 import { ProfileToScore } from "@profile-scorer/db";
-import { createLogger } from "@profile-scorer/logger";
+import { createLogger } from "@profile-scorer/utils";
 
 const log = createLogger("llm-shared");
 

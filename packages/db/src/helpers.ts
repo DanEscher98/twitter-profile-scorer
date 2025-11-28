@@ -2,7 +2,7 @@ import { getDb } from "./client";
 import { userProfiles, userKeywords, userStats, profilesToScore, profileScores, xapiSearchUsage } from "./schema";
 import { TwitterProfile, TwitterXapiUser, TwitterXapiMetadata } from "./models"
 import { sql, eq, desc, and, isNull, gt } from "drizzle-orm";
-import { createLogger } from "@profile-scorer/logger";
+import { createLogger } from "@profile-scorer/utils";
 
 const db = getDb()
 const log = createLogger("db-helpers");

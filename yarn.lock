@@ -1452,7 +1452,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@profile-scorer/db@workspace:packages/db"
   dependencies:
-    "@profile-scorer/logger": "workspace:*"
+    "@profile-scorer/utils": "workspace:*"
     "@types/node": "npm:^24.10.1"
     "@types/pg": "npm:^8.15.6"
     dotenv: "npm:^17.2.3"
@@ -1480,7 +1480,7 @@ __metadata:
   resolution: "@profile-scorer/keyword-engine@workspace:lambdas/keyword-engine"
   dependencies:
     "@profile-scorer/db": "workspace:*"
-    "@profile-scorer/logger": "workspace:*"
+    "@profile-scorer/utils": "workspace:*"
     "@types/aws-lambda": "npm:^8.10.145"
     "@types/node": "npm:^22.0.0"
     esbuild: "npm:^0.24.0"
@@ -1495,22 +1495,13 @@ __metadata:
     "@anthropic-ai/sdk": "npm:^0.52.0"
     "@google/generative-ai": "npm:^0.21.0"
     "@profile-scorer/db": "workspace:*"
-    "@profile-scorer/logger": "workspace:*"
+    "@profile-scorer/utils": "workspace:*"
     "@toon-format/toon": "npm:^2.0.1"
     "@types/aws-lambda": "npm:^8.10.145"
     "@types/node": "npm:^22.0.0"
     esbuild: "npm:^0.24.0"
     typescript: "npm:^5.6.0"
     zod: "npm:^3.24.0"
-  languageName: unknown
-  linkType: soft
-
-"@profile-scorer/logger@workspace:*, @profile-scorer/logger@workspace:packages/logger":
-  version: 0.0.0-use.local
-  resolution: "@profile-scorer/logger@workspace:packages/logger"
-  dependencies:
-    "@types/node": "npm:^24.10.1"
-    typescript: "npm:^5.9.3"
   languageName: unknown
   linkType: soft
 
@@ -1521,7 +1512,7 @@ __metadata:
     "@aws-sdk/client-lambda": "npm:^3.700.0"
     "@aws-sdk/client-sqs": "npm:^3.700.0"
     "@profile-scorer/db": "workspace:*"
-    "@profile-scorer/logger": "workspace:*"
+    "@profile-scorer/utils": "workspace:*"
     "@types/aws-lambda": "npm:^8.10.145"
     "@types/node": "npm:^22.0.0"
     esbuild: "npm:^0.24.0"
@@ -1534,8 +1525,8 @@ __metadata:
   resolution: "@profile-scorer/query-twitter-api@workspace:lambdas/query-twitter-api"
   dependencies:
     "@profile-scorer/db": "workspace:*"
-    "@profile-scorer/logger": "workspace:*"
     "@profile-scorer/twitterx-api": "workspace:*"
+    "@profile-scorer/utils": "workspace:*"
     "@types/aws-lambda": "npm:^8.10.145"
     "@types/node": "npm:^22.0.0"
     esbuild: "npm:^0.24.0"
@@ -1562,11 +1553,20 @@ __metadata:
   resolution: "@profile-scorer/twitterx-api@workspace:packages/twitterx-api"
   dependencies:
     "@profile-scorer/has-scorer": "workspace:*"
-    "@profile-scorer/logger": "workspace:*"
+    "@profile-scorer/utils": "workspace:*"
     "@types/node": "npm:^24.10.1"
     "@types/uuid": "npm:^11.0.0"
     typescript: "npm:^5.9.3"
     uuid: "npm:^13.0.0"
+  languageName: unknown
+  linkType: soft
+
+"@profile-scorer/utils@workspace:*, @profile-scorer/utils@workspace:packages/utils":
+  version: 0.0.0-use.local
+  resolution: "@profile-scorer/utils@workspace:packages/utils"
+  dependencies:
+    "@types/node": "npm:^24.10.1"
+    typescript: "npm:^5.9.3"
   languageName: unknown
   linkType: soft
 

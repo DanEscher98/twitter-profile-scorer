@@ -1,6 +1,6 @@
 import { SQSHandler, SQSBatchResponse, SQSBatchItemFailure } from "aws-lambda";
 import { wrappers } from "@profile-scorer/twitterx-api";
-import { createLogger } from "@profile-scorer/logger";
+import { createLogger } from "@profile-scorer/utils";
 
 const log = createLogger("query-twitter-api");
 

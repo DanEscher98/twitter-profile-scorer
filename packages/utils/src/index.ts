@@ -7,7 +7,7 @@
  * - Flat JSON structure for CloudWatch Insights queries
  *
  * Usage:
- *   import { createLogger } from "@profile-scorer/logger";
+ *   import { createLogger } from "@profile-scorer/utils";
  *   const log = createLogger("my-service");
  *   log.info("message", { key: "value" });
  *

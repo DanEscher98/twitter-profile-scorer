@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@profile-scorer/db": "workspace:*",
-    "@profile-scorer/logger": "workspace:*"
+    "@profile-scorer/utils": "workspace:*"
   },
   "devDependencies": {
     "@aws-sdk/client-lambda": "^3.700.0",

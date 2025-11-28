@@ -2,7 +2,7 @@ import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { ScheduledHandler } from "aws-lambda";
 import { sql } from "drizzle-orm";
-import { createLogger } from "@profile-scorer/logger";
+import { createLogger } from "@profile-scorer/utils";
 import { getDb, profilesToScore } from "@profile-scorer/db";
 
 const log = createLogger("orchestrator");
