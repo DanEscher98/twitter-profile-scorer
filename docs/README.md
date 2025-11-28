@@ -84,6 +84,44 @@ A lookalike audience builder for Twitter ad targeting. Given a curated set of se
 | `profile_scores` | LLM scores per model |
 | `xapi_usage_search` | API usage tracking + pagination cursor |
 | `user_keywords` | Profile-keyword associations |
+| `keyword_stats` | Keyword pool with semantic tags |
+
+## Utility Scripts
+
+Scripts for data analysis and profile management in `scripts/`:
+
+### TypeScript Scripts (`scripts/js_src/`)
+
+```bash
+# Upload curated usernames for scoring
+yarn workspace @profile-scorer/scripts run tsx js_src/upload_curated_users.ts data/curated_usernames.txt
+
+# Export high-scoring profiles to CSV (TUI interface)
+LOG_LEVEL=silent yarn workspace @profile-scorer/scripts run tsx js_src/export-high-scores.ts
+
+# Score all pending profiles with TUI progress
+yarn workspace @profile-scorer/scripts run tsx js_src/score-all-pending.ts
+
+# Add new keyword to the pool
+yarn workspace @profile-scorer/scripts run tsx js_src/add-keyword.ts "new keyword" --tags=#academia,#research
+```
+
+### Python Scripts (`scripts/py_src/`)
+
+```bash
+cd scripts
+
+# Analyze scores across all models (generates visualization)
+uv run py_src/analyze_profile_scores.py
+
+# Analyze scores for a specific model
+uv run py_src/analyze_model_scores.py claude-haiku-4-5-20251001
+
+# Plot HAS score distribution
+uv run py_src/plot_has_distribution.py
+```
+
+Output files are saved to `scripts/output/` with unix timestamps.
 
 ## Monitoring & Cost Management
 
@@ -121,5 +159,7 @@ The [profile-scorer dashboard](https://us-east-2.console.aws.amazon.com/cloudwat
 - [x] CloudWatch Dashboard
 - [x] AWS Budget and cost monitoring
 - [x] E2E test suite (14 tests)
+- [x] Standardized API error handling (`TwitterXApiError`)
+- [x] Utility scripts for analysis and export
 - [ ] Seed profile validation
 - [ ] Training pipeline (Phase 2)

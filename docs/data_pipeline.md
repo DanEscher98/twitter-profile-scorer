@@ -284,6 +284,67 @@ Many-to-many: profiles found by which keywords.
 
 **Unique Constraint:** `(twitter_id, keyword)` - one entry per pair
 
+## API Functions
+
+The `@profile-scorer/twitterx-api` package provides two main API functions:
+
+### `xapiSearch(keyword, items, cursor, page)`
+
+Searches for Twitter profiles by keyword. Used by `query-twitter-api` lambda.
+
+```typescript
+const { users, metadata } = await xapiSearch("researcher", 20, null, 0);
+```
+
+### `xapiGetUser(username)`
+
+Fetches a single user by username. Used for curated profile uploads.
+
+```typescript
+const user = await xapiGetUser("DrJaneSmith");
+```
+
+### Error Handling
+
+Both functions throw `TwitterXApiError` with standardized error codes:
+
+| Error Code | HTTP Status | Description |
+|------------|-------------|-------------|
+| `API_KEY_MISSING` | 401 | TWITTERX_APIKEY not set |
+| `RATE_LIMITED` | 429 | API rate limit exceeded |
+| `USER_NOT_FOUND` | 404 | User doesn't exist |
+| `USER_SUSPENDED` | 403 | User account suspended |
+| `MAX_RETRIES_EXCEEDED` | 503 | Failed after 10 retry attempts |
+| `NETWORK_ERROR` | 502 | Network/connection error |
+| `API_BOTTLENECK` | 503 | API returned empty response |
+
+```typescript
+import { TwitterXApiError } from "@profile-scorer/twitterx-api";
+
+try {
+  const user = await xapiGetUser("username");
+} catch (e) {
+  if (e instanceof TwitterXApiError) {
+    if (e.is("USER_NOT_FOUND")) {
+      // Handle missing user
+    } else if (e.is("RATE_LIMITED")) {
+      // Back off and retry later
+    }
+  }
+}
+```
+
+### Pagination Utilities
+
+Check if a keyword has more pages available:
+
+```typescript
+import { keywordStillHasPages } from "@profile-scorer/twitterx-api";
+
+const hasMore = await keywordStillHasPages("researcher");
+// true if never searched or has next_page cursor
+```
+
 ## Data Transformations
 
 ### RapidAPI Response → Storage

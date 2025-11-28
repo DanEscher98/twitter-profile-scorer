@@ -8,7 +8,8 @@
     "run": "tsx",
     "score-all": "tsx js_src/score-all-pending.ts",
     "score-keyword": "tsx js_src/score-by-keyword.ts",
-    "add-keyword": "tsx js_src/add-keyword.ts"
+    "add-keyword": "tsx js_src/add-keyword.ts",
+    "export-high-scores": "tsx js_src/export-high-scores.ts"
   },
   "dependencies": {
     "@profile-scorer/db": "workspace:*",

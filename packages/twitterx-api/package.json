@@ -13,6 +13,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@profile-scorer/db": "workspace:*",
     "@profile-scorer/has-scorer": "workspace:*",
     "@profile-scorer/utils": "workspace:*",
     "uuid": "^13.0.0"
