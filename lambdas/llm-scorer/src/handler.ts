@@ -1,5 +1,5 @@
 import { Handler } from "aws-lambda";
-
+import { createLogger } from "@profile-scorer/logger";
 import {
   getDb,
   getProfilesToScore,
@@ -10,6 +10,8 @@ import {
 // Import model wrappers
 import { scoreWithAnthropic } from "./wrappers/anthropic";
 import { scoreWithGemini } from "./wrappers/gemini";
+
+const log = createLogger("llm-scorer");
 
 /**
  * Event payload for llm-scorer Lambda.
@@ -75,7 +77,7 @@ const MODEL_WRAPPERS: Record<string, LlmWrapper> = {
 export const handler: Handler<LlmScorerEvent, LlmScorerResponse> = async (event) => {
   const { model, batchSize = 25 } = event;
 
-  console.log(`[llm-scorer] Starting scoring for model: ${model}, batchSize: ${batchSize}`);
+  log.info("Starting scoring", { model, batchSize });
 
   // Validate model
   const wrapper = MODEL_WRAPPERS[model];
@@ -90,7 +92,7 @@ export const handler: Handler<LlmScorerEvent, LlmScorerResponse> = async (event)
   // Get profiles to score for this model
   const profiles = await getProfilesToScore(model, batchSize);
 
-  console.log(`[llm-scorer] Found ${profiles.length} profiles to score`);
+  log.info("Found profiles to score", { count: profiles.length });
 
   if (profiles.length === 0) {
     return {
@@ -105,9 +107,9 @@ export const handler: Handler<LlmScorerEvent, LlmScorerResponse> = async (event)
   let scores: ScoreResult[];
   try {
     scores = await wrapper(profiles, model);
-    console.log(`[llm-scorer] Got ${scores.length} scores from ${model}`);
+    log.info("Got scores from model", { model, count: scores.length });
   } catch (error) {
-    console.error(`[llm-scorer] Error calling ${model}:`, error);
+    log.error("Error calling model", { model, error });
     throw error;
   }
 
@@ -126,21 +128,19 @@ export const handler: Handler<LlmScorerEvent, LlmScorerResponse> = async (event)
       );
       scored++;
       scoredProfiles.push(score.twitterId);
-      console.log(
-        `[llm-scorer] Stored score for ${score.twitterId}: ${score.score.toFixed(2)}`
-      );
+      log.debug("Stored score", { twitterId: score.twitterId, score: score.score.toFixed(2) });
     } catch (error: any) {
       if (error.code === "23505") {
         // Unique violation - already scored by this model
-        console.log(`[llm-scorer] Profile ${score.twitterId} already scored by ${model}`);
+        log.debug("Profile already scored", { twitterId: score.twitterId, model });
       } else {
-        console.error(`[llm-scorer] Error storing score for ${score.twitterId}:`, error);
+        log.error("Error storing score", { twitterId: score.twitterId, error: error.message });
         errors++;
       }
     }
   }
 
-  console.log(`[llm-scorer] Completed: ${scored} scored, ${errors} errors`);
+  log.info("Scoring completed", { model, scored, errors });
 
   return {
     model,

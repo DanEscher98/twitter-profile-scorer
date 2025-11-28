@@ -1,19 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ProfileToScore } from "@profile-scorer/db";
+import { createLogger } from "@profile-scorer/logger";
 import { ScoreResult } from "../handler";
 import { SYSTEM_PROMPT, formatProfilesPrompt, parseAndValidateResponse } from "./shared";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
-
-// Simple logger for wrapper (JSON structured logs)
-const log = {
-  info: (msg: string, meta?: object) =>
-    console.log(JSON.stringify({ level: "info", service: "anthropic-wrapper", message: msg, ...meta })),
-  warn: (msg: string, meta?: object) =>
-    console.warn(JSON.stringify({ level: "warn", service: "anthropic-wrapper", message: msg, ...meta })),
-  error: (msg: string, meta?: object) =>
-    console.error(JSON.stringify({ level: "error", service: "anthropic-wrapper", message: msg, ...meta })),
-};
+const log = createLogger("anthropic-wrapper");
 
 /**
  * Score profiles using Anthropic Claude.

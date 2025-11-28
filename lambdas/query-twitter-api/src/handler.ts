@@ -1,12 +1,8 @@
 import { SQSHandler, SQSBatchResponse, SQSBatchItemFailure } from "aws-lambda";
 import { wrappers } from "@profile-scorer/twitterx-api";
+import { createLogger } from "@profile-scorer/logger";
 
-// Simple JSON logger for Lambda
-const log = {
-  info: (msg: string, meta?: object) => console.log(JSON.stringify({ level: "info", service: "query-twitter-api", message: msg, timestamp: new Date().toISOString(), ...meta })),
-  warn: (msg: string, meta?: object) => console.warn(JSON.stringify({ level: "warn", service: "query-twitter-api", message: msg, timestamp: new Date().toISOString(), ...meta })),
-  error: (msg: string, meta?: object) => console.error(JSON.stringify({ level: "error", service: "query-twitter-api", message: msg, timestamp: new Date().toISOString(), ...meta })),
-};
+const log = createLogger("query-twitter-api");
 
 interface KeywordMessage {
   keyword: string;

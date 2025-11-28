@@ -1,5 +1,6 @@
 {
-  "name": "@profile-scorer/twitterx-api",
+  "name": "@profile-scorer/logger",
+  "version": "1.0.0",
   "packageManager": "yarn@4.12.0",
   "private": true,
   "main": "dist/index.js",
@@ -9,12 +10,6 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
-    "@types/uuid": "^11.0.0",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "@profile-scorer/has-scorer": "workspace:*",
-    "@profile-scorer/logger": "workspace:*",
-    "uuid": "^13.0.0"
   }
 }

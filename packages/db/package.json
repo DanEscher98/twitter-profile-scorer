@@ -10,6 +10,7 @@
     "push": "drizzle-kit push"
   },
   "dependencies": {
+    "@profile-scorer/logger": "workspace:*",
     "drizzle-kit": "^0.31.7",
     "drizzle-orm": "^0.44.7",
     "pg": "^8.16.3",

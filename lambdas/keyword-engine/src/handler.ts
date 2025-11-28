@@ -1,7 +1,9 @@
 import { Handler } from "aws-lambda";
 import { sql } from "drizzle-orm";
-
+import { createLogger } from "@profile-scorer/logger";
 import { getDb, xapiSearchUsage } from "@profile-scorer/db";
+
+const log = createLogger("keyword-engine");
 
 /**
  * Seed keywords for finding qualitative researchers in academia.
@@ -100,7 +102,7 @@ export const handler: Handler<KeywordEngineEvent, KeywordEngineResponse> = async
   const action = event?.action ?? "get_keywords";
   const count = event?.count ?? 5;
 
-  console.log(`[keyword-engine] Action: ${action}, Count: ${count}`);
+  log.info("Handler invoked", { action, count });
 
   if (action === "health_check") {
     return {
@@ -131,7 +133,7 @@ export const handler: Handler<KeywordEngineEvent, KeywordEngineResponse> = async
     const shuffled = shuffleArray(SEED_KEYWORDS);
     const keywords = shuffled.slice(0, count);
 
-    console.log(`[keyword-engine] Returning ${keywords.length} randomized keywords from pool of ${SEED_KEYWORDS.length}:`, keywords);
+    log.info("Returning randomized keywords", { count: keywords.length, poolSize: SEED_KEYWORDS.length, keywords });
 
     return {
       keywords,
@@ -141,7 +143,7 @@ export const handler: Handler<KeywordEngineEvent, KeywordEngineResponse> = async
       },
     };
   } catch (error) {
-    console.error("[keyword-engine] Error:", error);
+    log.error("Error fetching keyword stats", { error });
 
     // Fallback to randomized seed keywords on error
     const shuffled = shuffleArray(SEED_KEYWORDS);

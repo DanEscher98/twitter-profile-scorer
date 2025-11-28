@@ -2,16 +2,10 @@ import { getDb } from "./client";
 import { userProfiles, userKeywords, userStats, profilesToScore, profileScores, xapiSearchUsage } from "./schema";
 import { TwitterProfile, TwitterXapiUser, TwitterXapiMetadata } from "./models"
 import { sql, eq, desc, and, isNull, gt } from "drizzle-orm";
+import { createLogger } from "@profile-scorer/logger";
 
 const db = getDb()
-
-// Simple logger for helpers (no external deps)
-const log = {
-  debug: (msg: string, meta?: object) => console.log(JSON.stringify({ level: "debug", service: "db-helpers", message: msg, ...meta })),
-  info: (msg: string, meta?: object) => console.log(JSON.stringify({ level: "info", service: "db-helpers", message: msg, ...meta })),
-  warn: (msg: string, meta?: object) => console.warn(JSON.stringify({ level: "warn", service: "db-helpers", message: msg, ...meta })),
-  error: (msg: string, meta?: object) => console.error(JSON.stringify({ level: "error", service: "db-helpers", message: msg, ...meta })),
-};
+const log = createLogger("db-helpers");
 
 export async function insertToScore(twitterId: string, username: string): Promise<number> {
   try {

@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@profile-scorer/db": "workspace:*",
+    "@profile-scorer/logger": "workspace:*",
     "@profile-scorer/twitterx-api": "workspace:*"
   },
   "devDependencies": {

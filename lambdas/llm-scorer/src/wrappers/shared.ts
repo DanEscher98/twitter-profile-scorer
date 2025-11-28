@@ -1,16 +1,9 @@
 import { z } from "zod";
 import { encode as toToon } from "@toon-format/toon";
 import { ProfileToScore } from "@profile-scorer/db";
+import { createLogger } from "@profile-scorer/logger";
 
-// Simple logger for shared module
-const log = {
-  info: (msg: string, meta?: object) =>
-    console.log(JSON.stringify({ level: "info", service: "llm-shared", message: msg, ...meta })),
-  warn: (msg: string, meta?: object) =>
-    console.warn(JSON.stringify({ level: "warn", service: "llm-shared", message: msg, ...meta })),
-  error: (msg: string, meta?: object) =>
-    console.error(JSON.stringify({ level: "error", service: "llm-shared", message: msg, ...meta })),
-};
+const log = createLogger("llm-shared");
 
 /**
  * Zod schema for a single score result from LLM.

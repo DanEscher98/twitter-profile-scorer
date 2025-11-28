@@ -2,9 +2,10 @@ import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { ScheduledHandler } from "aws-lambda";
 import { sql } from "drizzle-orm";
-
+import { createLogger } from "@profile-scorer/logger";
 import { getDb, profilesToScore } from "@profile-scorer/db";
 
+const log = createLogger("orchestrator");
 const lambda = new LambdaClient({});
 const sqs = new SQSClient({});
 
@@ -55,8 +56,8 @@ interface LlmScorerResponse {
 }
 
 export const handler: ScheduledHandler = async (event) => {
-  console.log("[orchestrator] Starting pipeline orchestration");
-  console.log("[orchestrator] Event:", JSON.stringify(event));
+  log.info("Starting pipeline orchestration");
+  log.debug("Event received", { event });
 
   const results = {
     keywordsQueued: 0,
@@ -66,7 +67,7 @@ export const handler: ScheduledHandler = async (event) => {
 
   // Step 1: Get keywords from keyword-engine
   try {
-    console.log("[orchestrator] Invoking keyword-engine...");
+    log.info("Invoking keyword-engine");
 
     const invokeResponse = await lambda.send(
       new InvokeCommand({
@@ -81,7 +82,7 @@ export const handler: ScheduledHandler = async (event) => {
       : "{}";
     const keywordResponse: KeywordEngineResponse = JSON.parse(payloadStr);
 
-    console.log("[orchestrator] Received keywords:", keywordResponse.keywords);
+    log.info("Received keywords", { keywords: keywordResponse.keywords });
 
     // Step 2: Queue keywords for query-twitter-api
     for (const keyword of keywordResponse.keywords) {
@@ -93,16 +94,16 @@ export const handler: ScheduledHandler = async (event) => {
           })
         );
         results.keywordsQueued++;
-        console.log(`[orchestrator] Queued keyword: ${keyword}`);
+        log.debug("Queued keyword", { keyword });
       } catch (err) {
         const msg = `Failed to queue keyword ${keyword}: ${err}`;
-        console.error(`[orchestrator] ${msg}`);
+        log.error("Failed to queue keyword", { keyword, error: err });
         results.errors.push(msg);
       }
     }
   } catch (error) {
     const msg = `Failed to invoke keyword-engine: ${error}`;
-    console.error(`[orchestrator] ${msg}`);
+    log.error("Failed to invoke keyword-engine", { error });
     results.errors.push(msg);
   }
 
@@ -114,7 +115,7 @@ export const handler: ScheduledHandler = async (event) => {
       .from(profilesToScore);
 
     const count = Number(pendingCount[0]?.count ?? 0);
-    console.log(`[orchestrator] Profiles pending scoring: ${count}`);
+    log.info("Profiles pending scoring", { count });
 
     if (count > 0) {
       // Step 4: Invoke llm-scorer for each model based on probability
@@ -124,9 +125,12 @@ export const handler: ScheduledHandler = async (event) => {
         const roll = Math.random();
         const shouldRun = roll < config.probability;
 
-        console.log(
-          `[orchestrator] Model ${config.model}: probability=${config.probability}, roll=${roll.toFixed(2)}, shouldRun=${shouldRun}`
-        );
+        log.debug("Model probability check", {
+          model: config.model,
+          probability: config.probability,
+          roll: roll.toFixed(2),
+          shouldRun,
+        });
 
         if (!shouldRun) {
           results.scoringResults.push({
@@ -139,9 +143,7 @@ export const handler: ScheduledHandler = async (event) => {
         }
 
         try {
-          console.log(
-            `[orchestrator] Invoking llm-scorer for model: ${config.model}, batchSize: ${config.batchSize}`
-          );
+          log.info("Invoking llm-scorer", { model: config.model, batchSize: config.batchSize });
 
           const scorerResponse = await lambda.send(
             new InvokeCommand({
@@ -162,7 +164,7 @@ export const handler: ScheduledHandler = async (event) => {
           if (scorerResponse.FunctionError) {
             const errorPayload = JSON.parse(responseStr);
             const msg = `llm-scorer error for ${config.model}: ${errorPayload.errorMessage || "Unknown error"}`;
-            console.error(`[orchestrator] ${msg}`);
+            log.error("llm-scorer Lambda error", { model: config.model, error: errorPayload.errorMessage });
             results.errors.push(msg);
             results.scoringResults.push({ model: config.model, scored: 0, errors: 1 });
             continue;
@@ -175,26 +177,28 @@ export const handler: ScheduledHandler = async (event) => {
             errors: scorerResult.errors,
           });
 
-          console.log(
-            `[orchestrator] llm-scorer completed for ${config.model}: ${scorerResult.scored} scored, ${scorerResult.errors} errors`
-          );
+          log.info("llm-scorer completed", {
+            model: config.model,
+            scored: scorerResult.scored,
+            errors: scorerResult.errors,
+          });
         } catch (err) {
           const msg = `Failed to invoke llm-scorer for ${config.model}: ${err}`;
-          console.error(`[orchestrator] ${msg}`);
+          log.error("Failed to invoke llm-scorer", { model: config.model, error: err });
           results.errors.push(msg);
           results.scoringResults.push({ model: config.model, scored: 0, errors: 1 });
         }
       }
     } else {
-      console.log("[orchestrator] No profiles to score, skipping llm-scorer");
+      log.info("No profiles to score, skipping llm-scorer");
     }
   } catch (error) {
     const msg = `Failed to check profiles_to_score: ${error}`;
-    console.error(`[orchestrator] ${msg}`);
+    log.error("Failed to check profiles_to_score", { error });
     results.errors.push(msg);
   }
 
-  console.log("[orchestrator] Completed:", JSON.stringify(results, null, 2));
+  log.info("Pipeline orchestration completed", results);
 
   return results;
 };

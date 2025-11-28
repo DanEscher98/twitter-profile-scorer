@@ -2,15 +2,11 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import fs from "fs";
 import path from "path";
+import { createLogger } from "@profile-scorer/logger";
 
 import * as schema from "./schema";
 
-// Simple logger for DB client (no external deps)
-const log = {
-  info: (msg: string, meta?: object) => console.log(JSON.stringify({ level: "info", service: "db-client", message: msg, ...meta })),
-  warn: (msg: string, meta?: object) => console.warn(JSON.stringify({ level: "warn", service: "db-client", message: msg, ...meta })),
-  error: (msg: string, meta?: object) => console.error(JSON.stringify({ level: "error", service: "db-client", message: msg, ...meta })),
-};
+const log = createLogger("db-client");
 
 let pool: Pool | null = null;
 

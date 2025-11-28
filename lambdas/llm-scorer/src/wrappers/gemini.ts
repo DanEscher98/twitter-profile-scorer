@@ -1,19 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ProfileToScore } from "@profile-scorer/db";
+import { createLogger } from "@profile-scorer/logger";
 import { ScoreResult } from "../handler";
 import { SYSTEM_PROMPT, formatProfilesPrompt, parseAndValidateResponse } from "./shared";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
-
-// Simple logger for wrapper (JSON structured logs)
-const log = {
-  info: (msg: string, meta?: object) =>
-    console.log(JSON.stringify({ level: "info", service: "gemini-wrapper", message: msg, ...meta })),
-  warn: (msg: string, meta?: object) =>
-    console.warn(JSON.stringify({ level: "warn", service: "gemini-wrapper", message: msg, ...meta })),
-  error: (msg: string, meta?: object) =>
-    console.error(JSON.stringify({ level: "error", service: "gemini-wrapper", message: msg, ...meta })),
-};
+const log = createLogger("gemini-wrapper");
 
 /**
  * Score profiles using Google Gemini.
