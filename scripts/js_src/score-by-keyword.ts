@@ -20,6 +20,8 @@
  *   with columns: username, bio, has_score, llm_score, reason
  */
 
+import "./env.js"; // Load environment variables from root .env
+
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -66,12 +68,13 @@ function toCsv(profiles: ScoredProfileWithMeta[]): string {
 
 /**
  * Get output filename for CSV
+ * Format: unixtimestamp_keyword_model.csv
  */
 function getOutputFilename(keyword: string, model: string): string {
   const timestamp = Math.floor(Date.now() / 1000);
   // Sanitize keyword for filename (replace @ and other special chars)
   const safeKeyword = keyword.replace(/[^a-zA-Z0-9-_]/g, "_");
-  return `${safeKeyword}-${model}-${timestamp}.csv`;
+  return `${timestamp}_${safeKeyword}_${model}.csv`;
 }
 
 async function main() {

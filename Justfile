@@ -144,3 +144,20 @@ py-script path:
 # Run a SQL migration file (e.g., just db-migrate packages/db/migrations/populate_semantic_tags.sql)
 db-migrate path:
     psql "$DATABASE_URL" -f {{path}}
+
+# ============================================================================
+# LLM Scoring Scripts
+# ============================================================================
+
+# Score all pending profiles with a specific model (parallel batches)
+# Usage: just score-all <model> [batch-size] [threshold] [concurrency]
+# Example: just score-all claude-haiku-4-5-20251001
+# Example: just score-all claude-opus-4-5-20251101 10 0.55 5
+score-all model batch_size="25" threshold="0.55" concurrency="10":
+    yarn workspace @profile-scorer/scripts score-all {{model}} --batch-size={{batch_size}} --threshold={{threshold}} --concurrency={{concurrency}}
+
+# Score profiles by keyword with a specific model
+# Usage: just score-keyword <keyword> <model>
+# Example: just score-keyword epidemiologist claude-haiku-4-5-20251001
+score-keyword keyword model:
+    yarn workspace @profile-scorer/scripts score-keyword {{keyword}} {{model}}

@@ -1,109 +1,110 @@
 /**
- * Shared logger for AWS Lambda CloudWatch
+ * Shared logger using Winston
  *
- * Outputs structured JSON logs optimized for CloudWatch:
- * - No timestamps (CloudWatch adds them automatically)
- * - No ANSI color codes (not rendered in CloudWatch console)
- * - Flat JSON structure for CloudWatch Insights queries
+ * Supports two modes controlled by APP_MODE environment variable:
+ * - Local (default): Colorized, human-readable output
+ * - Production (APP_MODE=production): JSON format optimized for CloudWatch
+ *
+ * Log level controlled by LOG_LEVEL environment variable:
+ * - debug, info, warn, error, silent (default: info)
+ * - "silent" disables all logging (checked at runtime, can be set after import)
  *
  * Usage:
  *   import { createLogger } from "@profile-scorer/utils";
  *   const log = createLogger("my-service");
  *   log.info("message", { key: "value" });
  *
- * Output in CloudWatch:
- *   {"level":"info","service":"my-service","message":"message","key":"value"}
+ * Local output:
+ *   [info] message { "key": "value" }
+ *
+ * Production output (CloudWatch):
+ *   {"severity":"info","message":"message","service":"my-service","key":"value"}
  */
 
-export type LogLevel = "debug" | "info" | "warn" | "error";
+import winston from "winston";
 
-export interface LogMeta {
-  [key: string]: unknown;
+/**
+ * Check if logging is disabled (checked at runtime on each log call)
+ */
+function isSilent(): boolean {
+  return process.env.LOG_LEVEL?.toLowerCase() === "silent";
 }
 
-export interface Logger {
-  debug: (message: string, meta?: LogMeta) => void;
-  info: (message: string, meta?: LogMeta) => void;
-  warn: (message: string, meta?: LogMeta) => void;
-  error: (message: string, meta?: LogMeta) => void;
+/**
+ * Check if running in production mode (AWS Lambda)
+ */
+function isProduction(): boolean {
+  return process.env.APP_MODE === "production";
 }
 
-const LOG_LEVELS: Record<LogLevel, number> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-};
-
-function getConfiguredLevel(): LogLevel {
-  const env = process.env.LOG_LEVEL?.toLowerCase();
-  if (env && env in LOG_LEVELS) {
-    return env as LogLevel;
+/**
+ * Custom format that checks LOG_LEVEL=silent at runtime
+ */
+const silentFilter = winston.format((info) => {
+  // Check silent mode on EVERY log call (runtime check)
+  if (isSilent()) {
+    return false; // Suppress the log
   }
-  return "info";
-}
+  return info;
+});
 
-function shouldLog(level: LogLevel): boolean {
-  const configuredLevel = getConfiguredLevel();
-  return LOG_LEVELS[level] >= LOG_LEVELS[configuredLevel];
-}
-
-function formatLog(level: LogLevel, service: string, message: string, meta?: LogMeta): string {
-  const entry: Record<string, unknown> = {
-    level,
-    service,
-    message,
-  };
-
-  if (meta) {
-    // Flatten meta into the log entry
-    for (const [key, value] of Object.entries(meta)) {
-      // Handle Error objects specially
-      if (value instanceof Error) {
-        entry[key] = {
-          name: value.name,
-          message: value.message,
-          stack: value.stack,
-        };
-      } else {
-        entry[key] = value;
-      }
-    }
-  }
-
-  return JSON.stringify(entry);
-}
+/**
+ * Cache for logger instances by service name
+ */
+const loggerCache = new Map<string, winston.Logger>();
 
 /**
  * Create a logger instance for a specific service
  *
  * @param service - Service name to include in all log entries
- * @returns Logger instance with debug, info, warn, error methods
+ * @returns Winston logger instance
  */
-export function createLogger(service: string): Logger {
-  return {
-    debug: (message: string, meta?: LogMeta) => {
-      if (shouldLog("debug")) {
-        console.log(formatLog("debug", service, message, meta));
-      }
-    },
-    info: (message: string, meta?: LogMeta) => {
-      if (shouldLog("info")) {
-        console.log(formatLog("info", service, message, meta));
-      }
-    },
-    warn: (message: string, meta?: LogMeta) => {
-      if (shouldLog("warn")) {
-        console.warn(formatLog("warn", service, message, meta));
-      }
-    },
-    error: (message: string, meta?: LogMeta) => {
-      if (shouldLog("error")) {
-        console.error(formatLog("error", service, message, meta));
-      }
-    },
-  };
+export function createLogger(service: string): winston.Logger {
+  // Return cached logger if exists
+  if (loggerCache.has(service)) {
+    return loggerCache.get(service)!;
+  }
+
+  const consoleTransport = new winston.transports.Console({
+    level: "debug", // Allow all levels, filtering done by silentFilter
+    format: winston.format.combine(
+      silentFilter(), // Runtime check for LOG_LEVEL=silent
+      ...(isProduction()
+        ? [
+            // Production: no color, structured JSON logs for CloudWatch
+            winston.format.printf(({ level, message, ...meta }) => {
+              return JSON.stringify({
+                severity: level,
+                message,
+                service,
+                ...meta,
+              });
+            }),
+          ]
+        : [
+            // Local: colorized, human-readable
+            winston.format.colorize(),
+            winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+            winston.format.printf(({ level, message, ...meta }) => {
+              delete meta.timestamp;
+              return `[${level}] ${message} ${
+                Object.keys(meta).length ? JSON.stringify(meta, null, 2) : ""
+              }`;
+            }),
+          ])
+    ),
+  });
+
+  const logger = winston.createLogger({
+    level: "debug", // Allow all levels through, silentFilter handles suppression
+    defaultMeta: { service },
+    transports: [consoleTransport],
+  });
+
+  loggerCache.set(service, logger);
+  return logger;
 }
 
-// Default export for convenience
+// Re-export winston types for convenience
+export type { Logger } from "winston";
 export default createLogger;
