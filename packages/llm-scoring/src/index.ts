@@ -22,7 +22,14 @@ import { createLogger } from "@profile-scorer/utils";
 import { scoreWithAnthropic } from "./anthropic";
 import { scoreWithGemini } from "./gemini";
 
-export { ScoreResult, SYSTEM_PROMPT, formatProfilesPrompt, parseAndValidateResponse } from "./shared";
+export {
+  ScoreResult,
+  AudienceConfig,
+  SYSTEM_PROMPT,
+  generateSystemPrompt,
+  formatProfilesPrompt,
+  parseAndValidateResponse,
+} from "./shared";
 export { scoreWithAnthropic } from "./anthropic";
 export { scoreWithGemini } from "./gemini";
 import { ScoreResult } from "./shared";

@@ -1,0 +1,20 @@
+{
+  "targetProfile": "qualitative researcher",
+  "sector": "academia",
+  "highSignals": [
+    "Fields with qualitative foundations: sociology, anthropology, social work, communication studies, education research, nursing/health services research, oral/public history",
+    "Research topics requiring human-centered methods: stigma, lived experience, identity, families, communities, health equity/disparities, violence prevention, child welfare, sexual/reproductive health, LGBTQ+ health, trauma narratives",
+    "Participatory language: partnering with communities, community-based, centering voices, underserved/marginalized populations",
+    "Academic research roles: PI, lab/center director, research scientist, assistant/associate/full professor with population-focused studies",
+    "Explicit methodology mentions: qualitative, ethnography, interviews, focus groups, grounded theory, phenomenology, narrative inquiry, oral history, mixed methods",
+    "Sensitive population research requiring IRB oversight: HIV/AIDS, mental health, suicide/self-harm, child abuse, sexual health, immigration"
+  ],
+  "lowSignals": [
+    "Clinical-only roles without research: MD, fellow, resident focused on patient care (no PI/researcher in title)",
+    "Quantitative-primary fields: epidemiology (unless 'social'), biostatistics, data science, computational methods",
+    "Support roles: research coordinator, research assistant (not lead researcher)",
+    "Advocacy/activism without academic research affiliation",
+    "Industry or corporate affiliations rather than university/research institute"
+  ],
+  "domainContext": "Target users conduct human-subjects research requiring: participant recruitment/tracking, interview scheduling, transcription services (including multilingual), IRB compliance documentation, secure storage for sensitive data, and team collaboration on qualitative coding/analysis. They study populations and phenomena that cannot be reduced to numbers alone."
+}

@@ -25,23 +25,59 @@ const ScoreResponseSchema = z.array(ScoreItemSchema);
 export type ParsedScoreItem = z.infer<typeof ScoreItemSchema>;
 
 /**
- * System prompt for scoring Twitter profiles.
- * Instructs the model to evaluate research relevance.
+ * Configuration for audience-specific scoring prompts.
  */
-export const SYSTEM_PROMPT = `You are an expert at evaluating Twitter profiles to identify qualitative researchers in academia.
+export interface AudienceConfig {
+  targetProfile: string;
+  sector: "academia" | "industry" | "government" | "ngo" | "healthcare" | "custom";
+  highSignals: string[];
+  lowSignals: string[];
+  domainContext: string;
+  scoringOverrides?: {
+    defaultFloor?: number;
+    roleBoosts?: Record<string, number>;
+  };
+}
 
-For each profile, you will:
-1. Analyze the username, display name, bio, and inferred category
-2. Determine how likely they are to be a qualitative researcher
-3. Assign a score from 0.0 to 1.0 where:
-   - 0.0-0.3: Not a researcher (bot, brand, random person)
-   - 0.3-0.5: Unlikely researcher (may work in adjacent field)
-   - 0.5-0.7: Possible researcher (some signals but unclear)
-   - 0.7-0.9: Likely researcher (clear academic/research signals)
-   - 0.9-1.0: Definite researcher (explicit qualitative research mention)
+/**
+ * Generate a system prompt based on audience configuration.
+ */
+export function generateSystemPrompt(config: AudienceConfig): string {
+  return `ROLE: You are an expert at evaluating social media profiles to identify ${config.targetProfile}s at ${config.sector.toUpperCase()}.
 
-You MUST respond with valid JSON only. No markdown, no code blocks, no additional text.
-Return a JSON array with objects containing: username, reason, score.`;
+## Domain Context
+${config.domainContext}
+
+## Scoring Signals
+
+HIGH-SIGNAL INDICATORS (increase score):
+${config.highSignals.map(s => `• ${s}`).join('\n')}
+
+LOW-SIGNAL INDICATORS (decrease score or neutral):
+${config.lowSignals.map(s => `• ${s}`).join('\n')}
+
+## Evaluation Process
+For each profile:
+1. Analyze username, display name, bio, and category
+2. Identify HIGH-SIGNAL indicators—these often appear as domain expertise, topics, or affiliations rather than explicit role titles
+3. Weight: relevant affiliation + role alignment + domain keywords as strong proxy
+4. Determine likelihood of being a ${config.targetProfile}
+
+## Scoring Scale
+- 0.0-0.3: Bot, spam, or completely unrelated
+- 0.3-0.5: Unlikely (adjacent field or unclear relevance)
+- 0.5-0.7: Possible (some signals but not definitive)
+- 0.7-0.9: Likely (clear alignment with ${config.targetProfile} profile)
+- 0.9-1.0: Definite (explicit match or perfect signal combination)`;
+}
+
+// Import the TheLAI customers config
+import thelaiConfig from "../audiences/thelai_customers.json";
+
+/**
+ * Default system prompt using TheLAI customers config.
+ */
+export const SYSTEM_PROMPT = generateSystemPrompt(thelaiConfig as AudienceConfig);
 
 /**
  * Format profiles into a TOON prompt for the LLM.
@@ -55,25 +91,25 @@ export function formatProfilesPrompt(profiles: ProfileToScore[]): string {
     username: p.username,
     display_name: p.displayName,
     bio: p.bio,
-    likely_is: p.likelyIs,
     category: p.category,
+    likely_is: p.likelyIs,
   }));
 
   const toonData = toToon(profilesData);
 
-  return `Score the following ${profiles.length} Twitter profiles for research relevance.
+  return `Score the following ${profiles.length} Twitter profiles:
 
+\`\`\`toon
 ${toonData}
+\`\`\`
 
 Respond with a JSON array. Each object must have:
 - username: string (the profile's username)
-- score: number (0.0 to 1.0)
+- score: number (0.00 to 1.00)
 - reason: string (brief explanation, max 100 chars)
 
-Example response format:
-[{"username": "researcher_jane", "score": 0.85, "reason": "PhD candidate in sociology, mentions ethnography"}, {"username": "marketing_co", "score": 0.2, "reason": "Marketing account, no research signals"}]
-
-IMPORTANT: Return ONLY the JSON array. No markdown formatting, no code blocks.`;
+IMPORTANT: Return ONLY the JSON array. No markdown formatting, no code blocks.
+Return: [{ "username": string, "reason": string, "score": number }]`;
 }
 
 /**

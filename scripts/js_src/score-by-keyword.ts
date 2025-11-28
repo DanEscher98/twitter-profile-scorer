@@ -68,10 +68,10 @@ function toCsv(profiles: ScoredProfileWithMeta[]): string {
  * Get output filename for CSV
  */
 function getOutputFilename(keyword: string, model: string): string {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const timestamp = Math.floor(Date.now() / 1000);
   // Sanitize keyword for filename (replace @ and other special chars)
   const safeKeyword = keyword.replace(/[^a-zA-Z0-9-_]/g, "_");
-  return `${safeKeyword}-${model}-${date}.csv`;
+  return `${safeKeyword}-${model}-${timestamp}.csv`;
 }
 
 async function main() {
