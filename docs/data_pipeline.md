@@ -43,9 +43,9 @@ flowchart TB
 ```mermaid
 erDiagram
     user_profiles ||--o{ profile_scores : has
-    user_profiles ||--|| user_stats : has
+    user_profiles ||--o| user_stats : has
     user_profiles ||--o{ user_keywords : has
-    user_profiles |o--o| profiles_to_score : queued_in
+    user_profiles ||--o| profiles_to_score : queued_in
     xapi_usage_search ||--o{ user_keywords : generates
 
     user_profiles {
@@ -74,7 +74,7 @@ erDiagram
     }
 
     user_stats {
-        varchar twitter_id PK_FK
+        varchar twitter_id PK,FK
         integer followers
         integer following
         integer statuses
@@ -92,7 +92,7 @@ erDiagram
 
     profiles_to_score {
         uuid id PK
-        varchar twitter_id FK_UK
+        varchar twitter_id FK,UK
         varchar username
         timestamp added_at
     }
