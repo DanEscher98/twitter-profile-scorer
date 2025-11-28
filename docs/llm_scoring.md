@@ -106,33 +106,32 @@ The final score combines HAS (heuristic) with LLM score. Several combination str
 
 ### Strategy 1: Weighted Average
 
-$$
-S_{final} = \alpha \cdot S_{HAS} + (1 - \alpha) \cdot S_{LLM}
-$$
+```
+S_final = α × S_HAS + (1 - α) × S_LLM
+```
 
-Where $\alpha = 0.3$ (weight HAS less since LLM is more accurate for relevance).
+Where α = 0.3 (weight HAS less since LLM is more accurate for relevance).
 
 ### Strategy 2: Multiplicative
 
-$$
-S_{final} = S_{HAS} \cdot S_{LLM}
-$$
+```
+S_final = S_HAS × S_LLM
+```
 
 Penalizes profiles that score low on either metric.
 
 ### Strategy 3: Gated
 
-$$
-S_{final} = \begin{cases}
-S_{LLM} & \text{if } S_{HAS} \geq 0.55 \\
-S_{LLM} \cdot S_{HAS} & \text{if } 0.40 \leq S_{HAS} < 0.55 \\
-0 & \text{if } S_{HAS} < 0.40
-\end{cases}
-$$
+```
+S_final =
+  S_LLM                 if S_HAS >= 0.55
+  S_LLM × S_HAS         if 0.40 <= S_HAS < 0.55
+  0                     if S_HAS < 0.40
+```
 
 Use HAS as a gate/penalty only.
 
-### Recommended: Strategy 1 with $\alpha = 0.3$
+### Recommended: Strategy 1 with α = 0.3
 
 ```sql
 -- Final ranking query
