@@ -193,7 +193,7 @@ For inference, consider serverless:
 
 ```mermaid
 flowchart LR
-    SQS[scoring-queue] --> Lambda[Lambda 10GB]
+    OR[orchestrator] -->|invoke| Lambda[Lambda 10GB]
     Lambda --> EFS[(EFS: model.gguf)]
     Lambda --> llama[llama.cpp]
 ```

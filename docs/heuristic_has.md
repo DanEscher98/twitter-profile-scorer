@@ -2,40 +2,19 @@
 
 ## Overview
 
-This document presents a hybrid approach combining the multi-class classification from Document 1 with the elegant mathematical normalizations from Proposal 1, using **only numeric and boolean fields**.
+This document presents a hybrid approach combining multi-class classification with elegant mathematical normalizations, using **only numeric and boolean fields**.
+
+> **Note:** For implementation details and configurable weights, see the `@profile-scorer/has-scorer` package and its [README](../packages/has-scorer/README.md).
 
 ---
 
-## Analysis of Source Proposals
-
-### Document 1 Strengths
-- Multi-class output (Person, Creator, Entity, Bot, Other)
-- Comprehensive derived ratios: engagement, media, list credibility
-- Separate scoring functions allow nuanced classification
-
-### Document 1 Weaknesses
-- Hard indicator functions $\mathbb{1}_{[\cdot]}$ create discontinuous boundaries
-- Magic thresholds (e.g., 50 tweets/day, 10k followers) lack smooth degradation
-
-### Proposal 1 Strengths
-- Smooth normalizations: $\log$, $\tanh$, exponential decay
-- Clamped ratios handle extreme values gracefully
-- Multiplicative penalty system for red flags
-
-### Proposal 1 Weaknesses
-- Single score loses multi-class information
-- Uses `bio_length` and `location` which require string analysis
-
----
-
-## Hybrid Approach
-
-### Design Principles
+## Design Principles
 
 1. **Smooth transitions** using continuous functions instead of hard thresholds
 2. **Multi-class output** to distinguish Person, Creator, Entity, Bot
 3. **Numeric/boolean only** - no keyword or string analysis
 4. **Penalty modifiers** for clear red flags
+5. **Conservative scoring** - better to reject humans than accept bots
 
 ---
 
@@ -43,38 +22,38 @@ This document presents a hybrid approach combining the multi-class classificatio
 
 ### 1. Follower-Following Ratio (Clamped Log)
 
-$$
-R_{ff} = \text{clamp}\left( \log_{10}\left(\frac{\text{followers\_count} + 1}{\text{friends\_count} + 1}\right), -2, 3 \right)
-$$
+```
+R_ff = clamp(log₁₀((followers + 1) / (following + 1)), -2, 3)
+```
 
 **Normalized to [0,1]:**
-$$
-\hat{R}_{ff} = \frac{R_{ff} + 2}{5}
-$$
+```
+R_ff_norm = (R_ff + 2) / 5
+```
 
-| $R_{ff}$ | Interpretation |
-|----------|----------------|
-| $\approx 0$ | Balanced (typical human) |
-| $< -1$ | Follows many, few followers (spam pattern) |
-| $> 2$ | Celebrity/Entity/Potential bot |
+| R_ff Value | Interpretation |
+|------------|----------------|
+| ≈ 0 | Balanced (typical human) |
+| < -1 | Follows many, few followers (spam pattern) |
+| > 2 | Celebrity/Entity/Potential bot |
 
 ---
 
 ### 2. Engagement Ratio
 
-$$
-R_{eng} = \min\left(1, \frac{\text{favourites\_count}}{\text{statuses\_count} + 1}\right)
-$$
+```
+R_eng = min(1, favorites / (statuses + 1))
+```
 
-Real users like tweets relative to posting. Bots rarely engage. Values $> 0.5$ strongly indicate human behavior.
+Real users like tweets relative to posting. Bots rarely engage. Values > 0.5 strongly indicate human behavior.
 
 ---
 
 ### 3. Account Age (Exponential Decay)
 
-$$
-A_{age} = 1 - e^{-\frac{\text{days\_since\_creation}}{365}}
-$$
+```
+A_age = 1 - e^(-days / 365)
+```
 
 Smoothly rewards older accounts:
 - 1 year → 0.63
@@ -83,31 +62,23 @@ Smoothly rewards older accounts:
 
 ---
 
-### 4. Activity Rate (Normalized)
+### 4. Activity Rate
 
-$$
-A_{activity} = \frac{\text{statuses\_count}}{\text{days\_since\_creation} + 1}
-$$
+```
+A_activity = statuses / (days + 1)
+```
 
-**Activity Score** (penalizes extremes):
-$$
-S_{activity} = \begin{cases}
-\frac{A_{activity}}{5} & \text{if } A_{activity} \leq 5 \\
-1 - \frac{\min(A_{activity}, 100) - 5}{95} \cdot 0.5 & \text{if } A_{activity} > 5
-\end{cases}
-$$
-
-Normal: 0.5-10 tweets/day. Suspicious: $>50$/day (bot) or $<0.01$ (dormant).
+Normal: 0.5-10 tweets/day. Suspicious: >50/day (bot) or <0.01 (dormant).
 
 ---
 
 ### 5. List Credibility (Tanh Normalized)
 
-$$
-R_{list} = \tanh\left(\frac{\text{listed\_count}}{50}\right)
-$$
+```
+R_list = tanh(listed / 50)
+```
 
-Being added to lists indicates human curation. Uses $\tanh$ for smooth saturation:
+Being added to lists indicates human curation:
 - 10 lists → 0.20
 - 50 lists → 0.76
 - 100+ lists → 0.96
@@ -116,29 +87,29 @@ Being added to lists indicates human curation. Uses $\tanh$ for smooth saturatio
 
 ### 6. Media Ratio
 
-$$
-R_{media} = \min\left(1, \frac{\text{media\_count}}{\text{statuses\_count} + 1}\right)
-$$
+```
+R_media = min(1, media / (statuses + 1))
+```
 
-Proportion of tweets with media. Creators typically $>0.3$.
+Proportion of tweets with media. Creators typically > 0.3.
 
 ---
 
 ### 7. Profile Customization Score
 
-$$
-P_{custom} = \frac{(1 - \text{default\_profile}) + (1 - \text{default\_profile\_image})}{2}
-$$
+```
+P_custom = ((1 - default_profile) + (1 - default_profile_image)) / 2
+```
 
-Binary: 0, 0.5, or 1. Penalizes default profiles/images.
+Values: 0, 0.5, or 1. Penalizes default profiles/images.
 
 ---
 
 ### 8. Content Safety
 
-$$
-P_{safe} = 1 - 0.3 \cdot \text{possibly\_sensitive}
-$$
+```
+P_safe = 1 - 0.3 × possibly_sensitive
+```
 
 Small penalty for NSFW-flagged accounts.
 
@@ -146,11 +117,11 @@ Small penalty for NSFW-flagged accounts.
 
 ### 9. Verification Bonus
 
-$$
-P_{verified} = 0.15 \cdot \text{is\_blue\_verified}
-$$
+```
+P_verified = is_blue_verified ? 1 : 0
+```
 
-Small bonus for verified accounts (blue check).
+Used in verification bonus calculation for high-scoring profiles.
 
 ---
 
@@ -158,78 +129,88 @@ Small bonus for verified accounts (blue check).
 
 ### Sigmoid Helper
 
-$$
-\sigma(x) = \frac{1}{1 + e^{-x}}
-$$
+```
+σ(x) = 1 / (1 + e^(-x))
+```
 
 ---
 
 ### Bot Score
 
-$$
-S_{bot} = \sigma\left( -3 + 3 \cdot S_{hyperactive} + 2 \cdot S_{no\_engage} + 1.5 \cdot S_{unbalanced} + 1.5 \cdot (1 - P_{custom}) + 1 \cdot S_{new} \right)
-$$
+```
+S_bot = σ(-3 + 3×S_hyperactive + 2×S_no_engage + 1.5×S_unbalanced + 1.5×(1-P_custom) + S_new)
+```
 
-Where (using smooth approximations):
-$$
-S_{hyperactive} = \sigma(0.1 \cdot (A_{activity} - 50))
-$$
-$$
-S_{no\_engage} = \sigma(5 \cdot (0.1 - R_{eng}))
-$$
-$$
-S_{unbalanced} = \sigma(5 \cdot (-1.5 - R_{ff}))
-$$
-$$
-S_{new} = \sigma(10 \cdot (0.1 - A_{age}))
-$$
+Where:
+```
+S_hyperactive = σ(0.1 × (A_activity - 50))
+S_no_engage = σ(5 × (0.1 - R_eng))
+S_unbalanced = σ(5 × (-1.5 - R_ff))
+S_new = σ(10 × (0.1 - A_age))
+```
 
 ---
 
 ### Person Score
 
-$$
-S_{person} = 0.20 \cdot P_{custom} + 0.25 \cdot R_{eng} + 0.15 \cdot A_{age} + 0.10 \cdot P_{safe} + 0.15 \cdot S_{balanced} + 0.15 \cdot S_{normal\_activity}
-$$
+```
+S_person = w_custom×P_custom + w_engaged×S_engaged + w_age×S_age + w_safe×P_safe
+         + w_balanced×S_balanced + w_activity×S_normal_activity + w_established×S_established
+         + w_following×S_moderate_following + w_volume×S_reasonable_volume
+```
 
 Where:
-$$
-S_{balanced} = 1 - 2 \cdot |\ \hat{R}_{ff} - 0.4\ |
-$$
-(Peaks when $R_{ff} \approx 0$, i.e., balanced followers/following)
+```
+S_balanced = bellCurve(R_ff_norm, peak=0.4, width=0.25)
+           = e^(-((R_ff_norm - 0.4) / 0.25)²)
+```
 
-$$
-S_{normal\_activity} = \begin{cases}
-\frac{A_{activity}}{5} & \text{if } A_{activity} \leq 5 \\
-\max(0, 1 - \frac{A_{activity} - 5}{15}) & \text{if } A_{activity} > 5
-\end{cases}
-$$
+Default weights (sum to ~0.83):
+
+| Weight | Value | Description |
+|--------|-------|-------------|
+| w_custom | 0.10 | Profile customization |
+| w_engaged | 0.10 | Engagement behavior |
+| w_age | 0.10 | Account age |
+| w_safe | 0.05 | Content safety |
+| w_balanced | 0.12 | Follower/following balance |
+| w_activity | 0.12 | Normal posting frequency |
+| w_established | 0.08 | Has established following |
+| w_following | 0.08 | Not mass-following |
+| w_volume | 0.08 | Reasonable tweet count |
+
+**Verification Bonus:** Up to +0.08 for verified accounts with base score > 0.7:
+```
+bonus = P_verified × 0.08 × σ(10 × (baseScore - 0.7))
+```
 
 ---
 
 ### Creator Score
 
-$$
-S_{creator} = \sigma\left( -2.5 + 1.5 \cdot \sigma(R_{ff} - 1) + 1.2 \cdot R_{media} + 0.8 \cdot R_{list} + 0.5 \cdot P_{verified} + 0.8 \cdot S_{large\_audience} \right)
-$$
+```
+S_creator = σ(-2.5 + 1.5×S_high_ratio + 1.2×R_media + 0.8×R_list + 0.5×P_verified + 0.8×S_large_audience)
+```
 
 Where:
-$$
-S_{large\_audience} = \sigma(0.0003 \cdot (\text{followers\_count} - 10000))
-$$
+```
+S_high_ratio = σ(R_ff - 1)
+S_large_audience = σ(0.0003 × (followers - 10000))
+```
 
 ---
 
 ### Entity Score
 
-$$
-S_{entity} = \sigma\left( -2.5 + 1.2 \cdot \sigma(R_{ff} - 1.7) + 0.8 \cdot (1 - R_{eng}) + 0.6 \cdot R_{media} + 0.5 \cdot P_{verified} + 0.8 \cdot S_{consistent} \right)
-$$
+```
+S_entity = σ(-2.5 + 1.2×S_very_high_ratio + 0.8×(1-R_eng) + 0.6×R_media + 0.5×P_verified + 0.8×S_consistent)
+```
 
 Where:
-$$
-S_{consistent} = 1 - |\ A_{activity} - 3\ | / 10
-$$
+```
+S_very_high_ratio = σ(R_ff - 1.7)
+S_consistent = e^(-((A_activity - 3) / 5)²)
+```
 (Peaks around 3 tweets/day, typical for organizations)
 
 ---
@@ -238,16 +219,24 @@ $$
 
 Apply multiplicative penalties for clear red flags:
 
-$$
-\text{penalty} = \prod_{i} (1 - p_i)
-$$
+```
+penalty = ∏(penalty_i) for all triggered conditions
+```
 
-| Condition | Penalty $p_i$ |
-|-----------|---------------|
-| `followers_count < 5` | 0.30 |
-| `statuses_count == 0` | 0.50 |
-| `days_since_creation < 30` | 0.20 |
-| `friends_count > 5000` AND `followers_count < 100` | 0.35 |
+| Condition | Penalty |
+|-----------|---------|
+| followers < 10 | 0.60 |
+| followers < 50 | 0.80 |
+| statuses == 0 | 0.40 |
+| statuses < 10 | 0.70 |
+| days < 30 | 0.60 |
+| days < 90 | 0.85 |
+| following > 5000 AND followers < 100 | 0.50 |
+| A_activity > 20 | 0.65 |
+| A_activity > 10 | 0.85 |
+| statuses > 30000 AND followers < statuses/10 | 0.70 |
+| P_custom < 0.5 | 0.75 |
+| R_eng < 0.1 AND A_activity > 5 | 0.70 |
 
 ---
 
@@ -255,32 +244,26 @@ $$
 
 ### Category Selection
 
-$$
-\text{likely\_is} = \arg\max(S_{person}, S_{creator}, S_{entity}, S_{bot})
-$$
+Priority order (highest to lowest):
 
-With threshold rules:
-1. **Bot**: $S_{bot} > 0.65$
-2. **Entity**: $S_{entity} > 0.55$ AND $S_{bot} < 0.5$
-3. **Creator**: $S_{creator} > 0.55$ AND $S_{entity} < 0.5$ AND $S_{bot} < 0.5$
-4. **Person**: $S_{person} > 0.45$ AND above fail
-5. **Other**: None of the above
-
-Tie-breaking priority: Person > Creator > Entity > Bot > Other
+1. **Bot** - if `S_bot > 0.65`
+2. **Entity** - if `S_entity > 0.55` AND `S_bot < 0.5`
+3. **Creator** - if `S_creator > 0.55` AND `S_entity < 0.5` AND `S_bot < 0.5`
+4. **Human** - if `S_person > 0.55`
+5. **Other** - fallback when no clear classification
 
 ---
 
 ### Final Score (Human Authenticity)
 
-$$
-\text{HAS} = \begin{cases}
-S_{person} \cdot \text{penalty} & \text{if likely\_is} = \text{Person} \\
-S_{creator} \cdot \text{penalty} & \text{if likely\_is} = \text{Creator} \\
-(1 - S_{entity}) \cdot \text{penalty} & \text{if likely\_is} = \text{Entity} \\
-(1 - S_{bot}) \cdot \text{penalty} & \text{if likely\_is} = \text{Bot} \\
-0.5 \cdot \text{penalty} & \text{otherwise}
-\end{cases}
-$$
+```
+HAS = rawScore × penalty
+
+where rawScore:
+  - Human/Creator: class score (higher = better)
+  - Bot/Entity: 1 - class score (inverted: high bot score = low HAS)
+  - Other: 0.5
+```
 
 ---
 
@@ -288,31 +271,38 @@ $$
 
 | Score Range | Classification | Recommended Action |
 |-------------|----------------|-------------------|
-| 0.00 - 0.25 | Likely Bot/Spam | Discard |
-| 0.25 - 0.45 | Suspicious | Manual review |
+| 0.00 - 0.20 | Likely Bot/Spam | Discard |
+| 0.20 - 0.45 | Suspicious | Manual review |
 | 0.45 - 0.65 | Uncertain | Include with caution |
 | 0.65 - 0.85 | Likely Human | Include |
 | 0.85 - 1.00 | Confident Human | High priority |
 
+**Design Goals:**
+- Most humans: 0.60-0.80
+- Exceptional humans: 0.85-0.92
+- Verified exceptional: Can reach 0.95+
+- Blatant bots: < 0.02
+
 ---
 
-## Rationale Summary
+## Signal Summary
 
 | Signal | Person | Creator | Entity | Bot |
 |--------|--------|---------|--------|-----|
-| $R_{ff}$ (log) | -0.5 to 1 | 1 to 2 | 1.5+ | < -1.5 |
-| $R_{eng}$ | > 0.5 | 0.2 - 1 | < 0.3 | < 0.1 |
-| $A_{activity}$ | 0.5 - 10 | 1 - 20 | 1 - 5 | > 50 |
-| $P_{custom}$ | High | High | High | Low |
-| $A_{age}$ | > 0.63 | Any | > 0.86 | < 0.3 |
-| $R_{list}$ | Low-Med | High | High | Very Low |
+| R_ff (log) | -0.5 to 1 | 1 to 2 | 1.5+ | < -1.5 |
+| R_eng | > 0.3 | 0.2 - 1 | < 0.3 | < 0.1 |
+| A_activity | 0.5 - 5 | 1 - 20 | 1 - 5 | > 50 |
+| P_custom | High | High | High | Low |
+| A_age | > 0.63 | Any | > 0.86 | < 0.3 |
+| R_list | Low-Med | High | High | Very Low |
 
 ---
 
-## Advantages of Hybrid Approach
+## Advantages
 
 1. **Smooth degradation**: Log, tanh, and sigmoid functions avoid harsh cutoffs
 2. **Multi-class output**: Distinguishes Person/Creator/Entity/Bot
 3. **Purely numeric**: No string/keyword analysis required
 4. **Penalty system**: Catches obvious red flags without affecting edge cases
-5. **Interpretable**: Each component has clear meaning
+5. **Conservative**: Weights sum to ~0.83, making high scores rare
+6. **Configurable**: All weights in JSON for easy tuning

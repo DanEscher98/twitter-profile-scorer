@@ -5,7 +5,7 @@ The orchestrator is the heartbeat of the pipeline:
 1. Gets keywords from keyword-engine
 2. Sends keywords to the keywords-queue (triggers query-twitter-api)
 3. Checks profiles_to_score count
-4. Sends scoring jobs to scoring-queue (triggers llm-scorer)
+4. Invokes llm-scorer directly when work exists
 
 Usage:
     uv run pytest tests/e2e/test_orchestrator.py -v --log-level=INFO
@@ -54,9 +54,8 @@ class TestOrchestrator:
 
         # Get queue stats before
         keywords_before = get_queue_stats(sqs_client, infra_config.keywords_queue_url)
-        scoring_before = get_queue_stats(sqs_client, infra_config.scoring_queue_url)
 
-        print_queue_stats([keywords_before, scoring_before])
+        print_queue_stats([keywords_before])
         console.print("[dim]Queue stats before invocation[/dim]")
 
         # Invoke orchestrator
@@ -71,15 +70,14 @@ class TestOrchestrator:
         # Check response structure
         payload = result.payload
         assert "keywordsQueued" in payload, "Response should contain keywordsQueued"
-        assert "scoringJobsQueued" in payload, "Response should contain scoringJobsQueued"
         assert "errors" in payload, "Response should contain errors array"
 
         keywords_queued = payload["keywordsQueued"]
-        scoring_queued = payload["scoringJobsQueued"]
+        scoring_invocations = payload.get("scoringInvocations", 0)
         errors = payload["errors"]
 
         console.print(f"[green]Keywords queued: {keywords_queued}[/green]")
-        console.print(f"[green]Scoring jobs queued: {scoring_queued}[/green]")
+        console.print(f"[green]Scoring invocations: {scoring_invocations}[/green]")
 
         if errors:
             console.print(f"[yellow]Errors: {errors}[/yellow]")
@@ -89,9 +87,8 @@ class TestOrchestrator:
 
         # Get queue stats after
         keywords_after = get_queue_stats(sqs_client, infra_config.keywords_queue_url)
-        scoring_after = get_queue_stats(sqs_client, infra_config.scoring_queue_url)
 
-        print_queue_stats([keywords_after, scoring_after])
+        print_queue_stats([keywords_after])
         console.print("[dim]Queue stats after invocation[/dim]")
 
         # Verify keywords were queued (account for concurrent consumption)

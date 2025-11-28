@@ -1,15 +1,141 @@
 # System Architecture
 
-## AWS Infrastructure
+## Overview
 
-**Region:** us-east-2
+```mermaid
+graph TB
+    subgraph Region["AWS us-east-2"]
+        subgraph Compute
+            OR[orchestrator]
+            KE[keyword-engine]
+            QT[query-twitter-api]
+            LS[llm-scorer]
+        end
 
-**Resource Group:** `profile-scorer-saas` - View all resources in AWS Console → Resource Groups
+        subgraph Storage
+            RDS[(RDS PostgreSQL)]
+        end
+
+        subgraph Messaging
+            EB[EventBridge]
+            SQS_K[SQS: keywords]
+        end
+    end
+
+    subgraph External
+        RapidAPI[RapidAPI TwitterX]
+        Claude[Claude API]
+        Gemini[Gemini API]
+    end
+
+    EB -->|every 15 min| OR
+    OR -->|invoke| KE
+    OR -->|send| SQS_K
+    OR -->|invoke| LS
+    SQS_K -->|trigger| QT
+    QT --> RapidAPI
+    QT --> RDS
+    LS --> Claude
+    LS --> Gemini
+    LS --> RDS
+    KE --> RDS
+```
+
+**Resource Group:** [`profile-scorer-saas`](https://console.aws.amazon.com/resource-groups) - View all resources in AWS Console
 
 **Tags:** All resources are tagged with:
 - `Project: profile-scorer-saas`
 - `Environment: mvp`
 - `ManagedBy: pulumi`
+
+## Data Flow
+
+```mermaid
+sequenceDiagram
+    participant EB as EventBridge
+    participant OR as orchestrator
+    participant KE as keyword-engine
+    participant SQS as SQS: keywords
+    participant QT as query-twitter-api
+    participant LS as llm-scorer
+    participant DB as PostgreSQL
+
+    EB->>OR: Trigger (every 15 min)
+    OR->>KE: Get keyword sample
+    KE->>DB: Analyze xapi_usage_search
+    KE-->>OR: [researcher, phd, pharma, ...]
+
+    loop Each keyword
+        OR->>SQS: Enqueue keyword
+    end
+
+    SQS->>QT: Trigger lambda
+    QT->>DB: Store profiles + HAS scores
+
+    OR->>DB: COUNT profiles_to_score
+    alt pendingCount > 0
+        OR->>LS: Invoke with model param
+        LS->>DB: Fetch batch, store scores
+    end
+```
+
+## Lambda Functions
+
+| Lambda | Memory | Timeout | Subnet | Trigger |
+|--------|--------|---------|--------|---------|
+| orchestrator | 256MB | 30s | Private | EventBridge (15 min) |
+| keyword-engine | 256MB | 30s | Isolated | Direct invocation |
+| query-twitter-api | 256MB | 60s | Private | SQS keywords-queue |
+| llm-scorer | 512MB | 120s | Private | Direct invocation |
+
+### 1. Orchestrator
+
+**Location:** `lambdas/orchestrator/`
+
+Pipeline heartbeat that coordinates all other lambdas:
+- Invokes `keyword-engine` to get keyword list
+- Sends keywords to SQS queue
+- Invokes `llm-scorer` directly when profiles need scoring
+
+### 2. Keyword Engine
+
+**Location:** `lambdas/keyword-engine/`
+
+Selects keywords for Twitter search:
+- Currently returns hardcoded sample
+- (Future) Analyzes `xapi_usage_search` for keyword effectiveness
+
+### 3. Query Twitter API
+
+**Location:** `lambdas/query-twitter-api/`
+
+Fetches and processes Twitter profiles:
+- Calls RapidAPI TwitterX
+- Computes HAS (Human Authenticity Score)
+- Stores to `user_profiles`, `user_stats`, `user_keywords`
+- Queues high-HAS profiles (>0.65) to `profiles_to_score`
+
+```mermaid
+flowchart LR
+    SQS[SQS: keywords] --> QT[query-twitter-api]
+    QT --> API[RapidAPI TwitterX]
+    API --> QT
+    QT --> HAS{HAS > 0.65?}
+    HAS -->|Yes| PTS[(profiles_to_score)]
+    HAS -->|No| Skip[Skip]
+    QT --> DB[(user_profiles)]
+```
+
+### 4. LLM Scorer
+
+**Location:** `lambdas/llm-scorer/`
+
+Evaluates profiles with LLMs:
+- Fetches batch from `profiles_to_score` using `FOR UPDATE SKIP LOCKED`
+- Sends to Claude or Gemini (model specified at invocation)
+- Stores scores in `profile_scores`
+
+## Network Architecture
 
 ```mermaid
 graph TB
@@ -20,274 +146,60 @@ graph TB
         end
 
         subgraph Private["Private Subnets (10.0.10.0/24, 10.0.11.0/24)"]
-            QT[Lambda: query-twitter-api]
-            LS[Lambda: llm-scorer]
-            OR[Lambda: orchestrator]
+            QT[query-twitter-api]
+            LS[llm-scorer]
+            OR[orchestrator]
         end
 
         subgraph Isolated["Isolated Subnets (10.0.20.0/24, 10.0.21.0/24)"]
-            KE[Lambda: keyword-engine]
+            KE[keyword-engine]
         end
     end
 
-    Internet((Internet))
-    RapidAPI[RapidAPI TwitterX]
-    Claude[Claude Haiku]
-    Gemini[Gemini Flash]
-    SQS_K[SQS: keywords-queue]
-
-    Internet --> NAT
+    Internet((Internet)) --> NAT
     NAT --> QT
     NAT --> LS
     NAT --> OR
-    QT --> RapidAPI
-    LS --> Claude
-    LS --> Gemini
-
-    QT --> RDS
-    LS --> RDS
-    KE --> RDS
-    OR --> RDS
-
-    OR -->|invoke| KE
-    OR -->|send| SQS_K
-    OR -->|invoke| LS
-    SQS_K -->|trigger| QT
 ```
 
-## Subnet Layout
-
-| Subnet Type | CIDR | Internet Access | Lambda Functions |
-|-------------|------|-----------------|------------------|
-| Public | 10.0.1.0/24, 10.0.2.0/24 | Direct (IGW) | - |
-| Private | 10.0.10.0/24, 10.0.11.0/24 | Via NAT | orchestrator, query-twitter-api, llm-scorer |
-| Isolated | 10.0.20.0/24, 10.0.21.0/24 | None | keyword-engine |
+| Subnet Type | CIDR | Internet Access | Purpose |
+|-------------|------|-----------------|---------|
+| Public | 10.0.1-2.0/24 | Direct (IGW) | NAT Gateway, RDS (dev) |
+| Private | 10.0.10-11.0/24 | Via NAT | Lambdas needing external APIs |
+| Isolated | 10.0.20-21.0/24 | None | DB-only lambdas |
 
 **Note:** RDS is in public subnets for dev access. Move to isolated subnets for production.
-
-## Lambda Functions
-
-### 1. Orchestrator
-
-**Location:** `lambdas/orchestrator/`
-
-**Subnet:** Private (needs NAT for AWS API calls)
-
-**Trigger:** EventBridge Schedule (every 15 minutes)
-
-**Responsibilities:**
-- Heartbeat for the entire pipeline
-- Query `keyword-engine` for keyword selection
-- Enqueue keywords to SQS for collection
-- Check `profiles_to_score` queue depth
-- Trigger `llm-scorer` when work exists
-
-```mermaid
-sequenceDiagram
-    participant EB as EventBridge
-    participant OR as orchestrator
-    participant KE as keyword-engine
-    participant SQS_K as SQS: keywords
-    participant SQS_S as SQS: scoring
-    participant DB as PostgreSQL
-
-    EB->>OR: Trigger (every 15 min)
-    OR->>KE: Get keyword sample
-    KE->>DB: Analyze xapi_usage_search
-    KE-->>OR: [researcher, phd, pharma, ...]
-
-    loop Each keyword
-        OR->>SQS_K: Enqueue keyword
-    end
-
-    OR->>DB: COUNT profiles_to_score
-    alt pendingCount > 0
-        OR->>LS: Invoke llm-scorer directly
-    end
-```
-
-### 2. Keyword Engine
-
-**Location:** `lambdas/keyword-engine/`
-
-**Subnet:** Isolated (DB access only)
-
-**Trigger:** Invoked by orchestrator
-
-**Responsibilities:**
-- Select promising keywords based on historical success
-- Analyze `xapi_usage_search` for keyword yield rates
-- (Future) Extract keywords from high-scoring profiles
-
-**Initial Implementation:** Return hardcoded sample:
-```typescript
-const SEED_KEYWORDS = ['researcher', 'phd', 'psychiatry', 'neuroscience', 'pharma'];
-```
-
-### 3. Query Twitter API
-
-**Location:** `lambdas/query-twitter-api/`
-
-**Subnet:** Private (internet via NAT)
-
-**Trigger:** SQS `keywords-queue` (batch size = 1)
-
-**Dependencies:** `@profile-scorer/twitterx-api` package
-
-**Responsibilities:**
-- Fetch profiles from RapidAPI TwitterX (via `twitterx-api` wrapper)
-- Compute HAS (Human Authenticity Score) using sigmoid/tanh normalizations
-- Store atomically to `user_profiles`, `user_stats`, `user_keywords`
-- Queue high-HAS profiles (> 0.65) to `profiles_to_score`
-- Track API usage in `xapi_usage_search`
-
-**Key Implementation Details:**
-- Uses `wrappers.processKeyword(keyword)` from `@profile-scorer/twitterx-api`
-- Metadata inserted FIRST to satisfy FK constraint on `user_keywords.search_id`
-- Winston logger for structured JSON logging in CloudWatch
-- RDS SSL certificate bundled for secure DB connections
-
-```mermaid
-flowchart LR
-    SQS[SQS: keywords] --> QT[query-twitter-api]
-    QT --> API[RapidAPI TwitterX]
-    API --> QT
-    QT --> HAS{HAS > 0.65?}
-    HAS -->|Yes| PTS[(profiles_to_score)]
-    HAS -->|No| Skip[Skip scoring queue]
-    QT --> XU[(xapi_usage_search)]
-    XU --> UP[(user_profiles)]
-    UP --> US[(user_stats)]
-    UP --> UK[(user_keywords)]
-```
-
-**Atomic Operation Flow:**
-1. Insert `xapi_usage_search` metadata (generates UUID for FK)
-2. For each user:
-   - Insert/update `user_profiles`
-   - Insert `user_keywords` (references search metadata)
-   - Upsert `user_stats`
-3. Filter profiles with HAS > 0.65
-4. Insert filtered profiles to `profiles_to_score`
-
-### 4. LLM Scorer
-
-**Location:** `lambdas/llm-scorer/`
-
-**Subnet:** Private (internet via NAT)
-
-**Trigger:** Direct invocation by orchestrator (with model parameter)
-
-**Responsibilities:**
-- Fetch batch of 25 profiles from `profiles_to_score`
-- Transform to TOON format
-- Query LLM (Claude Haiku or Gemini Flash)
-- Parse response, store to `profile_scores`
-- Remove scored profiles from queue
 
 ## Message Queues
 
 ```mermaid
 graph LR
-    subgraph Queues
-        KQ[keywords-queue]
-        DLQ_K[keywords-dlq]
-    end
-
-    OR[orchestrator] --> KQ
+    OR[orchestrator] --> KQ[keywords-queue]
     KQ --> QT[query-twitter-api]
-    KQ -.->|after 3 failures| DLQ_K
+    KQ -.->|after 3 failures| DLQ[keywords-dlq]
 ```
-
-**Note:** The scoring queue was removed. The `llm-scorer` is now invoked directly by the orchestrator with a model parameter. The `profiles_to_score` table serves as a persistent queue with atomic claims via `FOR UPDATE SKIP LOCKED`.
-
-### Queue Configuration
 
 | Queue | Visibility Timeout | Max Retries | DLQ Retention |
 |-------|-------------------|-------------|---------------|
-| `keywords-queue` | 60s | 3 | 7 days |
+| keywords-queue | 60s | 3 | 7 days |
 
-### Deployed Queue URLs (dev)
+**Note:** The scoring queue was removed. The `llm-scorer` is now invoked directly by the orchestrator. The `profiles_to_score` table serves as a persistent queue with atomic claims via `FOR UPDATE SKIP LOCKED`.
 
-```
-keywords-queue: https://sqs.us-east-2.amazonaws.com/.../keywords-queue-*
-```
-
-## Rate Limiting Strategy
+## Rate Limiting
 
 ### RapidAPI TwitterX
-
-- **Limit:** 10 requests/second, 500K requests/month
-- **Strategy:** SQS reserved concurrency = 3
-
-With 3 concurrent lambdas, each making sequential API calls:
-- Effective rate: ~3 req/s (safe margin under 10)
-- Monthly capacity: ~7.8M requests (well under 500K limit)
+- **Limit:** 10 req/s, 500K req/month
+- **Strategy:** SQS concurrency = 3 (~3 req/s effective)
 
 ### LLM APIs
-
-- **Claude Haiku:** $0.25/1M input, $1.25/1M output tokens
+- **Claude Haiku:** $0.25/1M input, $1.25/1M output
 - **Gemini Flash:** Free tier
-- **Strategy:** Small batches (25 profiles), TOON format
-
-Estimated cost per 1000 profiles:
-- ~40 batches × ~2K tokens/batch = 80K tokens
-- Cost: ~$0.12 (Claude Haiku)
-
-## Deployment Topology
-
-```mermaid
-graph TB
-    subgraph Region["us-east-1"]
-        subgraph Compute
-            OR[orchestrator]
-            KE[keyword-engine]
-            QT[query-twitter-api]
-            LS[llm-scorer]
-        end
-
-        subgraph Storage
-            RDS[(RDS PostgreSQL)]
-            S3[S3: training-data]
-        end
-
-        subgraph Messaging
-            EB[EventBridge]
-            SQS_K[SQS: keywords]
-            SQS_S[SQS: scoring]
-        end
-
-        subgraph Monitoring
-            CW[CloudWatch]
-            Alarms[Alarms]
-        end
-    end
-
-    EB --> OR
-    OR --> KE
-    OR --> SQS_K
-    OR --> SQS_S
-    SQS_K --> QT
-    SQS_S --> LS
-    QT --> RDS
-    LS --> RDS
-
-    CW --> Alarms
-```
-
-## Resource Specifications
-
-| Lambda | Memory | Timeout | Subnet |
-|--------|--------|---------|--------|
-| orchestrator | 256MB | 30s | Private |
-| keyword-engine | 256MB | 30s | Isolated |
-| query-twitter-api | 256MB | 60s | Private |
-| llm-scorer | 512MB | 120s | Private |
+- **Batch size:** 25 profiles per request
 
 ## Pulumi Stack Outputs
 
 ```bash
-# Database connection
+# Database
 uv run pulumi stack output db_connection_string --show-secrets
 
 # Lambda ARNs
@@ -302,7 +214,7 @@ uv run pulumi stack output keyword_engine_name
 uv run pulumi stack output query_twitter_name
 uv run pulumi stack output llm_scorer_name
 
-# Queue URLs
+# Queues
 uv run pulumi stack output keywords_queue_url
 uv run pulumi stack output keywords_dlq_url
 
@@ -310,18 +222,18 @@ uv run pulumi stack output keywords_dlq_url
 uv run pulumi stack output resource_group_arn
 ```
 
-## Testing the Pipeline
+## Testing
 
 ```bash
-# Manually invoke orchestrator
+# Invoke orchestrator
 aws lambda invoke --function-name $(uv run pulumi stack output orchestrator_name) \
   --payload '{}' /tmp/out.json && cat /tmp/out.json
 
-# Check queue depths
+# Check queue depth
 aws sqs get-queue-attributes \
   --queue-url $(uv run pulumi stack output keywords_queue_url) \
   --attribute-names ApproximateNumberOfMessages
 
-# View lambda logs
+# View logs
 aws logs tail /aws/lambda/$(uv run pulumi stack output orchestrator_name) --since 5m
 ```

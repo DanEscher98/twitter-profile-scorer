@@ -153,34 +153,32 @@ ORDER BY final DESC;
 
 ```typescript
 // lambdas/llm-scorer/src/handler.ts
-import { SQSHandler } from "aws-lambda";
-
-interface ScoringMessage {
+interface ScoringEvent {
   model: string;
-  batchSize: number;
+  batchSize?: number;
 }
 
-export const handler: SQSHandler = async (event) => {
-  for (const record of event.Records) {
-    const { model, batchSize } = JSON.parse(record.body) as ScoringMessage;
+export const handler = async (event: ScoringEvent) => {
+  const { model, batchSize = 25 } = event;
 
-    // 1. Fetch profiles not yet scored by this model
-    const profiles = await fetchProfilesToScore(model, batchSize);
-    if (profiles.length === 0) continue;
+  // 1. Fetch profiles using FOR UPDATE SKIP LOCKED (atomic claim)
+  const profiles = await fetchProfilesToScore(model, batchSize);
+  if (profiles.length === 0) return { scored: 0 };
 
-    // 2. Transform to TOON format
-    const prompt = buildTOONPrompt(profiles);
+  // 2. Transform to TOON format
+  const prompt = buildTOONPrompt(profiles);
 
-    // 3. Query LLM
-    const response = await queryLLM(model, prompt);
+  // 3. Query LLM
+  const response = await queryLLM(model, prompt);
 
-    // 4. Parse and store scores
-    const scores = parseResponse(response);
-    await storeScores(scores, model);
+  // 4. Parse and store scores
+  const scores = parseResponse(response);
+  await storeScores(scores, model);
 
-    // 5. Remove from queue
-    await removeFromQueue(profiles.map(p => p.twitter_id));
-  }
+  // 5. Remove from profiles_to_score
+  await removeFromQueue(profiles.map(p => p.twitter_id));
+
+  return { scored: scores.length };
 };
 ```
 
@@ -192,7 +190,7 @@ flowchart TD
     SUCCESS -->|Yes| PARSE[Parse JSON]
     SUCCESS -->|No| RETRY{Retries < 2?}
     RETRY -->|Yes| QUERY
-    RETRY -->|No| DLQ[Send to DLQ]
+    RETRY -->|No| ERROR[Return error]
 
     PARSE --> VALID{Valid JSON?}
     VALID -->|Yes| STORE[Store scores]
@@ -205,10 +203,10 @@ flowchart TD
 Run multiple models in parallel for comparison:
 
 ```typescript
-// Orchestrator enqueues multiple scoring jobs
+// Orchestrator invokes llm-scorer directly for each model
 const models = ['claude-haiku-20240307', 'gemini-2.0-flash'];
 for (const model of models) {
-  await sqs.send('scoring-queue', { model, batchSize: 25 });
+  await lambda.invoke('llm-scorer', { model, batchSize: 25 });
 }
 ```
 

@@ -31,9 +31,7 @@ class InfraConfig:
     query_twitter_name: str
     llm_scorer_name: str
     keywords_queue_url: str
-    scoring_queue_url: str
     keywords_dlq_url: str
-    scoring_dlq_url: str
 
 
 def get_pulumi_output(key: str, show_secrets: bool = False) -> str:
@@ -67,9 +65,7 @@ def infra_config() -> InfraConfig:
         query_twitter_name=get_pulumi_output("query_twitter_name"),
         llm_scorer_name=get_pulumi_output("llm_scorer_name"),
         keywords_queue_url=get_pulumi_output("keywords_queue_url"),
-        scoring_queue_url=get_pulumi_output("scoring_queue_url"),
         keywords_dlq_url=get_pulumi_output("keywords_dlq_url"),
-        scoring_dlq_url=get_pulumi_output("scoring_dlq_url"),
     )
 
 

@@ -18,10 +18,8 @@ import time
 from tests.helpers import (
     invoke_lambda,
     invoke_lambda_with_sqs_event,
-    get_queue_stats,
     get_lambda_logs,
     print_lambda_result,
-    print_queue_stats,
     print_logs,
     LogLevel,
     console,
@@ -136,42 +134,46 @@ class TestLlmScorer:
 
             console.print(table)
 
-    def test_scoring_queue_triggers_scorer(
+    def test_direct_invocation(
         self,
         lambda_client,
-        sqs_client,
         logs_client,
         db_cursor,
         infra_config,
         request,
     ):
         """
-        Test that messages in the scoring queue trigger the llm-scorer.
+        Test that llm-scorer can be invoked directly with model parameter.
 
-        This verifies the SQS → Lambda integration is working.
+        The llm-scorer is now invoked directly by the orchestrator (no SQS queue).
         """
         log_level_str = request.config.getoption("--log-level", "INFO").upper()
         log_level = LogLevel[log_level_str] if log_level_str in LogLevel.__members__ else LogLevel.INFO
 
-        console.print("\n[bold cyan]Testing scoring queue integration[/bold cyan]")
+        console.print("\n[bold cyan]Testing direct invocation[/bold cyan]")
 
-        # Check queue depth
-        queue_stats = get_queue_stats(sqs_client, infra_config.scoring_queue_url)
-        dlq_stats = get_queue_stats(sqs_client, infra_config.scoring_dlq_url)
+        # Check profiles pending
+        db_cursor.execute("SELECT COUNT(*) FROM profiles_to_score")
+        pending_count = db_cursor.fetchone()[0]
+        console.print(f"Profiles pending: {pending_count}")
 
-        print_queue_stats([queue_stats, dlq_stats])
+        if pending_count == 0:
+            pytest.skip("No profiles to score")
 
-        console.print(f"Scoring queue messages: {queue_stats.total}")
-        console.print(f"Scoring DLQ messages: {dlq_stats.total}")
+        # Invoke with model parameter (like orchestrator does)
+        result = invoke_lambda(
+            lambda_client,
+            infra_config.llm_scorer_name,
+            payload={"model": "gemini-2.0-flash", "batchSize": 5}
+        )
 
-        if dlq_stats.total > 0:
-            console.print("[yellow]Warning: Messages in DLQ - check for scorer failures[/yellow]")
+        print_lambda_result(result, infra_config.llm_scorer_name)
 
         # Get recent scorer logs
         logs = get_lambda_logs(
             logs_client,
             infra_config.llm_scorer_name,
-            since_minutes=10,
+            since_minutes=5,
             level=log_level,
         )
 
