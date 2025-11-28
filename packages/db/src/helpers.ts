@@ -1,7 +1,7 @@
 import { getDb } from "./client";
-import { userProfiles, userKeywords, userStats, profilesToScore, profileScores, xapiSearchUsage } from "./schema";
-import { TwitterProfile, TwitterXapiUser, TwitterXapiMetadata } from "./models"
-import { sql, eq, desc, and, isNull, gt } from "drizzle-orm";
+import { userProfiles, userKeywords, userStats, profilesToScore, profileScores, xapiSearchUsage, keywordStats } from "./schema";
+import { TwitterProfile, TwitterXapiUser, TwitterXapiMetadata, TwitterUserType } from "./models"
+import { sql, eq, desc, and, isNull, gt, asc, min, max, avg, count } from "drizzle-orm";
 import { createLogger } from "@profile-scorer/utils";
 
 const db = getDb()
@@ -31,6 +31,49 @@ export async function profileExists(twitterId: string): Promise<boolean> {
 }
 
 /**
+ * Get a profile by username from the database.
+ *
+ * @param username - Twitter handle (case-insensitive)
+ * @returns Profile if found, null otherwise
+ */
+export async function getProfileByUsername(username: string): Promise<TwitterProfile | null> {
+  const result = await db
+    .select({
+      twitter_id: userProfiles.twitterId,
+      username: userProfiles.username,
+      display_name: userProfiles.displayName,
+      bio: userProfiles.bio,
+      created_at: userProfiles.createdAt,
+      follower_count: userProfiles.followerCount,
+      can_dm: userProfiles.canDm,
+      location: userProfiles.location,
+      category: userProfiles.category,
+      human_score: userProfiles.humanScore,
+      likely_is: userProfiles.likelyIs,
+    })
+    .from(userProfiles)
+    .where(sql`lower(${userProfiles.username}) = lower(${username})`)
+    .limit(1);
+
+  if (result.length === 0) return null;
+
+  const row = result[0]!;
+  return {
+    twitter_id: row.twitter_id,
+    username: row.username,
+    display_name: row.display_name,
+    bio: row.bio,
+    created_at: row.created_at ?? "",
+    follower_count: row.follower_count,
+    can_dm: row.can_dm ?? false,
+    location: row.location,
+    category: row.category,
+    human_score: parseFloat(row.human_score ?? "0"),
+    likely_is: (row.likely_is as TwitterUserType) ?? TwitterUserType.Other,
+  };
+}
+
+/**
  * Upsert a user profile and create keyword association.
  *
  * Database operations:
@@ -45,7 +88,7 @@ export async function profileExists(twitterId: string): Promise<boolean> {
 export async function upsertUserProfile(
   profile: TwitterProfile,
   keyword: string,
-  searchId: string
+  searchId: string | null = null
 ): Promise<number> {
   let isNew = 0;
 
@@ -89,16 +132,18 @@ export async function upsertUserProfile(
     }
   }
 
-  // Step 2: Insert user_keywords with searchId (always insert, onConflictDoNothing for idempotency)
-  try {
-    await db
-      .insert(userKeywords)
-      .values({ twitterId: profile.twitter_id, keyword, searchId })
-      .onConflictDoNothing();
-    log.debug("Inserted user keyword relation", { twitterId: profile.twitter_id, keyword, searchId });
-  } catch (e: any) {
-    log.error("Failed to insert user_keywords", { twitterId: profile.twitter_id, keyword, searchId, error: e.message, code: e.code });
-    throw e;
+  // Step 2: Insert user_keywords with searchId (skip if no searchId - manual fetch)
+  if (searchId) {
+    try {
+      await db
+        .insert(userKeywords)
+        .values({ twitterId: profile.twitter_id, keyword, searchId })
+        .onConflictDoNothing();
+      log.debug("Inserted user keyword relation", { twitterId: profile.twitter_id, keyword, searchId });
+    } catch (e: any) {
+      log.error("Failed to insert user_keywords", { twitterId: profile.twitter_id, keyword, searchId, error: e.message, code: e.code });
+      throw e;
+    }
   }
 
   return isNew;
@@ -148,6 +193,25 @@ export async function keywordLastUsages(keyword: string) {
 }
 
 /**
+ * Get the latest search entry for a keyword.
+ * Returns the most recent page's data including next_page cursor.
+ */
+export async function getKeywordLatestPage(keyword: string) {
+  const result = await db
+    .select({
+      page: xapiSearchUsage.page,
+      nextPage: xapiSearchUsage.nextPage,
+      queryAt: xapiSearchUsage.queryAt,
+    })
+    .from(xapiSearchUsage)
+    .where(eq(xapiSearchUsage.keyword, keyword))
+    .orderBy(desc(xapiSearchUsage.page))
+    .limit(1);
+
+  return result[0] ?? null;
+}
+
+/**
  * Insert search metadata record.
  *
  * IMPORTANT: Must be called BEFORE upsertUserProfile() to satisfy FK constraint.
@@ -181,6 +245,7 @@ export interface ProfileToScore {
   bio: string;
   likelyIs: string;
   category: string;
+  humanScore: number;
 }
 
 /**
@@ -208,6 +273,7 @@ export async function getProfilesToScore(
       bio: userProfiles.bio,
       likelyIs: userProfiles.likelyIs,
       category: userProfiles.category,
+      humanScore: userProfiles.humanScore,
     })
     .from(userProfiles)
     .innerJoin(profilesToScore, eq(profilesToScore.twitterId, userProfiles.twitterId))
@@ -234,6 +300,7 @@ export async function getProfilesToScore(
     bio: row.bio ?? "",
     likelyIs: row.likelyIs ?? "",
     category: row.category ?? "",
+    humanScore: parseFloat(row.humanScore ?? "0"),
   }));
 }
 
@@ -258,4 +325,256 @@ export async function insertProfileScore(
     scoredBy,
   });
   log.debug("Inserted profile score", { twitterId, score: score.toFixed(2), scoredBy });
+}
+
+// ============================================================================
+// Keyword Stats Helpers
+// ============================================================================
+
+export interface KeywordStatsData {
+  keyword: string;
+  semanticTags: string[];
+  profilesFound: number;
+  avgHumanScore: number;
+  avgLlmScore: number;
+  stillValid: boolean;
+  pagesSearched: number;
+  highQualityCount: number;
+  lowQualityCount: number;
+  firstSearchAt: string | null;
+  lastSearchAt: string | null;
+}
+
+/**
+ * Calculate stats for a single keyword by aggregating data from related tables.
+ */
+export async function calculateKeywordStats(keyword: string): Promise<KeywordStatsData> {
+  // Get profile counts and HAS score averages from user_keywords + user_profiles
+  const profileStats = await db
+    .select({
+      profilesFound: count(userKeywords.twitterId),
+      avgHumanScore: avg(userProfiles.humanScore),
+      highQualityCount: sql<number>`count(*) filter (where ${userProfiles.humanScore}::numeric > 0.7)`,
+      lowQualityCount: sql<number>`count(*) filter (where ${userProfiles.humanScore}::numeric < 0.4)`,
+    })
+    .from(userKeywords)
+    .innerJoin(userProfiles, eq(userKeywords.twitterId, userProfiles.twitterId))
+    .where(eq(userKeywords.keyword, keyword));
+
+  // Get average LLM score for profiles found with this keyword
+  const llmStats = await db
+    .select({
+      avgLlmScore: avg(profileScores.score),
+    })
+    .from(userKeywords)
+    .innerJoin(profileScores, eq(userKeywords.twitterId, profileScores.twitterId))
+    .where(eq(userKeywords.keyword, keyword));
+
+  // Get pagination info from xapi_usage_search
+  const searchStats = await db
+    .select({
+      pagesSearched: max(xapiSearchUsage.page),
+      firstSearchAt: min(xapiSearchUsage.queryAt),
+      lastSearchAt: max(xapiSearchUsage.queryAt),
+    })
+    .from(xapiSearchUsage)
+    .where(eq(xapiSearchUsage.keyword, keyword));
+
+  // Check if keyword still has pages (latest page has next_page)
+  const latestPage = await getKeywordLatestPage(keyword);
+  const stillValid = !latestPage || latestPage.nextPage !== null;
+
+  const stats = profileStats[0];
+  const llm = llmStats[0];
+  const search = searchStats[0];
+
+  return {
+    keyword,
+    profilesFound: Number(stats?.profilesFound) || 0,
+    avgHumanScore: parseFloat(stats?.avgHumanScore ?? "0") || 0,
+    avgLlmScore: parseFloat(llm?.avgLlmScore ?? "0") || 0,
+    stillValid,
+    pagesSearched: Number(search?.pagesSearched) || 0,
+    highQualityCount: Number(stats?.highQualityCount) || 0,
+    lowQualityCount: Number(stats?.lowQualityCount) || 0,
+    firstSearchAt: search?.firstSearchAt ?? null,
+    lastSearchAt: search?.lastSearchAt ?? null,
+  };
+}
+
+/**
+ * Upsert keyword stats record.
+ */
+export async function upsertKeywordStats(stats: KeywordStatsData): Promise<void> {
+  await db
+    .insert(keywordStats)
+    .values({
+      keyword: stats.keyword,
+      profilesFound: stats.profilesFound,
+      avgHumanScore: stats.avgHumanScore.toFixed(3),
+      avgLlmScore: stats.avgLlmScore.toFixed(3),
+      stillValid: stats.stillValid,
+      pagesSearched: stats.pagesSearched,
+      highQualityCount: stats.highQualityCount,
+      lowQualityCount: stats.lowQualityCount,
+      firstSearchAt: stats.firstSearchAt,
+      lastSearchAt: stats.lastSearchAt,
+    })
+    .onConflictDoUpdate({
+      target: keywordStats.keyword,
+      set: {
+        profilesFound: stats.profilesFound,
+        avgHumanScore: stats.avgHumanScore.toFixed(3),
+        avgLlmScore: stats.avgLlmScore.toFixed(3),
+        stillValid: stats.stillValid,
+        pagesSearched: stats.pagesSearched,
+        highQualityCount: stats.highQualityCount,
+        lowQualityCount: stats.lowQualityCount,
+        firstSearchAt: stats.firstSearchAt,
+        lastSearchAt: stats.lastSearchAt,
+        updatedAt: sql`now()`,
+      },
+    });
+}
+
+/**
+ * Get all distinct keywords from xapi_usage_search.
+ */
+export async function getAllSearchedKeywords(): Promise<string[]> {
+  const result = await db
+    .selectDistinct({ keyword: xapiSearchUsage.keyword })
+    .from(xapiSearchUsage)
+    .orderBy(asc(xapiSearchUsage.keyword));
+
+  return result.map((r) => r.keyword);
+}
+
+/**
+ * Get valid keywords for selection (still_valid = true).
+ */
+export async function getValidKeywords(): Promise<KeywordStatsData[]> {
+  const result = await db
+    .select()
+    .from(keywordStats)
+    .where(eq(keywordStats.stillValid, true))
+    .orderBy(desc(keywordStats.avgHumanScore));
+
+  return result.map((r) => ({
+    keyword: r.keyword,
+    semanticTags: r.semanticTags ?? [],
+    profilesFound: r.profilesFound,
+    avgHumanScore: parseFloat(r.avgHumanScore ?? "0"),
+    avgLlmScore: parseFloat(r.avgLlmScore ?? "0"),
+    stillValid: r.stillValid,
+    pagesSearched: r.pagesSearched,
+    highQualityCount: r.highQualityCount,
+    lowQualityCount: r.lowQualityCount,
+    firstSearchAt: r.firstSearchAt,
+    lastSearchAt: r.lastSearchAt,
+  }));
+}
+
+/**
+ * Insert a new keyword into keyword_stats (for adding new keywords to the pool).
+ */
+export async function insertKeyword(keyword: string, semanticTags: string[] = []): Promise<void> {
+  await db
+    .insert(keywordStats)
+    .values({
+      keyword,
+      semanticTags,
+      stillValid: true,
+    })
+    .onConflictDoUpdate({
+      target: keywordStats.keyword,
+      set: {
+        semanticTags,
+        updatedAt: sql`now()`,
+      },
+    });
+  log.info("Inserted/updated keyword", { keyword, semanticTags });
+}
+
+/**
+ * Get profiles by keyword that haven't been scored by a specific model.
+ * Used for bulk scoring profiles found via a particular search keyword.
+ *
+ * @param keyword - The search keyword to filter by
+ * @param model - The LLM model name to check against (filters out already-scored)
+ * @param limit - Maximum number of profiles to return
+ * @returns Array of profiles ready for scoring
+ */
+export async function getProfilesByKeyword(
+  keyword: string,
+  model: string,
+  limit: number = 100
+): Promise<ProfileToScore[]> {
+  const rows = await db
+    .select({
+      twitterId: userProfiles.twitterId,
+      username: userProfiles.username,
+      displayName: userProfiles.displayName,
+      bio: userProfiles.bio,
+      likelyIs: userProfiles.likelyIs,
+      category: userProfiles.category,
+      humanScore: userProfiles.humanScore,
+    })
+    .from(userKeywords)
+    .innerJoin(userProfiles, eq(userKeywords.twitterId, userProfiles.twitterId))
+    .leftJoin(
+      profileScores,
+      and(
+        eq(profileScores.twitterId, userProfiles.twitterId),
+        eq(profileScores.scoredBy, model)
+      )
+    )
+    .where(
+      and(
+        eq(userKeywords.keyword, keyword),
+        isNull(profileScores.id)
+      )
+    )
+    .limit(limit);
+
+  return rows.map((row) => ({
+    twitterId: row.twitterId,
+    username: row.username,
+    displayName: row.displayName ?? "",
+    bio: row.bio ?? "",
+    likelyIs: row.likelyIs ?? "",
+    category: row.category ?? "",
+    humanScore: parseFloat(row.humanScore ?? "0"),
+  }));
+}
+
+/**
+ * Count profiles by keyword that haven't been scored by a specific model.
+ *
+ * @param keyword - The search keyword to filter by
+ * @param model - The LLM model name to check against
+ * @returns Count of unscored profiles
+ */
+export async function countUnscoredByKeyword(
+  keyword: string,
+  model: string
+): Promise<number> {
+  const result = await db
+    .select({ count: count() })
+    .from(userKeywords)
+    .innerJoin(userProfiles, eq(userKeywords.twitterId, userProfiles.twitterId))
+    .leftJoin(
+      profileScores,
+      and(
+        eq(profileScores.twitterId, userProfiles.twitterId),
+        eq(profileScores.scoredBy, model)
+      )
+    )
+    .where(
+      and(
+        eq(userKeywords.keyword, keyword),
+        isNull(profileScores.id)
+      )
+    );
+
+  return Number(result[0]?.count ?? 0);
 }

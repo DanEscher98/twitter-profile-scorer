@@ -1,0 +1,23 @@
+{
+  "name": "@profile-scorer/llm-scoring",
+  "version": "1.0.0",
+  "packageManager": "yarn@4.12.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "@google/generative-ai": "^0.21.0",
+    "@profile-scorer/db": "workspace:*",
+    "@profile-scorer/utils": "workspace:*",
+    "@toon-format/toon": "^2.0.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  }
+}

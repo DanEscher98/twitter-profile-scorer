@@ -5,12 +5,18 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "run": "tsx"
+    "run": "tsx",
+    "score-all": "tsx js_src/score-all-pending.ts",
+    "score-keyword": "tsx js_src/score-by-keyword.ts"
   },
   "dependencies": {
     "@profile-scorer/db": "workspace:*",
     "@profile-scorer/has-scorer": "workspace:*",
-    "@profile-scorer/twitterx-api": "workspace:*"
+    "@profile-scorer/llm-scoring": "workspace:*",
+    "@profile-scorer/twitterx-api": "workspace:*",
+    "@types/cli-progress": "^3.11.6",
+    "cli-progress": "^3.12.0",
+    "console-table-printer": "^2.15.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
