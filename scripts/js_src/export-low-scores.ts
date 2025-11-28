@@ -2,13 +2,15 @@
 /**
  * Export low-scoring profiles to CSV with blessed TUI.
  *
- * Gathers profiles with FINAL_SCORE < 0.5 for analysis of
+ * Gathers ALL profiles with FINAL_SCORE < 0.5 for analysis of
  * what the pipeline is correctly rejecting.
  *
  * Final Score Equation:
- *   FINAL_SCORE = 0.2 * HAS + 0.8 * AVG_LLM
+ *   - With LLM scores: FINAL_SCORE = 0.2 * HAS + 0.8 * AVG_LLM
+ *   - Without LLM scores: FINAL_SCORE = HAS (use HAS directly, don't penalize)
  *
- * If no LLM scores exist, uses HAS only (weighted at 0.2).
+ * This avoids over-penalizing profiles that haven't been LLM-scored yet
+ * by NOT multiplying HAS by 0.2 when there's no LLM score to contribute.
  *
  * Usage:
  *   LOG_LEVEL=silent yarn workspace @profile-scorer/scripts run tsx js_src/export-low-scores.ts
@@ -37,7 +39,6 @@ const __dirname = path.dirname(__filename);
 const HAS_WEIGHT = 0.2;
 const LLM_WEIGHT = 0.8;
 const MAX_FINAL_SCORE = 0.5;
-const LIMIT = 100;
 
 interface ProfileData {
   twitterId: string;
@@ -411,31 +412,30 @@ async function main() {
 
     log(`Found ${lowScoreProfiles.length} profiles with score < ${MAX_FINAL_SCORE}`);
 
-    // Sort by final score ascending (lowest first) and take top 100
+    // Sort by final score ascending (lowest first) - export ALL low scores
     lowScoreProfiles.sort((a, b) => a.finalScore - b.finalScore);
-    const exportProfiles = lowScoreProfiles.slice(0, LIMIT);
 
-    stats["Exported"] = exportProfiles.length;
+    stats["Exported"] = lowScoreProfiles.length;
 
     // Calculate stats
     const avgScore =
-      exportProfiles.length > 0
-        ? exportProfiles.reduce((sum, p) => sum + p.finalScore, 0) /
-          exportProfiles.length
+      lowScoreProfiles.length > 0
+        ? lowScoreProfiles.reduce((sum, p) => sum + p.finalScore, 0) /
+          lowScoreProfiles.length
         : 0;
 
-    const withLlm = exportProfiles.filter((p) => p.hasLlmScores).length;
+    const withLlm = lowScoreProfiles.filter((p) => p.hasLlmScores).length;
 
     stats["Avg Low Score"] = avgScore.toFixed(3);
     stats["Processing"] = "Complete!";
     updateStats(stats);
 
-    log(`Exporting ${exportProfiles.length} lowest-scoring profiles`);
-    log(`${withLlm} have LLM scores, ${exportProfiles.length - withLlm} HAS-only`);
-    updateOutput(exportProfiles);
+    log(`Exporting ${lowScoreProfiles.length} low-scoring profiles`);
+    log(`${withLlm} have LLM scores, ${lowScoreProfiles.length - withLlm} HAS-only`);
+    updateOutput(lowScoreProfiles);
 
     // Write CSV
-    if (exportProfiles.length > 0) {
+    if (lowScoreProfiles.length > 0) {
       const timestamp = Math.floor(Date.now() / 1000);
       const outputDir = path.join(__dirname, "..", "output");
       if (!fs.existsSync(outputDir)) {
@@ -444,11 +444,11 @@ async function main() {
 
       const filename = `${timestamp}-lowscores.csv`;
       const outputPath = path.join(outputDir, filename);
-      const csv = toCsv(exportProfiles);
+      const csv = toCsv(lowScoreProfiles);
 
       fs.writeFileSync(outputPath, csv, "utf-8");
       log(`CSV saved to: ${outputPath}`);
-      log(`Total rows: ${exportProfiles.length}`);
+      log(`Total rows: ${lowScoreProfiles.length}`);
     } else {
       log("No low-scoring profiles found. CSV not created.");
     }
