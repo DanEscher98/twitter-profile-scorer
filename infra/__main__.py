@@ -357,6 +357,33 @@ ScheduledLambda(
 )
 
 # =============================================================================
+# Resource Group - Consolidated View in AWS Console
+# =============================================================================
+# Creates an AWS Resource Group that shows all profile-scorer resources
+# in one place. Access via: AWS Console → Resource Groups → profile-scorer
+#
+# This is the AWS equivalent of GCloud projects - a single view of all
+# related services without affecting billing or permissions.
+
+resource_group = aws.resourcegroups.Group(
+    "profile-scorer-resources",
+    name="profile-scorer-saas",
+    description="All resources for the Profile Scorer Twitter analysis pipeline",
+    resource_query={
+        "query": """{
+            "ResourceTypeFilters": ["AWS::AllSupported"],
+            "TagFilters": [
+                {
+                    "Key": "Project",
+                    "Values": ["profile-scorer-saas"]
+                }
+            ]
+        }""",
+        "type": "TAG_FILTERS_1_0",
+    },
+)
+
+# =============================================================================
 # Stack Outputs - Infrastructure References
 # =============================================================================
 # These outputs are used by:
@@ -388,3 +415,6 @@ pulumi.export("orchestrator_name", orchestrator_lambda.function.name)
 # Queue URLs (for sending messages, monitoring)
 pulumi.export("keywords_queue_url", keywords_queue.queue.url)
 pulumi.export("keywords_dlq_url", keywords_queue.dlq.url)
+
+# Resource Group (for consolidated AWS Console view)
+pulumi.export("resource_group_arn", resource_group.arn)

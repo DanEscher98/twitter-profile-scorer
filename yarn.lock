@@ -1483,6 +1483,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@profile-scorer/has-scorer@workspace:*, @profile-scorer/has-scorer@workspace:packages/has-scorer":
+  version: 0.0.0-use.local
+  resolution: "@profile-scorer/has-scorer@workspace:packages/has-scorer"
+  dependencies:
+    "@types/node": "npm:^24.10.1"
+    typescript: "npm:^5.9.3"
+  languageName: unknown
+  linkType: soft
+
 "@profile-scorer/keyword-engine@workspace:lambdas/keyword-engine":
   version: 0.0.0-use.local
   resolution: "@profile-scorer/keyword-engine@workspace:lambdas/keyword-engine"
@@ -1543,6 +1552,7 @@ __metadata:
   resolution: "@profile-scorer/scripts@workspace:scripts"
   dependencies:
     "@profile-scorer/db": "workspace:*"
+    "@profile-scorer/has-scorer": "workspace:*"
     "@profile-scorer/twitterx-api": "workspace:*"
     "@types/node": "npm:^24.10.1"
     ts-node: "npm:^10.9.2"
@@ -1555,6 +1565,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@profile-scorer/twitterx-api@workspace:packages/twitterx-api"
   dependencies:
+    "@profile-scorer/has-scorer": "workspace:*"
     "@types/node": "npm:^24.10.1"
     "@types/uuid": "npm:^11.0.0"
     typescript: "npm:^5.9.3"

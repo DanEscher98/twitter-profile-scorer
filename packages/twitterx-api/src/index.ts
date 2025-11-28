@@ -4,3 +4,4 @@
 export * as wrappers from "./wrappers";
 export * as fetching from "./fetch";
 export { default as logger } from "./logger";
+export { computeHAS, extractFeatures } from "./compute_has";

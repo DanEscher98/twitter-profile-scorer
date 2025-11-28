@@ -1,0 +1,56 @@
+{
+  "personWeights": {
+    "custom": 0.10,
+    "engaged": 0.10,
+    "age": 0.10,
+    "safe": 0.05,
+    "balanced": 0.12,
+    "normalActivity": 0.12,
+    "established": 0.08,
+    "moderateFollowing": 0.08,
+    "reasonableVolume": 0.08
+  },
+  "activityThresholds": {
+    "veryLow": 0.1,
+    "low": 0.5,
+    "optimalMax": 2,
+    "highMax": 4,
+    "veryHighMax": 8
+  },
+  "penaltyThresholds": {
+    "veryFewFollowers": 10,
+    "fewFollowers": 50,
+    "veryFewStatuses": 10,
+    "fewStatuses": 0,
+    "veryNewDays": 30,
+    "newDays": 90,
+    "hyperactiveTweets": 20,
+    "highActivityTweets": 10,
+    "massFollowing": 5000,
+    "highFollowing": 10000,
+    "hugeStatuses": 30000,
+    "veryHighStatuses": 15000,
+    "lowEngagementRate": 0.1,
+    "highActivityForLowEngagement": 5
+  },
+  "classificationThresholds": {
+    "bot": 0.65,
+    "entity": 0.55,
+    "creator": 0.55,
+    "human": 0.55
+  },
+  "penalties": {
+    "veryFewFollowers": 0.60,
+    "fewFollowers": 0.80,
+    "zeroStatuses": 0.40,
+    "veryFewStatuses": 0.70,
+    "veryNewAccount": 0.60,
+    "newAccount": 0.85,
+    "spamPattern": 0.50,
+    "hyperactive": 0.65,
+    "highActivity": 0.85,
+    "highVolumeNoFollowers": 0.70,
+    "defaultProfile": 0.75,
+    "lowEngagementHighActivity": 0.70
+  }
+}

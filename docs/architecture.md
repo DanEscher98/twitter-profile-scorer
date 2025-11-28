@@ -4,6 +4,13 @@
 
 **Region:** us-east-2
 
+**Resource Group:** `profile-scorer-saas` - View all resources in AWS Console → Resource Groups
+
+**Tags:** All resources are tagged with:
+- `Project: profile-scorer-saas`
+- `Environment: mvp`
+- `ManagedBy: pulumi`
+
 ```mermaid
 graph TB
     subgraph VPC["VPC (10.0.0.0/16)"]
@@ -28,7 +35,6 @@ graph TB
     Claude[Claude Haiku]
     Gemini[Gemini Flash]
     SQS_K[SQS: keywords-queue]
-    SQS_S[SQS: scoring-queue]
 
     Internet --> NAT
     NAT --> QT
@@ -45,9 +51,8 @@ graph TB
 
     OR -->|invoke| KE
     OR -->|send| SQS_K
-    OR -->|send| SQS_S
+    OR -->|invoke| LS
     SQS_K -->|trigger| QT
-    SQS_S -->|trigger| LS
 ```
 
 ## Subnet Layout
@@ -97,7 +102,7 @@ sequenceDiagram
 
     OR->>DB: COUNT profiles_to_score
     alt pendingCount > 0
-        OR->>SQS_S: Enqueue scoring job
+        OR->>LS: Invoke llm-scorer directly
     end
 ```
 
@@ -171,7 +176,7 @@ flowchart LR
 
 **Subnet:** Private (internet via NAT)
 
-**Trigger:** SQS `scoring-queue` (batch size = 1)
+**Trigger:** Direct invocation by orchestrator (with model parameter)
 
 **Responsibilities:**
 - Fetch batch of 25 profiles from `profiles_to_score`
@@ -186,31 +191,26 @@ flowchart LR
 graph LR
     subgraph Queues
         KQ[keywords-queue]
-        SQ[scoring-queue]
         DLQ_K[keywords-dlq]
-        DLQ_S[scoring-dlq]
     end
 
     OR[orchestrator] --> KQ
-    OR --> SQ
     KQ --> QT[query-twitter-api]
-    SQ --> LS[llm-scorer]
     KQ -.->|after 3 failures| DLQ_K
-    SQ -.->|after 2 failures| DLQ_S
 ```
+
+**Note:** The scoring queue was removed. The `llm-scorer` is now invoked directly by the orchestrator with a model parameter. The `profiles_to_score` table serves as a persistent queue with atomic claims via `FOR UPDATE SKIP LOCKED`.
 
 ### Queue Configuration
 
 | Queue | Visibility Timeout | Max Retries | DLQ Retention |
 |-------|-------------------|-------------|---------------|
 | `keywords-queue` | 60s | 3 | 7 days |
-| `scoring-queue` | 120s | 2 | 7 days |
 
 ### Deployed Queue URLs (dev)
 
 ```
 keywords-queue: https://sqs.us-east-2.amazonaws.com/.../keywords-queue-*
-scoring-queue:  https://sqs.us-east-2.amazonaws.com/.../scoring-queue-*
 ```
 
 ## Rate Limiting Strategy
@@ -304,9 +304,10 @@ uv run pulumi stack output llm_scorer_name
 
 # Queue URLs
 uv run pulumi stack output keywords_queue_url
-uv run pulumi stack output scoring_queue_url
 uv run pulumi stack output keywords_dlq_url
-uv run pulumi stack output scoring_dlq_url
+
+# Resource Group
+uv run pulumi stack output resource_group_arn
 ```
 
 ## Testing the Pipeline
