@@ -76,17 +76,17 @@ PROFILES:
 
 ## Model Configuration
 
-### Claude Haiku
+### Claude Haiku 4.5
 
 ```typescript
 const CLAUDE_CONFIG = {
-  model: "claude-3-haiku-20240307",
+  model: "claude-haiku-4-5-20251001",
   max_tokens: 2048,
   temperature: 0.1,  // Low for consistency
 };
 ```
 
-**Cost estimate:** ~$0.12 per 1000 profiles
+**Cost estimate:** ~$0.25/1M input, $1.25/1M output tokens
 
 ### Gemini Flash
 
@@ -142,7 +142,7 @@ SELECT
     (0.3 * p.human_score + 0.7 * ps.score)::numeric(4,3) as final
 FROM user_profiles p
 JOIN profile_scores ps ON p.twitter_id = ps.twitter_id
-WHERE ps.scored_by = 'claude-haiku-20240307'
+WHERE ps.scored_by = 'claude-haiku-4-5-20251001'
 ORDER BY final DESC;
 ```
 
@@ -203,7 +203,7 @@ Run multiple models in parallel for comparison:
 
 ```typescript
 // Orchestrator invokes llm-scorer directly for each model
-const models = ['claude-haiku-20240307', 'gemini-2.0-flash'];
+const models = ['claude-haiku-4-5-20251001', 'gemini-2.0-flash'];
 for (const model of models) {
   await lambda.invoke('llm-scorer', { model, batchSize: 25 });
 }
@@ -240,7 +240,7 @@ WITH ranked AS (
         RANK() OVER (ORDER BY (0.3 * p.human_score + 0.7 * ps.score) DESC) as rank
     FROM user_profiles p
     JOIN profile_scores ps ON p.twitter_id = ps.twitter_id
-    WHERE ps.scored_by = 'claude-haiku-20240307'
+    WHERE ps.scored_by = 'claude-haiku-4-5-20251001'
 )
 SELECT
     COUNT(*) FILTER (WHERE rank <= 50) as seed_in_top_50,

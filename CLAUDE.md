@@ -106,7 +106,7 @@ The `llm-scorer` lambda supports multiple models with probability-based invocati
 
 | Model | Probability | Batch Size | Notes |
 |-------|-------------|------------|-------|
-| claude-3-haiku-20240307 | 1.0 (100%) | 25 | Primary scorer, cost-effective |
+| claude-haiku-4-5-20251001 | 1.0 (100%) | 25 | Primary scorer, fast and cost-effective |
 | claude-sonnet-4-20250514 | 0.5 (50%) | 10 | Premium quality, higher cost |
 | gemini-2.0-flash | 0.2 (20%) | 15 | Free tier, contrast data |
 

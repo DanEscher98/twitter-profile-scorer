@@ -11,7 +11,7 @@ const log = createLogger("anthropic-wrapper");
  * Score profiles using Anthropic Claude.
  *
  * @param profiles - Array of profiles to score
- * @param model - Model identifier (e.g., "claude-sonnet-4-20250514", "claude-3-haiku-20240307")
+ * @param model - Model identifier (e.g., "claude-sonnet-4-20250514", "claude-haiku-4-5-20251001")
  * @returns Array of score results (empty array on error)
  */
 export async function scoreWithAnthropic(

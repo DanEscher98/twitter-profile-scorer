@@ -54,8 +54,8 @@ export type LlmWrapper = (profiles: ProfileToScore[], model: string) => Promise<
  */
 const MODEL_WRAPPERS: Record<string, LlmWrapper> = {
   // Anthropic models - wrapper uses model name for API call
+  "claude-haiku-4-5-20251001": scoreWithAnthropic,
   "claude-sonnet-4-20250514": scoreWithAnthropic,
-  "claude-3-haiku-20240307": scoreWithAnthropic,
   // Google Gemini models
   "gemini-2.0-flash": scoreWithGemini,
   "gemini-1.5-flash": scoreWithGemini,

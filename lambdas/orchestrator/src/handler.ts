@@ -32,8 +32,8 @@ interface ModelConfig {
 }
 
 const SCORING_MODELS: ModelConfig[] = [
-  // Primary scorer - always runs, cost-effective
-  { model: "claude-3-haiku-20240307", probability: 1.0, batchSize: 25 },
+  // Primary scorer - always runs, fast and cost-effective
+  { model: "claude-haiku-4-5-20251001", probability: 1.0, batchSize: 25 },
   // Premium scorer - runs 50% of cycles for quality comparison
   { model: "claude-sonnet-4-20250514", probability: 0.5, batchSize: 10 },
   // Free tier contrast - runs 20% of cycles
