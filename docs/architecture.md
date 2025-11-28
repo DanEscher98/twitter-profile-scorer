@@ -10,6 +10,7 @@ graph TB
             KE[keyword-engine]
             QT[query-twitter-api]
             LS[llm-scorer]
+            KSU[keyword-stats-updater]
         end
 
         subgraph Storage
@@ -39,6 +40,8 @@ graph TB
     LS --> Gemini
     LS --> RDS
     KE --> RDS
+    KSU --> RDS
+    EB -->|daily 4 AM UTC| KSU
 ```
 
 **Resource Group:** [`profile-scorer-saas`](https://console.aws.amazon.com/resource-groups) - View all resources in AWS Console
@@ -87,6 +90,7 @@ sequenceDiagram
 | keyword-engine | 256MB | 30s | Isolated | Direct invocation |
 | query-twitter-api | 256MB | 60s | Private | SQS keywords-queue |
 | llm-scorer | 512MB | 120s | Private | Direct invocation |
+| keyword-stats-updater | 256MB | 120s | Isolated | EventBridge (daily 4 AM UTC) |
 
 ### 1. Orchestrator
 
@@ -101,9 +105,11 @@ Pipeline heartbeat that coordinates all other lambdas:
 
 **Location:** `lambdas/keyword-engine/`
 
-Selects keywords for Twitter search:
-- Currently returns hardcoded sample
-- (Future) Analyzes `xapi_usage_search` for keyword effectiveness
+Selects keywords for Twitter search from the `keyword_stats` database table:
+- Fetches valid keywords (still have pagination available)
+- Randomly samples from pool for diversity
+- Filters by pagination status using `xapi_usage_search`
+- Returns array of keywords with yield statistics
 
 ### 3. Query Twitter API
 
@@ -135,6 +141,16 @@ Evaluates profiles with LLMs:
 - Sends to Claude or Gemini (model specified at invocation)
 - Stores scores in `profile_scores`
 
+### 5. Keyword Stats Updater
+
+**Location:** `lambdas/keyword-stats-updater/`
+
+Daily maintenance lambda that recalculates keyword statistics:
+- Aggregates profile counts and average scores per keyword
+- Updates `still_valid` flag based on pagination exhaustion
+- Tracks quality metrics (high/low quality counts)
+- Runs at 4 AM UTC via EventBridge schedule
+
 ## Network Architecture
 
 ```mermaid
@@ -153,6 +169,7 @@ graph TB
 
         subgraph Isolated["Isolated Subnets (10.0.20.0/24, 10.0.21.0/24)"]
             KE[keyword-engine]
+            KSU[keyword-stats-updater]
         end
     end
 
@@ -261,6 +278,7 @@ uv run pulumi stack output orchestrator_name
 uv run pulumi stack output keyword_engine_name
 uv run pulumi stack output query_twitter_name
 uv run pulumi stack output llm_scorer_name
+uv run pulumi stack output keyword_stats_updater_name
 
 # Queues
 uv run pulumi stack output keywords_queue_url

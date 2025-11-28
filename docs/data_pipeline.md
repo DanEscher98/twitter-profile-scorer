@@ -116,6 +116,21 @@ erDiagram
         integer new_profiles
         timestamp query_at
     }
+
+    keyword_stats {
+        varchar keyword PK
+        text[] semantic_tags
+        integer profiles_found
+        numeric avg_human_score
+        numeric avg_llm_score
+        boolean still_valid
+        integer pages_searched
+        integer high_quality_count
+        integer low_quality_count
+        timestamp first_search_at
+        timestamp last_search_at
+        timestamp updated_at
+    }
 ```
 
 ## Table Details
@@ -220,6 +235,40 @@ API call tracking and pagination state.
 1. Track keyword effectiveness: `AVG(new_profiles) GROUP BY keyword`
 2. Resume pagination: `SELECT next_page WHERE keyword = ? ORDER BY page DESC LIMIT 1`
 3. Monitor API quota: `COUNT(*) WHERE query_at > NOW() - INTERVAL '1 month'`
+
+### `keyword_stats`
+
+Keyword pool management with aggregated statistics. Updated daily by `keyword-stats-updater` lambda.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `keyword` | VARCHAR(255) | Primary key, the search keyword |
+| `semantic_tags` | TEXT[] | Semantic categorization tags (e.g., `#academia`, `#health`) |
+| `profiles_found` | INTEGER | Total profiles found with this keyword |
+| `avg_human_score` | NUMERIC(4,3) | Average HAS score of profiles |
+| `avg_llm_score` | NUMERIC(4,3) | Average LLM score of profiles |
+| `still_valid` | BOOLEAN | Whether keyword has more pagination pages |
+| `pages_searched` | INTEGER | Number of pages searched |
+| `high_quality_count` | INTEGER | Profiles with HAS > 0.7 |
+| `low_quality_count` | INTEGER | Profiles with HAS < 0.4 |
+| `first_search_at` | TIMESTAMP | First search timestamp |
+| `last_search_at` | TIMESTAMP | Most recent search |
+| `updated_at` | TIMESTAMP | Last stats recalculation |
+
+**Semantic Tags:**
+- `#academia` - Academic roles and institutions
+- `#credentials` - Titles and qualifications (PhD, Professor)
+- `#research` - Research-related roles
+- `#health` / `#medical` - Health and medical research
+- `#industry` / `#tech` - Industry and applied research
+- `#qualitative` - Qualitative research methods
+- `#humanities` - Humanities and cultural studies
+- `#interdisciplinary` - Cross-disciplinary fields
+
+**Usage:**
+1. `keyword-engine` fetches valid keywords: `SELECT * FROM keyword_stats WHERE still_valid = true`
+2. Daily stats update via `keyword-stats-updater` lambda (4 AM UTC)
+3. Add new keywords: `yarn add-keyword "new term" --tags=#academia,#research`
 
 ### `user_keywords`
 

@@ -1,77 +1,9 @@
 import { Handler } from "aws-lambda";
-import { sql } from "drizzle-orm";
 import { createLogger } from "@profile-scorer/utils";
-import { getDb, xapiSearchUsage } from "@profile-scorer/db";
+import { getValidKeywords } from "@profile-scorer/db";
+import { keywordStillHasPages } from "@profile-scorer/twitterx-api";
 
 const log = createLogger("keyword-engine");
-
-/**
- * Seed keywords for finding qualitative researchers in academia.
- *
- * Categories:
- * - Academic titles and roles
- * - Research methodology terms
- * - Academic disciplines (social sciences, humanities, health)
- * - Institutional affiliations
- * - Research output indicators
- */
-const SEED_KEYWORDS = [
-  // Academic titles and credentials
-  "professor",
-  "phd",
-  "postdoc",
-  "lecturer",
-  "academic",
-  "faculty",
-  "tenure",
-  "emeritus",
-
-  // Research roles
-  "researcher",
-  "scientist",
-  "scholar",
-  "principal investigator",
-  "research fellow",
-  "doctoral candidate",
-  "research associate",
-
-  // Social sciences
-  "sociologist",
-  "anthropologist",
-  "psychologist",
-  "political scientist",
-  "economist",
-  "geographer",
-  "demographer",
-
-  // Health and medical research
-  "epidemiologist",
-  "public health researcher",
-  "health services research",
-  "clinical researcher",
-  "bioethicist",
-  "medical anthropology",
-  "health policy",
-  "psychiatry",
-  "neuroscience",
-  "immunologist",
-  "oncologist",
-
-  // Industry/applied research
-  "pharma",
-  "biotech researcher",
-  "UX researcher",
-  "market researcher",
-  "policy analyst",
-
-  // Research indicators
-  "peer reviewed",
-  "published author",
-  "grant funded",
-  "NIH funded",
-  "NSF funded",
-  "h-index",
-];
 
 /**
  * Fisher-Yates shuffle algorithm for randomizing array.
@@ -112,43 +44,51 @@ export const handler: Handler<KeywordEngineEvent, KeywordEngineResponse> = async
   }
 
   try {
-    const db = getDb();
+    // Get valid keywords from keyword_stats table
+    const validKeywords = await getValidKeywords();
 
-    // Get keyword performance stats from xapi_usage_search
-    const keywordStats = await db
-      .select({
-        keyword: xapiSearchUsage.keyword,
-        totalSearches: sql<number>`count(*)`,
-        totalNewProfiles: sql<number>`sum(${xapiSearchUsage.newProfiles})`,
-      })
-      .from(xapiSearchUsage)
-      .groupBy(xapiSearchUsage.keyword);
-
-    const keywordYields: Record<string, number> = {};
-    for (const stat of keywordStats) {
-      keywordYields[stat.keyword] = Number(stat.totalNewProfiles) || 0;
+    if (validKeywords.length === 0) {
+      log.warn("No valid keywords found in keyword_stats table");
+      return { keywords: [] };
     }
 
-    // Shuffle and sample keywords (future: rank by yield and prioritize high-performing)
-    const shuffled = shuffleArray(SEED_KEYWORDS);
-    const keywords = shuffled.slice(0, count);
+    // Build keyword yields map from the stats
+    const keywordYields: Record<string, number> = {};
+    for (const kw of validKeywords) {
+      keywordYields[kw.keyword] = kw.profilesFound;
+    }
 
-    log.info("Returning randomized keywords", { count: keywords.length, poolSize: SEED_KEYWORDS.length, keywords });
+    // Shuffle and select keywords with pagination available
+    const shuffled = shuffleArray(validKeywords);
+    const keywords: string[] = [];
+    const discarded: string[] = [];
+
+    for (const kw of shuffled) {
+      if (keywords.length >= count) break;
+
+      const hasPages = await keywordStillHasPages(kw.keyword);
+      if (hasPages) {
+        keywords.push(kw.keyword);
+      } else {
+        discarded.push(kw.keyword);
+      }
+    }
+
+    log.info("Selected keywords from pool", {
+      selected: keywords,
+      discarded: discarded.length > 0 ? discarded : undefined,
+      poolSize: validKeywords.length,
+    });
 
     return {
       keywords,
       stats: {
-        totalSearches: keywordStats.length,
+        totalSearches: validKeywords.length,
         keywordYields,
       },
     };
   } catch (error) {
-    log.error("Error fetching keyword stats", { error });
-
-    // Fallback to randomized seed keywords on error
-    const shuffled = shuffleArray(SEED_KEYWORDS);
-    return {
-      keywords: shuffled.slice(0, count),
-    };
+    log.error("Error fetching keywords from pool", { error });
+    return { keywords: [] };
   }
 };

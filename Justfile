@@ -140,3 +140,7 @@ ts-script path:
 # Run a Python script (e.g., just py-script py_src/plot_has_distribution.py)
 py-script path:
     cd scripts && uv run {{path}}
+
+# Run a SQL migration file (e.g., just db-migrate packages/db/migrations/populate_semantic_tags.sql)
+db-migrate path:
+    psql "$DATABASE_URL" -f {{path}}

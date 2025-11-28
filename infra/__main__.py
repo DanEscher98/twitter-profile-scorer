@@ -127,6 +127,7 @@ keyword_engine_lambda = LambdaFunction(
     subnet_ids=vpc.isolated_subnet_ids,  # No internet - DB only
     environment={
         "DATABASE_URL": db.connection_string,
+        "APP_MODE": "production",
     },
 )
 
@@ -150,6 +151,7 @@ query_twitter_lambda = LambdaFunction(
     environment={
         "DATABASE_URL": db.connection_string,
         "TWITTERX_APIKEY": twitterx_apikey,
+        "APP_MODE": "production",
     },
 )
 
@@ -176,10 +178,33 @@ llm_scorer_lambda = LambdaFunction(
         "DATABASE_URL": db.connection_string,
         "ANTHROPIC_API_KEY": anthropic_apikey,
         "GEMINI_API_KEY": config.require_secret("gemini_apikey"),
+        "APP_MODE": "production",
     },
 )
 
-# Lambda 4: Orchestrator
+# Lambda 4: Keyword Stats Updater
+# ---------------------------------
+# Isolated subnet: Only needs DB access, no internet required.
+# Runs daily to recalculate keyword_stats table:
+# 1. Gets all keywords from xapi_usage_search
+# 2. Calculates profiles_found, avg_human_score, avg_llm_score per keyword
+# 3. Updates still_valid based on pagination availability
+#
+# This provides keyword-engine with a pre-computed stats table for selection.
+keyword_stats_updater_lambda = LambdaFunction(
+    "keyword-stats-updater",
+    code_path="../lambdas/keyword-stats-updater/dist",
+    handler="handler.handler",
+    vpc_id=vpc.vpc.id,
+    subnet_ids=vpc.isolated_subnet_ids,  # No internet - DB only
+    timeout=120,  # May take time to process many keywords
+    environment={
+        "DATABASE_URL": db.connection_string,
+        "APP_MODE": "production",
+    },
+)
+
+# Lambda 5: Orchestrator
 # -----------------------
 # Private subnet: Needs internet via NAT for AWS API calls (Lambda invoke, SQS).
 # This is the pipeline heartbeat, triggered every 15 minutes:
@@ -199,6 +224,7 @@ orchestrator_lambda = LambdaFunction(
         "KEYWORD_ENGINE_ARN": keyword_engine_lambda.function.arn,
         "KEYWORDS_QUEUE_URL": keywords_queue.queue.url,
         "LLM_SCORER_ARN": llm_scorer_lambda.function.arn,
+        "APP_MODE": "production",
     },
 )
 
@@ -330,6 +356,17 @@ aws.ec2.SecurityGroupRule(
     security_group_id=db.security_group.id,
 )
 
+# Allow keyword-stats-updater → DB (recalculates keyword statistics)
+aws.ec2.SecurityGroupRule(
+    "db-allow-keyword-stats-updater",
+    type="ingress",
+    from_port=5432,
+    to_port=5432,
+    protocol="tcp",
+    source_security_group_id=keyword_stats_updater_lambda.security_group.id,
+    security_group_id=db.security_group.id,
+)
+
 # DEV ONLY: Allow external access for local psql/Drizzle Studio
 # WARNING: Remove or restrict this in production!
 aws.ec2.SecurityGroupRule(
@@ -356,6 +393,14 @@ ScheduledLambda(
     "orchestrator-schedule",
     lambda_function=orchestrator_lambda,
     schedule_expression="rate(15 minutes)",  # Cron also supported: "cron(0/15 * * * ? *)"
+)
+
+# Daily schedule for keyword stats recalculation
+# Runs at 4:00 AM UTC daily (11:00 PM EST / 8:00 PM PST)
+ScheduledLambda(
+    "keyword-stats-updater-schedule",
+    lambda_function=keyword_stats_updater_lambda,
+    schedule_expression="cron(0 4 * * ? *)",  # 4:00 AM UTC daily
 )
 
 # =============================================================================
@@ -403,6 +448,7 @@ dashboard = SystemDashboard(
         "keyword_engine": keyword_engine_lambda.function.name,
         "query_twitter": query_twitter_lambda.function.name,
         "llm_scorer": llm_scorer_lambda.function.name,
+        "keyword_stats_updater": keyword_stats_updater_lambda.function.name,
     },
     db_instance_id=db.instance.identifier,
     queue_name=keywords_queue.queue.name,
@@ -457,12 +503,14 @@ pulumi.export("keyword_engine_arn", keyword_engine_lambda.function.arn)
 pulumi.export("query_twitter_arn", query_twitter_lambda.function.arn)
 pulumi.export("llm_scorer_arn", llm_scorer_lambda.function.arn)
 pulumi.export("orchestrator_arn", orchestrator_lambda.function.arn)
+pulumi.export("keyword_stats_updater_arn", keyword_stats_updater_lambda.function.arn)
 
 # Lambda names (for CLI invocation, CloudWatch logs)
 pulumi.export("keyword_engine_name", keyword_engine_lambda.function.name)
 pulumi.export("query_twitter_name", query_twitter_lambda.function.name)
 pulumi.export("llm_scorer_name", llm_scorer_lambda.function.name)
 pulumi.export("orchestrator_name", orchestrator_lambda.function.name)
+pulumi.export("keyword_stats_updater_name", keyword_stats_updater_lambda.function.name)
 
 # Queue URLs (for sending messages, monitoring)
 pulumi.export("keywords_queue_url", keywords_queue.queue.url)

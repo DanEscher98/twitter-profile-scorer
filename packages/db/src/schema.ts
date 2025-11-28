@@ -150,3 +150,30 @@ export const userStats = pgTable("user_stats", {
     .defaultNow()
     .notNull(),
 });
+
+/**
+ * Keyword statistics for prioritizing keyword selection.
+ * Updated daily by keyword-stats-updater lambda.
+ */
+export const keywordStats = pgTable("keyword_stats", {
+  keyword: varchar("keyword", { length: 255 }).primaryKey(),
+  // Semantic categorization
+  semanticTags: text("semantic_tags").array().$type<string[]>().default([]),
+  // Profile counts
+  profilesFound: integer("profiles_found").default(0).notNull(),
+  // Average scores
+  avgHumanScore: numeric("avg_human_score", { precision: 4, scale: 3 }).default("0"),
+  avgLlmScore: numeric("avg_llm_score", { precision: 4, scale: 3 }).default("0"),
+  // Pagination state
+  stillValid: boolean("still_valid").default(true).notNull(),
+  pagesSearched: integer("pages_searched").default(0).notNull(),
+  // Quality metrics
+  highQualityCount: integer("high_quality_count").default(0).notNull(), // HAS > 0.7
+  lowQualityCount: integer("low_quality_count").default(0).notNull(),   // HAS < 0.4
+  // Timestamps
+  firstSearchAt: timestamp("first_search_at", { withTimezone: false, mode: "string" }),
+  lastSearchAt: timestamp("last_search_at", { withTimezone: false, mode: "string" }),
+  updatedAt: timestamp("updated_at", { withTimezone: false, mode: "string" })
+    .defaultNow()
+    .notNull(),
+});
