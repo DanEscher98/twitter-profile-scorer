@@ -43,9 +43,7 @@ This document presents a hybrid approach combining the multi-class classificatio
 
 ### 1. Follower-Following Ratio (Clamped Log)
 
-$$
-R_{ff} = \text{clamp}\left( \log_{10}\left(\frac{\text{followers\_count} + 1}{\text{friends\_count} + 1}\right), -2, 3 \right)
-$$
+$$R_{ff} = \text{clamp}\left( \log_{10}\left(\frac{\text{followers\_count} + 1}{\text{friends\_count} + 1}\right), -2, 3 \right)$$
 
 **Normalized to [0,1]:**
 $$
