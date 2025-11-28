@@ -2,6 +2,16 @@
 
 A lookalike audience builder for Twitter ad targeting. Given a curated set of seed profiles (e.g., 50 qualitative researchers), the system discovers and ranks similar profiles for targeted advertising campaigns.
 
+## AWS Console Quick Links
+
+| Resource | Link |
+|----------|------|
+| **CloudWatch Dashboard** | [profile-scorer](https://us-east-2.console.aws.amazon.com/cloudwatch/home?region=us-east-2#dashboards:name=profile-scorer) |
+| **Resource Group** | [profile-scorer-saas](https://us-east-2.console.aws.amazon.com/resource-groups/group/profile-scorer-saas) |
+| **AWS Budgets** | [profile-scorer-monthly](https://us-east-1.console.aws.amazon.com/billing/home#/budgets) |
+| **Cost Explorer** | [By Service](https://us-east-1.console.aws.amazon.com/cost-management/home#/cost-explorer) |
+| **Cost Anomaly Detection** | [Monitors](https://us-east-1.console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors) |
+
 ## Table of Contents
 
 1. [Architecture](./architecture.md) - System design, Lambda pipeline, AWS resources
@@ -32,7 +42,7 @@ A lookalike audience builder for Twitter ad targeting. Given a curated set of se
 │  PHASE 2: Heuristic Filtering                                               │
 │  ───────────────────────────────                                            │
 │  Raw profiles → HAS (Human Authenticity Score) → filter bots/orgs           │
-│  HAS > 0.55 → profiles_to_score queue                                       │
+│  HAS > 0.65 → profiles_to_score queue                                       │
 │                                                                             │
 │  PHASE 3: LLM Scoring                                                       │
 │  ─────────────────────                                                      │
@@ -54,13 +64,13 @@ A lookalike audience builder for Twitter ad targeting. Given a curated set of se
 |----------|-------|----------|
 | RapidAPI TwitterX | 500K req/month, 10 req/s | SQS concurrency control (3) |
 | Anthropic (Claude Haiku) | $9.90 balance | Small batches, TOON format |
-| Gemini Flash             | Free tier | Parallel scoring |
+| Gemini Flash | Free tier | Parallel scoring |
 
 ### Key Thresholds
 
 | Parameter | Value | Purpose  |
 |-----------|-------|---------|
-| HAS threshold | 0.55 | Filter bots/orgs before LLM scoring |
+| HAS threshold | 0.65 | Filter bots/orgs before LLM scoring |
 | Batch size | 25 profiles | TOON format, reduce hallucination |
 | Profiles per keyword | 20 (default) | API stability |
 
@@ -75,12 +85,41 @@ A lookalike audience builder for Twitter ad targeting. Given a curated set of se
 | `xapi_usage_search` | API usage tracking + pagination cursor |
 | `user_keywords` | Profile-keyword associations |
 
+## Monitoring & Cost Management
+
+### CloudWatch Dashboard
+
+The [profile-scorer dashboard](https://us-east-2.console.aws.amazon.com/cloudwatch/home?region=us-east-2#dashboards:name=profile-scorer) shows:
+
+- **Lambda metrics**: Invocations, errors, duration (p95), concurrent executions
+- **RDS metrics**: Connections, CPU utilization, storage, IOPS
+- **SQS metrics**: Queue depth, message age, DLQ depth
+- **NAT Gateway**: Traffic in/out, connection counts
+
+### Cost Tracking
+
+| Tool | Purpose |
+|------|---------|
+| AWS Budget | $10/month limit with threshold alerts |
+| Cost Explorer | Service breakdown, tag filtering |
+| Cost Anomaly Detection | ML-based unusual spending alerts |
+
+**To enable tag-based cost filtering:**
+1. Go to AWS Console → Billing → Cost allocation tags
+2. Activate the `Project` tag
+3. Wait 24 hours for data to appear
+
 ## Current Status
 
-- [x] Infrastructure (VPC, RDS, Lambda shells)
-- [x] Database schema
-- [x] HAS heuristic implementation (C+ quality, needs tuning)
-- [ ] `query-twitter-api` actual implementation
-- [ ] `orchestrator` Lambda
-- [ ] `llm-scorer` Lambda
+- [x] Infrastructure (VPC, RDS, Lambda functions)
+- [x] Database schema (Drizzle ORM)
+- [x] HAS heuristic implementation (`@profile-scorer/has-scorer`)
+- [x] `keyword-engine` Lambda
+- [x] `query-twitter-api` Lambda with HAS scoring
+- [x] `orchestrator` Lambda (15-min schedule)
+- [x] `llm-scorer` Lambda (multi-model: Haiku, Sonnet, Gemini)
+- [x] CloudWatch Dashboard
+- [x] AWS Budget and cost monitoring
+- [x] E2E test suite (14 tests)
+- [ ] Seed profile validation
 - [ ] Training pipeline (Phase 2)

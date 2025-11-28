@@ -196,6 +196,54 @@ graph LR
 - **Gemini Flash:** Free tier
 - **Batch size:** 25 profiles per request
 
+## Monitoring & Observability
+
+### CloudWatch Dashboard
+
+**Link:** [profile-scorer](https://us-east-2.console.aws.amazon.com/cloudwatch/home?region=us-east-2#dashboards:name=profile-scorer)
+
+The dashboard provides a unified view of all system components:
+
+| Row | Metrics |
+|-----|---------|
+| **Pipeline Health** | Lambda invocations (stacked), errors, SQS queue depth |
+| **Lambda Performance** | Duration p95, concurrent executions, throttles |
+| **Database Health** | RDS connections, CPU utilization, free storage |
+| **Database I/O** | Read/write IOPS, read/write latency |
+| **Queue Metrics** | Message age, sent/received/deleted, empty receives |
+| **Network** | NAT Gateway traffic in/out, connection counts |
+
+### Cost Management
+
+| Resource | Link |
+|----------|------|
+| **AWS Budget** | [profile-scorer-monthly](https://us-east-1.console.aws.amazon.com/billing/home#/budgets) - $10/month limit |
+| **Cost Explorer** | [By Service](https://us-east-1.console.aws.amazon.com/cost-management/home#/cost-explorer) |
+| **Anomaly Detection** | [Default-Services-Monitor](https://us-east-1.console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors) |
+
+**Current Cost Breakdown (November 2025):**
+
+| Service | Cost | Notes |
+|---------|------|-------|
+| EC2 - Other | ~$0.59 | NAT Gateway (largest cost) |
+| RDS | ~$0.24 | PostgreSQL db.t4g.micro |
+| VPC | ~$0.12 | VPC resources |
+| Lambda, SQS, CloudWatch | $0.00 | Free tier |
+
+**To enable tag-based filtering:**
+1. AWS Console → Billing → Cost allocation tags
+2. Activate `Project` tag
+3. Wait 24 hours
+
+**To add email alerts** to the budget, edit `infra/__main__.py`:
+```python
+budget = ProjectBudget(
+    "profile-scorer",
+    monthly_limit_usd=10.0,
+    notification_emails=["your@email.com"],
+)
+```
+
 ## Pulumi Stack Outputs
 
 ```bash
@@ -217,6 +265,10 @@ uv run pulumi stack output llm_scorer_name
 # Queues
 uv run pulumi stack output keywords_queue_url
 uv run pulumi stack output keywords_dlq_url
+
+# Monitoring
+uv run pulumi stack output dashboard_url
+uv run pulumi stack output budget_name
 
 # Resource Group
 uv run pulumi stack output resource_group_arn

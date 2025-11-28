@@ -26,9 +26,11 @@ import pulumi_aws as aws
 from components import (
     Database,
     LambdaFunction,
+    ProjectBudget,
     ScheduledLambda,
     SqsQueue,
     SqsTriggeredLambda,
+    SystemDashboard,
     Vpc,
 )
 
@@ -384,6 +386,56 @@ resource_group = aws.resourcegroups.Group(
 )
 
 # =============================================================================
+# CloudWatch Dashboard - System Overview
+# =============================================================================
+# Comprehensive dashboard showing metrics for all components:
+# - Lambda: Invocations, errors, duration, concurrency
+# - RDS: Connections, CPU, storage, IOPS
+# - SQS: Queue depth, message age, DLQ
+# - NAT Gateway: Traffic, connections
+#
+# Access via: AWS Console → CloudWatch → Dashboards → profile-scorer
+
+dashboard = SystemDashboard(
+    "profile-scorer",
+    lambda_names={
+        "orchestrator": orchestrator_lambda.function.name,
+        "keyword_engine": keyword_engine_lambda.function.name,
+        "query_twitter": query_twitter_lambda.function.name,
+        "llm_scorer": llm_scorer_lambda.function.name,
+    },
+    db_instance_id=db.instance.identifier,
+    queue_name=keywords_queue.queue.name,
+    dlq_name=keywords_queue.dlq.name,
+    nat_gateway_id=vpc.nat_gateway.id,
+    region="us-east-2",
+)
+
+# =============================================================================
+# Cost Management - Budget & Anomaly Detection
+# =============================================================================
+# Track project costs and get alerts for unusual spending:
+# - AWS Budget: Monthly limit with threshold alerts (50%, 80%, 100%)
+# - Cost Anomaly Detection: ML-based alerts for unexpected spikes
+#
+# Note: Cost allocation tag (Project=profile-scorer-saas) must be activated
+# in AWS Billing console for tag-based filtering to work.
+# Go to: AWS Console → Billing → Cost allocation tags → Activate "Project"
+
+# Monthly budget with alerts at 50%, 80%, and 100% of limit
+# Note: Add notification_emails=["your@email.com"] to receive alerts
+budget = ProjectBudget(
+    "profile-scorer",
+    monthly_limit_usd=10.0,  # $10/month budget
+    alert_thresholds=[50, 80, 100],
+    project_tag="profile-scorer-saas",
+)
+
+# Note: Cost Anomaly Detection monitor already exists in the account
+# (Default-Services-Monitor). View at:
+# https://console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors
+
+# =============================================================================
 # Stack Outputs - Infrastructure References
 # =============================================================================
 # These outputs are used by:
@@ -418,3 +470,20 @@ pulumi.export("keywords_dlq_url", keywords_queue.dlq.url)
 
 # Resource Group (for consolidated AWS Console view)
 pulumi.export("resource_group_arn", resource_group.arn)
+
+# CloudWatch Dashboard
+pulumi.export("dashboard_name", dashboard.dashboard.dashboard_name)
+pulumi.export("dashboard_url", dashboard.dashboard.dashboard_name.apply(
+    lambda name: f"https://us-east-2.console.aws.amazon.com/cloudwatch/home?region=us-east-2#dashboards:name={name}"
+))
+
+# Cost Management
+pulumi.export("budget_name", budget.budget.name)
+pulumi.export("cost_explorer_url",
+    "https://us-east-1.console.aws.amazon.com/cost-management/home#/cost-explorer"
+    "?chartStyle=STACK&costAggregate=unBlendedCost&endDate=2025-11-30&"
+    "excludeForecasting=false&filter=%5B%7B%22dimension%22%3A%7B%22id%22%3A"
+    "%22TagKeyValue%22%2C%22displayValue%22%3A%22Tag%22%7D%2C%22operator%22%3A"
+    "%22INCLUDES%22%2C%22values%22%3A%5B%7B%22value%22%3A%22Project%24profile-scorer-saas%22%7D%5D%7D%5D&"
+    "granularity=Daily&groupBy=%5B%22Service%22%5D&startDate=2025-11-01"
+)

@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Workflow Rules
+
+**IMPORTANT:** Follow these rules for every task:
+
+1. **Documentation updates**: After any major fix or addition, update the relevant docs in `docs/`, then commit the changes together.
+
+2. **CloudWatch dashboard**: When a Pulumi component is added or removed, update the CloudWatch dashboard in `infra/components/dashboard.py` to include/remove its metrics.
+
+3. **Prefer Justfile commands**: For common tasks, use the battle-tested Justfile commands instead of raw commands. This reduces errors and token usage:
+   - `just deploy` - Build + Pulumi up
+   - `just test` - Run E2E tests
+   - `just test-debug` - Run E2E tests with DEBUG logging
+   - `just db-push` - Push schema with SSL cert
+   - `just update-env` - Update .env with DATABASE_URL from Pulumi
+
 ## Project Overview
 
 Profile Scorer is an AWS-based Twitter profile analysis pipeline. It uses Pulumi (Python) for infrastructure, Node.js Lambda functions for processing, and PostgreSQL with Drizzle ORM for data storage. The codebase is a monorepo managed by Yarn workspaces.
