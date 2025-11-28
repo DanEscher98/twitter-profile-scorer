@@ -132,18 +132,16 @@ export async function upsertUserProfile(
     }
   }
 
-  // Step 2: Insert user_keywords with searchId (skip if no searchId - manual fetch)
-  if (searchId) {
-    try {
-      await db
-        .insert(userKeywords)
-        .values({ twitterId: profile.twitter_id, keyword, searchId })
-        .onConflictDoNothing();
-      log.debug("Inserted user keyword relation", { twitterId: profile.twitter_id, keyword, searchId });
-    } catch (e: any) {
-      log.error("Failed to insert user_keywords", { twitterId: profile.twitter_id, keyword, searchId, error: e.message, code: e.code });
-      throw e;
-    }
+  // Step 2: Insert user_keywords (searchId is optional - null for manual fetches)
+  try {
+    await db
+      .insert(userKeywords)
+      .values({ twitterId: profile.twitter_id, keyword, searchId })
+      .onConflictDoNothing();
+    log.debug("Inserted user keyword relation", { twitterId: profile.twitter_id, keyword, searchId });
+  } catch (e: any) {
+    log.error("Failed to insert user_keywords", { twitterId: profile.twitter_id, keyword, searchId, error: e.message, code: e.code });
+    throw e;
   }
 
   return isNew;
@@ -384,12 +382,20 @@ export async function calculateKeywordStats(keyword: string): Promise<KeywordSta
   const latestPage = await getKeywordLatestPage(keyword);
   const stillValid = !latestPage || latestPage.nextPage !== null;
 
+  // Get existing semantic tags (if any)
+  const existingKeyword = await db
+    .select({ semanticTags: keywordStats.semanticTags })
+    .from(keywordStats)
+    .where(eq(keywordStats.keyword, keyword))
+    .limit(1);
+
   const stats = profileStats[0];
   const llm = llmStats[0];
   const search = searchStats[0];
 
   return {
     keyword,
+    semanticTags: existingKeyword[0]?.semanticTags ?? [],
     profilesFound: Number(stats?.profilesFound) || 0,
     avgHumanScore: parseFloat(stats?.avgHumanScore ?? "0") || 0,
     avgLlmScore: parseFloat(llm?.avgLlmScore ?? "0") || 0,
@@ -577,4 +583,98 @@ export async function countUnscoredByKeyword(
     );
 
   return Number(result[0]?.count ?? 0);
+}
+
+/**
+ * Get ALL profiles by keyword (regardless of scoring status).
+ * Used for bulk scoring all profiles found via a particular search keyword.
+ *
+ * @param keyword - The search keyword to filter by
+ * @param limit - Maximum number of profiles to return
+ * @param offset - Number of profiles to skip (for pagination)
+ * @returns Array of all profiles for this keyword
+ */
+export async function getAllProfilesByKeyword(
+  keyword: string,
+  limit: number = 100,
+  offset: number = 0
+): Promise<ProfileToScore[]> {
+  const rows = await db
+    .select({
+      twitterId: userProfiles.twitterId,
+      username: userProfiles.username,
+      displayName: userProfiles.displayName,
+      bio: userProfiles.bio,
+      likelyIs: userProfiles.likelyIs,
+      category: userProfiles.category,
+      humanScore: userProfiles.humanScore,
+    })
+    .from(userKeywords)
+    .innerJoin(userProfiles, eq(userKeywords.twitterId, userProfiles.twitterId))
+    .where(eq(userKeywords.keyword, keyword))
+    .limit(limit)
+    .offset(offset);
+
+  return rows.map((row) => ({
+    twitterId: row.twitterId,
+    username: row.username,
+    displayName: row.displayName ?? "",
+    bio: row.bio ?? "",
+    likelyIs: row.likelyIs ?? "",
+    category: row.category ?? "",
+    humanScore: parseFloat(row.humanScore ?? "0"),
+  }));
+}
+
+/**
+ * Count ALL profiles by keyword (regardless of scoring status).
+ *
+ * @param keyword - The search keyword to filter by
+ * @returns Total count of profiles for this keyword
+ */
+export async function countAllByKeyword(keyword: string): Promise<number> {
+  const result = await db
+    .select({ count: count() })
+    .from(userKeywords)
+    .where(eq(userKeywords.keyword, keyword));
+
+  return Number(result[0]?.count ?? 0);
+}
+
+/**
+ * Upsert a profile score (insert or update if exists).
+ * Uses ON CONFLICT to update existing scores for the same twitter_id + model.
+ *
+ * @param twitterId - Twitter ID of the profile
+ * @param score - Score between 0 and 1
+ * @param reason - Explanation for the score
+ * @param scoredBy - Model name that generated the score
+ * @returns 'inserted' if new, 'updated' if existing
+ */
+export async function upsertProfileScore(
+  twitterId: string,
+  score: number,
+  reason: string,
+  scoredBy: string
+): Promise<"inserted" | "updated"> {
+  await db
+    .insert(profileScores)
+    .values({
+      twitterId,
+      score: score.toFixed(2),
+      reason,
+      scoredBy,
+    })
+    .onConflictDoUpdate({
+      target: [profileScores.twitterId, profileScores.scoredBy],
+      set: {
+        score: score.toFixed(2),
+        reason,
+        scoredAt: sql`now()`,
+      },
+    });
+
+  // Drizzle doesn't distinguish insert vs update, so we return 'inserted' for simplicity
+  log.debug("Upserted profile score", { twitterId, score: score.toFixed(2), scoredBy });
+  return "inserted";
 }

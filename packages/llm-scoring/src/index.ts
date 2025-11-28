@@ -12,9 +12,10 @@
 import {
   ProfileToScore,
   getProfilesToScore,
-  getProfilesByKeyword,
-  countUnscoredByKeyword,
+  getAllProfilesByKeyword,
+  countAllByKeyword,
   insertProfileScore,
+  upsertProfileScore,
   getDb,
 } from "@profile-scorer/db";
 import { createLogger } from "@profile-scorer/utils";
@@ -213,21 +214,26 @@ export async function scoreAllPending(
 }
 
 /**
- * Score profiles found with a specific keyword.
- * Fetches profiles by keyword, scores them, and saves results.
+ * Score ALL profiles found with a specific keyword.
+ * Fetches all profiles by keyword, scores them in batches of 30, and upserts results.
+ *
+ * Flow:
+ * 1. Get ALL profiles labeled with keyword (not just unscored)
+ * 2. Score them in batches of 30
+ * 3. Upsert each score (insert or update if twitter_id + model already exists)
  *
  * @param keyword - The search keyword to filter profiles by
  * @param model - Model name from MODEL_WRAPPERS
- * @param batchSize - Profiles per batch (default 25)
  * @param onBatchComplete - Callback after each batch
  * @returns Total counts across all batches plus scored profiles with metadata
  */
 export async function scoreByKeyword(
   keyword: string,
   model: string,
-  batchSize: number = 25,
   onBatchComplete?: (batch: number, result: ScoreAndSaveResult) => void
 ): Promise<KeywordScoringResult> {
+  const BATCH_SIZE = 30; // Fixed batch size of 30
+
   const wrapper = MODEL_WRAPPERS[model];
   if (!wrapper) {
     const availableModels = getAvailableModels().join(", ");
@@ -237,21 +243,33 @@ export async function scoreByKeyword(
   // Initialize DB
   getDb();
 
-  // Get total count first
-  const totalProfiles = await countUnscoredByKeyword(keyword, model);
-  log.info("Starting keyword scoring", { keyword, model, totalProfiles, batchSize });
+  // Get total count of ALL profiles for this keyword
+  const totalProfiles = await countAllByKeyword(keyword);
+  log.info("Starting keyword scoring", { keyword, model, totalProfiles, batchSize: BATCH_SIZE });
+
+  if (totalProfiles === 0) {
+    return {
+      totalScored: 0,
+      totalErrors: 0,
+      totalSkipped: 0,
+      batches: 0,
+      totalProfiles: 0,
+      scoredProfiles: [],
+    };
+  }
 
   let totalScored = 0;
   let totalErrors = 0;
-  let totalSkipped = 0;
+  let totalUpdated = 0;
   let batch = 0;
+  let offset = 0;
   const allScoredProfiles: ScoredProfileWithMeta[] = [];
 
-  while (true) {
+  while (offset < totalProfiles) {
     batch++;
 
-    // Get profiles for this batch
-    const profiles = await getProfilesByKeyword(keyword, model, batchSize);
+    // Get ALL profiles for this batch (regardless of scoring status)
+    const profiles = await getAllProfilesByKeyword(keyword, BATCH_SIZE, offset);
 
     if (profiles.length === 0) {
       break;
@@ -260,19 +278,23 @@ export async function scoreByKeyword(
     // Create lookup map for profile metadata
     const profileMap = new Map(profiles.map((p) => [p.twitterId, p]));
 
-    // Score profiles
+    // Score profiles with LLM
     const scores = await scoreProfiles(profiles, model);
 
-    // Save to DB
+    // Upsert to DB (insert or update)
     let scored = 0;
     let errors = 0;
-    let skipped = 0;
+    let updated = 0;
     const savedProfiles: ScoreResult[] = [];
 
     for (const score of scores) {
       try {
-        await insertProfileScore(score.twitterId, score.score, score.reason, model);
-        scored++;
+        const result = await upsertProfileScore(score.twitterId, score.score, score.reason, model);
+        if (result === "updated") {
+          updated++;
+        } else {
+          scored++;
+        }
         savedProfiles.push(score);
 
         // Collect profile with metadata for CSV export
@@ -287,37 +309,36 @@ export async function scoreByKeyword(
           });
         }
       } catch (error: any) {
-        if (error.code === "23505") {
-          skipped++;
-        } else {
-          errors++;
-          log.error("Error storing score", { twitterId: score.twitterId, error: error.message });
-        }
+        errors++;
+        log.error("Error upserting score", { twitterId: score.twitterId, error: error.message });
       }
     }
 
     totalScored += scored;
     totalErrors += errors;
-    totalSkipped += skipped;
+    totalUpdated += updated;
+    offset += profiles.length;
 
-    const result: ScoreAndSaveResult = { model, scored, errors, skipped, profiles: savedProfiles };
+    const result: ScoreAndSaveResult = { model, scored, errors, skipped: updated, profiles: savedProfiles };
 
     if (onBatchComplete) {
       onBatchComplete(batch, result);
     }
-
-    // No more profiles scored or all already scored
-    if (scored === 0 && skipped === 0) {
-      break;
-    }
   }
 
-  log.info("Keyword scoring completed", { keyword, model, totalScored, totalErrors, totalSkipped, batches: batch });
+  log.info("Keyword scoring completed", {
+    keyword,
+    model,
+    totalScored,
+    totalUpdated,
+    totalErrors,
+    batches: batch,
+  });
 
   return {
     totalScored,
     totalErrors,
-    totalSkipped,
+    totalSkipped: totalUpdated,
     batches: batch,
     totalProfiles,
     scoredProfiles: allScoredProfiles,

@@ -1,13 +1,19 @@
 #!/usr/bin/env tsx
 /**
- * Score all profiles found with a specific keyword.
+ * Score ALL profiles found with a specific keyword.
+ *
+ * Flow:
+ * 1. Get ALL profiles labeled with keyword (not just unscored)
+ * 2. Score them in batches of 30 using the specified LLM model
+ * 3. Upsert each score (insert or update if twitter_id + model already exists)
+ * 4. Export results to CSV
  *
  * Usage:
- *   yarn score-keyword <keyword> <model> [--batch-size=25]
+ *   yarn score-keyword <keyword> <model>
  *
  * Example:
  *   yarn score-keyword epidemiologist claude-haiku-4-5-20251001
- *   yarn score-keyword "@customers" gemini-2.0-flash --batch-size=15
+ *   yarn score-keyword "@customers" claude-sonnet-4-20250514
  *
  * Output:
  *   Creates a CSV file in scripts/output/<keyword>-<model>-<YYYYMMDD>.csv
@@ -18,16 +24,18 @@ import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import cliProgress from "cli-progress";
+import { Table } from "console-table-printer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 import {
   scoreByKeyword,
   getAvailableModels,
   ScoreAndSaveResult,
   ScoredProfileWithMeta,
 } from "@profile-scorer/llm-scoring";
-import { getDb, countUnscoredByKeyword } from "@profile-scorer/db";
+import { getDb, countAllByKeyword } from "@profile-scorer/db";
 
 /**
  * Escape a value for CSV (handles commas, quotes, newlines)
@@ -71,16 +79,21 @@ async function main() {
 
   if (args.length < 2 || args.includes("--help") || args.includes("-h")) {
     console.log(`
-Score all profiles found with a specific keyword.
+Score ALL profiles found with a specific keyword.
+
+Flow:
+  1. Get ALL profiles labeled with keyword
+  2. Score them in batches of 30 using the LLM model
+  3. Upsert each score (insert or update if exists)
+  4. Export results to CSV
 
 Usage:
-  yarn score-keyword <keyword> <model> [--batch-size=25]
+  yarn score-keyword <keyword> <model>
 
 Available models:
   ${getAvailableModels().join("\n  ")}
 
 Options:
-  --batch-size=N    Profiles per batch (default: 25)
   --help, -h        Show this help message
 
 Output:
@@ -89,7 +102,7 @@ Output:
 
 Example:
   yarn score-keyword epidemiologist claude-haiku-4-5-20251001
-  yarn score-keyword "@customers" gemini-2.0-flash --batch-size=15
+  yarn score-keyword "@customers" claude-sonnet-4-20250514
 `);
     process.exit(args.includes("--help") || args.includes("-h") ? 0 : 1);
   }
@@ -109,26 +122,15 @@ Example:
     process.exit(1);
   }
 
-  // Parse batch size
-  let batchSize = 25;
-  const batchArg = args.find((a) => a.startsWith("--batch-size="));
-  if (batchArg) {
-    batchSize = parseInt(batchArg.split("=")[1] ?? "25", 10);
-    if (isNaN(batchSize) || batchSize < 1) {
-      console.error("Error: Invalid batch size");
-      process.exit(1);
-    }
-  }
+  console.log(`\nScoring ALL profiles for keyword "${keyword}" with ${model}`);
+  console.log(`Batch size: 30 (fixed)\n`);
 
-  console.log(`\nScoring profiles for keyword "${keyword}" with ${model}`);
-  console.log(`Batch size: ${batchSize}\n`);
-
-  // Initialize DB and get initial count
+  // Initialize DB and get total count
   getDb();
-  const totalProfiles = await countUnscoredByKeyword(keyword, model);
+  const totalProfiles = await countAllByKeyword(keyword);
 
   if (totalProfiles === 0) {
-    console.log(`No unscored profiles found for keyword "${keyword}".`);
+    console.log(`No profiles found for keyword "${keyword}".`);
     process.exit(0);
   }
 
@@ -150,7 +152,6 @@ Example:
   const result = await scoreByKeyword(
     keyword,
     model,
-    batchSize,
     (batch: number, batchResult: ScoreAndSaveResult) => {
       totalProcessed += batchResult.scored + batchResult.skipped;
       progressBar.update(Math.min(totalProcessed, totalProfiles), { batch });
@@ -159,13 +160,27 @@ Example:
 
   progressBar.stop();
 
-  console.log(`\n✓ Scoring complete!`);
-  console.log(`  Keyword: ${keyword}`);
-  console.log(`  Model: ${model}`);
-  console.log(`  Batches: ${result.batches}`);
-  console.log(`  Scored: ${result.totalScored}`);
-  console.log(`  Skipped (already scored): ${result.totalSkipped}`);
-  console.log(`  Errors: ${result.totalErrors}`);
+  // Display results in table
+  console.log(`\n✓ Scoring complete!\n`);
+
+  const summaryTable = new Table({
+    columns: [
+      { name: "metric", title: "Metric", alignment: "left" },
+      { name: "value", title: "Value", alignment: "right" },
+    ],
+  });
+
+  summaryTable.addRows([
+    { metric: "Keyword", value: keyword },
+    { metric: "Model", value: model },
+    { metric: "Total profiles", value: result.totalProfiles },
+    { metric: "Batches processed", value: result.batches },
+    { metric: "New scores", value: result.totalScored },
+    { metric: "Updated scores", value: result.totalSkipped },
+    { metric: "Errors", value: result.totalErrors },
+  ]);
+
+  summaryTable.printTable();
 
   // Write CSV if there are scored profiles
   if (result.scoredProfiles.length > 0) {

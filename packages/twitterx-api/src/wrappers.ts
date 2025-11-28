@@ -27,10 +27,13 @@ import {
   insertToScore,
   insertMetadata,
   profileExists,
+  getProfileByUsername,
+  userKeywords,
+  getDb,
 } from "@profile-scorer/db";
 import { computeHAS } from "./compute_has";
 import { normalizeString } from "./utils";
-import { xapiSearch } from "./fetch";
+import { xapiSearch, xapiGetUser } from "./fetch";
 import logger from "./logger";
 
 // ============================================================================
@@ -90,7 +93,7 @@ export function extractTwitterProfile(user: TwitterXapiUser): TwitterProfile {
 export async function handleTwitterXapiUser(
   user: TwitterXapiUser,
   keyword: string,
-  searchId: string
+  searchId: string | null = null
 ): Promise<TwitterProfile> {
   const profile = extractTwitterProfile(user);
 
@@ -282,4 +285,100 @@ export async function processKeyword(keyword: string): Promise<ProcessKeywordRes
   });
 
   return { newProfiles, humanProfiles: humanProfiles.length };
+}
+
+// ============================================================================
+// Single User Retrieval
+// ============================================================================
+
+interface GetUserOptions {
+  /** Force API fetch even if user exists in DB (default: false) */
+  update?: boolean;
+  /** Keyword to associate with user if saved to DB (default: "@manual") */
+  keyword?: string;
+}
+
+interface GetUserResult {
+  profile: TwitterProfile;
+  /** Whether the profile was fetched from API (true) or DB cache (false) */
+  fromApi: boolean;
+}
+
+/**
+ * Get a user profile by username.
+ *
+ * By default, checks the database first and returns cached profile if found.
+ * Use `update: true` to force a fresh fetch from the API (recomputes HAS).
+ *
+ * @param username - Twitter handle (without @)
+ * @param options - Optional settings
+ * @param options.update - Force API fetch even if cached (default: false)
+ * @param options.keyword - Keyword to associate if saved to DB (default: "@manual")
+ * @returns Profile and source indicator
+ * @throws TwitterXApiError for API errors (USER_NOT_FOUND, RATE_LIMITED, etc.)
+ *
+ * @example
+ * // Get from cache or API
+ * const { profile, fromApi } = await getUser("elonmusk");
+ *
+ * // Force fresh fetch (recomputes HAS)
+ * const { profile } = await getUser("elonmusk", { update: true });
+ *
+ * // With custom keyword
+ * const { profile } = await getUser("elonmusk", { keyword: "@seed_profile" });
+ */
+export async function getUser(
+  username: string,
+  options: GetUserOptions = {}
+): Promise<GetUserResult> {
+  const { update = false, keyword = "@manual" } = options;
+
+  logger.info("getUser starting", { username, update, keyword });
+
+  // Check DB cache first (unless update is forced)
+  if (!update) {
+    const cached = await getProfileByUsername(username);
+    if (cached) {
+      // Create keyword association even for cached profiles
+      const db = getDb();
+      try {
+        await db
+          .insert(userKeywords)
+          .values({ twitterId: cached.twitter_id, keyword, searchId: null })
+          .onConflictDoNothing();
+        logger.debug("Created keyword association for cached profile", {
+          username,
+          keyword,
+        });
+      } catch (e: any) {
+        logger.warn("Failed to create keyword association for cached profile", {
+          username,
+          keyword,
+          error: e.message,
+        });
+      }
+
+      logger.info("getUser returning cached profile", {
+        username,
+        twitterId: cached.twitter_id,
+        humanScore: cached.human_score,
+      });
+      return { profile: cached, fromApi: false };
+    }
+    logger.debug("Profile not in cache, fetching from API", { username });
+  }
+
+  // Fetch from API, compute HAS, and save to DB
+  const rawUser = await xapiGetUser(username);
+  const profile = await handleTwitterXapiUser(rawUser, keyword);
+
+  logger.info("getUser completed from API", {
+    username,
+    twitterId: profile.twitter_id,
+    humanScore: profile.human_score,
+    likelyIs: profile.likely_is,
+    keyword,
+  });
+
+  return { profile, fromApi: true };
 }
