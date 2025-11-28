@@ -102,49 +102,73 @@ const GEMINI_CONFIG = {
 
 ## Final Score Computation
 
-The final score combines HAS (heuristic) with LLM score. Several combination strategies:
+The final score combines HAS (heuristic) with LLM scores from multiple models.
 
-### Strategy 1: Weighted Average
-
-```
-S_final = α × S_HAS + (1 - α) × S_LLM
-```
-
-Where α = 0.3 (weight HAS less since LLM is more accurate for relevance).
-
-### Strategy 2: Multiplicative
+### Official Formula (Implemented)
 
 ```
-S_final = S_HAS × S_LLM
+FINAL_SCORE = 0.2 × HAS + 0.8 × AVG_LLM
 ```
 
-Penalizes profiles that score low on either metric.
+Where:
+- **HAS**: Human Authenticity Score (heuristic-based, 0-1)
+- **AVG_LLM**: Average of all LLM scores for the profile (0-1)
 
-### Strategy 3: Gated
+**Rationale:** LLMs are weighted higher (0.8) because they evaluate the actual relevance of the profile to our target audience (qualitative researchers), while HAS only measures authenticity/bot likelihood. A profile can be highly authentic (HAS=0.9) but irrelevant (e.g., a sports blogger), or vice versa.
+
+### Multi-Model Averaging
+
+Each profile can be scored by multiple LLMs. The `AVG_LLM` is computed as:
 
 ```
-S_final =
-  S_LLM                 if S_HAS >= 0.55
-  S_LLM × S_HAS         if 0.40 <= S_HAS < 0.55
-  0                     if S_HAS < 0.40
+AVG_LLM = (S_haiku + S_sonnet + S_gemini + ...) / N_models
 ```
 
-Use HAS as a gate/penalty only.
+This provides:
+1. **Robustness**: Reduces single-model bias
+2. **Confidence**: More models = more reliable score
+3. **Cost efficiency**: Mix expensive (Sonnet) with cheap (Haiku, Gemini)
 
-### Recommended: Strategy 1 with α = 0.3
+### Filtering Threshold
+
+Only profiles with `FINAL_SCORE >= 0.6` are exported for targeting:
+
+| Score Range | Interpretation | Action |
+|-------------|----------------|--------|
+| 0.8 - 1.0 | Excellent match | High priority target |
+| 0.7 - 0.8 | Good match | Target |
+| 0.6 - 0.7 | Acceptable | Include |
+| < 0.6 | Weak match | Exclude |
+
+### SQL Query (Multi-Model)
 
 ```sql
--- Final ranking query
+-- Final ranking with averaged LLM scores
 SELECT
     p.username,
     p.human_score as has,
-    ps.score as llm,
-    (0.3 * p.human_score + 0.7 * ps.score)::numeric(4,3) as final
+    AVG(ps.score)::numeric(4,3) as avg_llm,
+    (0.2 * p.human_score + 0.8 * AVG(ps.score))::numeric(4,3) as final_score
 FROM user_profiles p
 JOIN profile_scores ps ON p.twitter_id = ps.twitter_id
-WHERE ps.scored_by = 'claude-haiku-4-5-20251001'
-ORDER BY final DESC;
+GROUP BY p.twitter_id, p.username, p.human_score
+HAVING (0.2 * p.human_score + 0.8 * AVG(ps.score)) >= 0.6
+ORDER BY final_score DESC;
 ```
+
+### Alternative Strategies (Not Used)
+
+**Strategy 2: Multiplicative**
+```
+S_final = S_HAS × S_LLM
+```
+Penalizes profiles that score low on either metric. Too aggressive.
+
+**Strategy 3: Gated**
+```
+S_final = S_LLM if S_HAS >= 0.55, else S_LLM × S_HAS
+```
+Use HAS as a gate/penalty only. Complex without clear benefit.
 
 ## Lambda Implementation
 
