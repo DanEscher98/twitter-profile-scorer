@@ -96,9 +96,10 @@ Tables defined in `packages/db/src/schema.ts`:
 - `user_profiles` - Core Twitter user data with HAS (Human Authenticity Score)
 - `profile_scores` - LLM scoring records (unique per twitter_id + scored_by model)
 - `user_stats` - Raw numeric fields for ML training
-- `xapi_search_usage` - API call tracking and pagination state
+- `xapi_usage_search` - API call tracking and pagination state
 - `profiles_to_score` - Queue of profiles pending LLM evaluation (HAS > 0.65)
 - `user_keywords` - Many-to-many linking profiles to search keywords
+- `keyword_stats` - Keyword pool with semantic tags and quality metrics
 
 ## LLM Scoring System
 

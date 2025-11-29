@@ -211,9 +211,10 @@ LLM-generated scores, one per (profile, model) pair.
 
 **Example `scored_by` values:**
 
-- `claude-haiku-20241022`
-- `gemini-2.0-flash`
-- `mistral-7b-researcher-v1` (custom model)
+- `claude-haiku-4-5-20251001` (primary scorer)
+- `claude-sonnet-4-20250514` (premium scorer)
+- `gemini-2.0-flash` (free tier)
+- `mistral-7b-researcher-v1` (future custom model)
 
 ### `xapi_usage_search`
 
@@ -447,7 +448,7 @@ JOIN user_profiles p ON pts.twitter_id = p.twitter_id
 WHERE NOT EXISTS (
     SELECT 1 FROM profile_scores ps
     WHERE ps.twitter_id = pts.twitter_id
-    AND ps.scored_by = 'claude-haiku-20241022'
+    AND ps.scored_by = 'claude-haiku-4-5-20251001'
 )
 ORDER BY pts.added_at ASC
 LIMIT 25;
@@ -470,17 +471,17 @@ ORDER BY avg_per_search DESC;
 ### Final ranked profiles
 
 ```sql
+-- Official formula: FINAL_SCORE = 0.2 × HAS + 0.8 × AVG_LLM
 SELECT
     p.username,
     p.display_name,
     p.human_score as has_score,
-    ps.score as llm_score,
-    ps.scored_by,
-    -- Combined score (example weighting)
-    (0.3 * p.human_score + 0.7 * ps.score)::numeric(4,3) as final_score
+    AVG(ps.score)::numeric(4,3) as avg_llm_score,
+    (0.2 * p.human_score + 0.8 * AVG(ps.score))::numeric(4,3) as final_score
 FROM user_profiles p
 JOIN profile_scores ps ON p.twitter_id = ps.twitter_id
-WHERE ps.scored_by = 'claude-haiku-20241022'
+GROUP BY p.twitter_id, p.username, p.display_name, p.human_score
+HAVING (0.2 * p.human_score + 0.8 * AVG(ps.score)) >= 0.6
 ORDER BY final_score DESC
 LIMIT 100;
 ```
