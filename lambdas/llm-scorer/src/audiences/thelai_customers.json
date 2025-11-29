@@ -1,20 +1,79 @@
+
 {
   "targetProfile": "qualitative researcher",
   "sector": "academia",
   "highSignals": [
-    "Fields with qualitative foundations: sociology, anthropology, social work, communication studies, education research, nursing/health services research, oral/public history",
-    "Research topics requiring human-centered methods: stigma, lived experience, identity, families, communities, health equity/disparities, violence prevention, child welfare, sexual/reproductive health, LGBTQ+ health, trauma narratives",
-    "Participatory language: partnering with communities, community-based, centering voices, underserved/marginalized populations",
-    "Academic research roles: PI, lab/center director, research scientist, assistant/associate/full professor with population-focused studies",
-    "Explicit methodology mentions: qualitative, ethnography, interviews, focus groups, grounded theory, phenomenology, narrative inquiry, oral history, mixed methods",
-    "Sensitive population research requiring IRB oversight: HIV/AIDS, mental health, suicide/self-harm, child abuse, sexual health, immigration"
+    "Explicit methodology keywords: qualitative, ethnography, grounded theory, discourse analysis, narrative inquiry, phenomenology, interviews, focus groups, participatory research, CBPR, oral history, thematic analysis, case study research",
+    "Fields with strong qualitative foundations: sociology, anthropology, social work, communication studies, education research, nursing research, medical humanities",
+    "Research topics requiring human-centered methods: stigma, lived experience, identity, families, communities, health equity/disparities, violence prevention, child welfare, sexual/reproductive health, LGBTQ+ health, trauma, migration, racism",
+    "Participatory and community language: partnering with communities, community-based, centering voices, underserved/marginalized populations, co-production, collaborative research",
+    "Academic research leadership roles with population focus: PI, lab director, center director, research scientist studying human populations",
+    "Sensitive population research requiring IRB and participant management: HIV/AIDS, mental health, suicide/self-harm, child abuse, sexual health, immigration, incarceration"
   ],
   "lowSignals": [
-    "Clinical-only roles without research: MD, fellow, resident focused on patient care (no PI/researcher in title)",
-    "Quantitative-primary fields: epidemiology (unless 'social'), biostatistics, data science, computational methods",
-    "Support roles: research coordinator, research assistant (not lead researcher)",
+    "Clinical-only roles: MD, fellow, resident without PI/researcher designation",
+    "Quantitative-primary fields: epidemiologist (unless 'social'), biostatistics, data science, computational methods, demographer (unless mixed with sociology)",
+    "Support roles without research leadership: research coordinator, research assistant, clinical research specialist",
+    "Theoretical-only scholars: pure bioethicists, postcolonial literary theorists, STS theorists without empirical fieldwork",
     "Advocacy/activism without academic research affiliation",
-    "Industry or corporate affiliations rather than university/research institute"
+    "Industry UX researchers without academic connection",
+    "Policy analysts without fieldwork or participant research"
   ],
-  "domainContext": "Target users conduct human-subjects research requiring: participant recruitment/tracking, interview scheduling, transcription services (including multilingual), IRB compliance documentation, secure storage for sensitive data, and team collaboration on qualitative coding/analysis. They study populations and phenomena that cannot be reduced to numbers alone."
+  "falsePositivePatterns": [
+    "Bioethicists discussing ethics without conducting participant research",
+    "Postcolonial/literary scholars doing textual analysis only (no interviews/fieldwork)",
+    "STS researchers focused on theory/policy rather than ethnographic work",
+    "Public health researchers with pure quantitative/surveillance focus",
+    "Demographers without qualitative component",
+    "Clinical psychologists doing intervention trials (not qualitative exploration)",
+    "UX researchers in industry without IRB-level participant management needs"
+  ],
+  "domainContext": "Target users conduct human-subjects research requiring: participant recruitment and tracking, interview/focus group scheduling, transcription services (including multilingual), IRB compliance documentation, secure storage for sensitive qualitative data, and team collaboration on coding/analysis. They study populations and phenomena through direct human interaction - interviews, observations, focus groups - not purely through surveys, databases, or textual analysis.",
+  "scoringGuidance": {
+    "definitiveMatch": [
+      "Explicit 'qualitative', 'ethnography', 'grounded theory', 'narrative inquiry', 'discourse analysis' in bio = 0.90+",
+      "Oral/public historian = 0.90+",
+      "Social work professor + community/population topic = 0.85+",
+      "Sociology/anthropology professor + any human-focused topic = 0.85+",
+      "Medical anthropologist = 0.85+",
+      "PI/lab director studying stigma, equity, trauma, lived experience = 0.85+",
+      "Member of ethnography network/lab/forum = 0.85+"
+    ],
+    "likelyMatch": [
+      "Communication studies professor + health/identity topic = 0.75+",
+      "Education researcher + curriculum/pedagogy focus = 0.75+",
+      "Public health researcher + equity/disparities/LGBTQ+/violence = 0.75+",
+      "Doctoral candidate in sociology/anthropology/social work = 0.70+",
+      "STS researcher with explicit fieldwork/participant mention = 0.70+"
+    ],
+    "capScores": [
+      "MD/clinical fellow without 'researcher' or 'PI' = cap at 0.40",
+      "Research coordinator (support role) = cap at 0.50",
+      "Epidemiologist without 'social' modifier = cap at 0.45",
+      "Bioethicist without empirical research signals = cap at 0.50",
+      "Postcolonial/literary scholar without fieldwork = cap at 0.50",
+      "Demographer without sociology/qualitative mention = cap at 0.50",
+      "Industry UX researcher = cap at 0.55"
+    ]
+  },
+  "keyDifferentiators": {
+    "actualCustomerPatterns": [
+      "Sociologists studying families, migration, health - topic-based not method-stated",
+      "Social work professors partnering with communities",
+      "Faculty studying HIV stigma, sexual/reproductive health",
+      "PIs in trauma, psychosocial factors research",
+      "Oral/public historians",
+      "Health equity center directors with sociology background",
+      "Sexuality researchers at institutes like Kinsey"
+    ],
+    "commonFalsePositives": [
+      "Bioethicists (discuss ethics but don't recruit participants)",
+      "Demographers (population-level quantitative analysis)",
+      "STS theorists (study science/tech but don't do ethnography)",
+      "Postcolonial literary scholars (textual analysis not interviews)",
+      "Clinical psychologists (intervention trials not exploratory qual)",
+      "Public health epidemiologists (surveillance not participant research)",
+      "Policy researchers (analysis not fieldwork)"
+    ]
+  }
 }

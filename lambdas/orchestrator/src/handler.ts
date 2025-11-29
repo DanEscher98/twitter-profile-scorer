@@ -117,7 +117,7 @@ export const handler: ScheduledHandler = async (event) => {
     const count = Number(pendingCount[0]?.count ?? 0);
     log.info("Profiles pending scoring", { count });
 
-    if (count > 0) {
+    if (count > 0 && false) { // DISABLED: LLM scoring temporarily shut down
       // Step 4: Invoke llm-scorer for each model based on probability
       // Each invocation is independent - models don't interfere with each other
       // because profile_scores tracks (twitter_id, scored_by) uniquely
