@@ -169,7 +169,7 @@ export const keywordStats = pgTable("keyword_stats", {
   pagesSearched: integer("pages_searched").default(0).notNull(),
   // Quality metrics
   highQualityCount: integer("high_quality_count").default(0).notNull(), // HAS > 0.7
-  lowQualityCount: integer("low_quality_count").default(0).notNull(),   // HAS < 0.4
+  lowQualityCount: integer("low_quality_count").default(0).notNull(), // HAS < 0.4
   // Timestamps
   firstSearchAt: timestamp("first_search_at", { withTimezone: false, mode: "string" }),
   lastSearchAt: timestamp("last_search_at", { withTimezone: false, mode: "string" }),

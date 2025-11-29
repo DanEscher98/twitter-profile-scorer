@@ -47,6 +47,7 @@ graph TB
 **Resource Group:** [`profile-scorer-saas`](https://console.aws.amazon.com/resource-groups) - View all resources in AWS Console
 
 **Tags:** All resources are tagged with:
+
 - `Project: profile-scorer-saas`
 - `Environment: mvp`
 - `ManagedBy: pulumi`
@@ -84,19 +85,20 @@ sequenceDiagram
 
 ## Lambda Functions
 
-| Lambda | Memory | Timeout | Subnet | Trigger |
-|--------|--------|---------|--------|---------|
-| orchestrator | 256MB | 30s | Private | EventBridge (15 min) |
-| keyword-engine | 256MB | 30s | Isolated | Direct invocation |
-| query-twitter-api | 256MB | 60s | Private | SQS keywords-queue |
-| llm-scorer | 512MB | 120s | Private | Direct invocation |
-| keyword-stats-updater | 256MB | 120s | Isolated | EventBridge (daily 4 AM UTC) |
+| Lambda                | Memory | Timeout | Subnet   | Trigger                      |
+| --------------------- | ------ | ------- | -------- | ---------------------------- |
+| orchestrator          | 256MB  | 30s     | Private  | EventBridge (15 min)         |
+| keyword-engine        | 256MB  | 30s     | Isolated | Direct invocation            |
+| query-twitter-api     | 256MB  | 60s     | Private  | SQS keywords-queue           |
+| llm-scorer            | 512MB  | 120s    | Private  | Direct invocation            |
+| keyword-stats-updater | 256MB  | 120s    | Isolated | EventBridge (daily 4 AM UTC) |
 
 ### 1. Orchestrator
 
 **Location:** `lambdas/orchestrator/`
 
 Pipeline heartbeat that coordinates all other lambdas:
+
 - Invokes `keyword-engine` to get keyword list
 - Sends keywords to SQS queue
 - Invokes `llm-scorer` directly when profiles need scoring
@@ -106,6 +108,7 @@ Pipeline heartbeat that coordinates all other lambdas:
 **Location:** `lambdas/keyword-engine/`
 
 Selects keywords for Twitter search from the `keyword_stats` database table:
+
 - Fetches valid keywords (still have pagination available)
 - Randomly samples from pool for diversity
 - Filters by pagination status using `xapi_usage_search`
@@ -116,6 +119,7 @@ Selects keywords for Twitter search from the `keyword_stats` database table:
 **Location:** `lambdas/query-twitter-api/`
 
 Fetches and processes Twitter profiles:
+
 - Calls RapidAPI TwitterX
 - Computes HAS (Human Authenticity Score)
 - Stores to `user_profiles`, `user_stats`, `user_keywords`
@@ -137,6 +141,7 @@ flowchart LR
 **Location:** `lambdas/llm-scorer/`
 
 Evaluates profiles with LLMs:
+
 - Fetches batch from `profiles_to_score` using `FOR UPDATE SKIP LOCKED`
 - Sends to Claude or Gemini (model specified at invocation)
 - Stores scores in `profile_scores`
@@ -146,6 +151,7 @@ Evaluates profiles with LLMs:
 **Location:** `lambdas/keyword-stats-updater/`
 
 Daily maintenance lambda that recalculates keyword statistics:
+
 - Aggregates profile counts and average scores per keyword
 - Updates `still_valid` flag based on pagination exhaustion
 - Tracks quality metrics (high/low quality counts)
@@ -179,11 +185,11 @@ graph TB
     NAT --> OR
 ```
 
-| Subnet Type | CIDR | Internet Access | Purpose |
-|-------------|------|-----------------|---------|
-| Public | 10.0.1-2.0/24 | Direct (IGW) | NAT Gateway, RDS (dev) |
-| Private | 10.0.10-11.0/24 | Via NAT | Lambdas needing external APIs |
-| Isolated | 10.0.20-21.0/24 | None | DB-only lambdas |
+| Subnet Type | CIDR            | Internet Access | Purpose                       |
+| ----------- | --------------- | --------------- | ----------------------------- |
+| Public      | 10.0.1-2.0/24   | Direct (IGW)    | NAT Gateway, RDS (dev)        |
+| Private     | 10.0.10-11.0/24 | Via NAT         | Lambdas needing external APIs |
+| Isolated    | 10.0.20-21.0/24 | None            | DB-only lambdas               |
 
 **Note:** RDS is in public subnets for dev access. Move to isolated subnets for production.
 
@@ -196,19 +202,21 @@ graph LR
     KQ -.->|after 3 failures| DLQ[keywords-dlq]
 ```
 
-| Queue | Visibility Timeout | Max Retries | DLQ Retention |
-|-------|-------------------|-------------|---------------|
-| keywords-queue | 60s | 3 | 7 days |
+| Queue          | Visibility Timeout | Max Retries | DLQ Retention |
+| -------------- | ------------------ | ----------- | ------------- |
+| keywords-queue | 60s                | 3           | 7 days        |
 
 **Note:** The scoring queue was removed. The `llm-scorer` is now invoked directly by the orchestrator. The `profiles_to_score` table serves as a persistent queue with atomic claims via `FOR UPDATE SKIP LOCKED`.
 
 ## Rate Limiting
 
 ### RapidAPI TwitterX
+
 - **Limit:** 10 req/s, 500K req/month
 - **Strategy:** SQS concurrency = 3 (~3 req/s effective)
 
 ### LLM APIs
+
 - **Claude Haiku:** $0.25/1M input, $1.25/1M output
 - **Gemini Flash:** Free tier
 - **Batch size:** 25 profiles per request
@@ -221,38 +229,40 @@ graph LR
 
 The dashboard provides a unified view of all system components:
 
-| Row | Metrics |
-|-----|---------|
-| **Pipeline Health** | Lambda invocations (stacked), errors, SQS queue depth |
-| **Lambda Performance** | Duration p95, concurrent executions, throttles |
-| **Database Health** | RDS connections, CPU utilization, free storage |
-| **Database I/O** | Read/write IOPS, read/write latency |
-| **Queue Metrics** | Message age, sent/received/deleted, empty receives |
-| **Network** | NAT Gateway traffic in/out, connection counts |
+| Row                    | Metrics                                               |
+| ---------------------- | ----------------------------------------------------- |
+| **Pipeline Health**    | Lambda invocations (stacked), errors, SQS queue depth |
+| **Lambda Performance** | Duration p95, concurrent executions, throttles        |
+| **Database Health**    | RDS connections, CPU utilization, free storage        |
+| **Database I/O**       | Read/write IOPS, read/write latency                   |
+| **Queue Metrics**      | Message age, sent/received/deleted, empty receives    |
+| **Network**            | NAT Gateway traffic in/out, connection counts         |
 
 ### Cost Management
 
-| Resource | Link |
-|----------|------|
-| **AWS Budget** | [profile-scorer-monthly](https://us-east-1.console.aws.amazon.com/billing/home#/budgets) - $10/month limit |
-| **Cost Explorer** | [By Service](https://us-east-1.console.aws.amazon.com/cost-management/home#/cost-explorer) |
+| Resource              | Link                                                                                                                  |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **AWS Budget**        | [profile-scorer-monthly](https://us-east-1.console.aws.amazon.com/billing/home#/budgets) - $10/month limit            |
+| **Cost Explorer**     | [By Service](https://us-east-1.console.aws.amazon.com/cost-management/home#/cost-explorer)                            |
 | **Anomaly Detection** | [Default-Services-Monitor](https://us-east-1.console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors) |
 
 **Current Cost Breakdown (November 2025):**
 
-| Service | Cost | Notes |
-|---------|------|-------|
-| EC2 - Other | ~$0.59 | NAT Gateway (largest cost) |
-| RDS | ~$0.24 | PostgreSQL db.t4g.micro |
-| VPC | ~$0.12 | VPC resources |
-| Lambda, SQS, CloudWatch | $0.00 | Free tier |
+| Service                 | Cost   | Notes                      |
+| ----------------------- | ------ | -------------------------- |
+| EC2 - Other             | ~$0.59 | NAT Gateway (largest cost) |
+| RDS                     | ~$0.24 | PostgreSQL db.t4g.micro    |
+| VPC                     | ~$0.12 | VPC resources              |
+| Lambda, SQS, CloudWatch | $0.00  | Free tier                  |
 
 **To enable tag-based filtering:**
+
 1. AWS Console → Billing → Cost allocation tags
 2. Activate `Project` tag
 3. Wait 24 hours
 
 **To add email alerts** to the budget, edit `infra/__main__.py`:
+
 ```python
 budget = ProjectBudget(
     "profile-scorer",

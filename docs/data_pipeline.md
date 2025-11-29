@@ -139,43 +139,44 @@ erDiagram
 
 Primary storage for processed Twitter profiles.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `twitter_id` | VARCHAR(25) | Primary key, Twitter's user ID |
-| `username` | VARCHAR(255) | Twitter handle (unique) |
-| `display_name` | VARCHAR(255) | Display name |
-| `bio` | TEXT | Profile description |
-| `created_at` | VARCHAR(100) | Account creation date (Twitter format) |
-| `follower_count` | INTEGER | Number of followers |
-| `location` | VARCHAR(255) | Self-reported location |
-| `updated_at` | TIMESTAMP | Last update in our system |
-| `got_by_keywords` | TEXT[] | Keywords that found this profile |
-| `can_dm` | BOOLEAN | Whether DMs are open |
-| `category` | VARCHAR(255) | Professional category (if set) |
-| `human_score` | NUMERIC | HAS score (0.0000 - 1.0000) |
-| `likely_is` | ENUM | Classification: Human, Creator, Entity, Bot, Other |
+| Column            | Type         | Description                                        |
+| ----------------- | ------------ | -------------------------------------------------- |
+| `twitter_id`      | VARCHAR(25)  | Primary key, Twitter's user ID                     |
+| `username`        | VARCHAR(255) | Twitter handle (unique)                            |
+| `display_name`    | VARCHAR(255) | Display name                                       |
+| `bio`             | TEXT         | Profile description                                |
+| `created_at`      | VARCHAR(100) | Account creation date (Twitter format)             |
+| `follower_count`  | INTEGER      | Number of followers                                |
+| `location`        | VARCHAR(255) | Self-reported location                             |
+| `updated_at`      | TIMESTAMP    | Last update in our system                          |
+| `got_by_keywords` | TEXT[]       | Keywords that found this profile                   |
+| `can_dm`          | BOOLEAN      | Whether DMs are open                               |
+| `category`        | VARCHAR(255) | Professional category (if set)                     |
+| `human_score`     | NUMERIC      | HAS score (0.0000 - 1.0000)                        |
+| `likely_is`       | ENUM         | Classification: Human, Creator, Entity, Bot, Other |
 
 ### `user_stats`
 
 Raw numeric fields for HAS validation and future ML training.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `twitter_id` | VARCHAR(25) | FK to user_profiles |
-| `followers` | INTEGER | followers_count |
-| `following` | INTEGER | friends_count |
-| `statuses` | INTEGER | Tweet count |
-| `favorites` | INTEGER | Likes given |
-| `listed` | INTEGER | Lists containing user |
-| `media` | INTEGER | Media uploads |
-| `verified` | BOOLEAN | Legacy verification |
-| `blue_verified` | BOOLEAN | Twitter Blue |
-| `default_profile` | BOOLEAN | Using default theme |
-| `default_image` | BOOLEAN | Using default avatar |
-| `sensitive` | BOOLEAN | possibly_sensitive flag |
-| `can_dm` | BOOLEAN | DMs open |
+| Column            | Type        | Description             |
+| ----------------- | ----------- | ----------------------- |
+| `twitter_id`      | VARCHAR(25) | FK to user_profiles     |
+| `followers`       | INTEGER     | followers_count         |
+| `following`       | INTEGER     | friends_count           |
+| `statuses`        | INTEGER     | Tweet count             |
+| `favorites`       | INTEGER     | Likes given             |
+| `listed`          | INTEGER     | Lists containing user   |
+| `media`           | INTEGER     | Media uploads           |
+| `verified`        | BOOLEAN     | Legacy verification     |
+| `blue_verified`   | BOOLEAN     | Twitter Blue            |
+| `default_profile` | BOOLEAN     | Using default theme     |
+| `default_image`   | BOOLEAN     | Using default avatar    |
+| `sensitive`       | BOOLEAN     | possibly_sensitive flag |
+| `can_dm`          | BOOLEAN     | DMs open                |
 
 **Purpose:** Preserve raw fields to:
+
 1. Validate/tune HAS heuristic over time
 2. Generate training data for custom model
 3. Enable retroactive re-scoring with improved heuristics
@@ -184,12 +185,12 @@ Raw numeric fields for HAS validation and future ML training.
 
 FIFO queue for profiles awaiting LLM scoring.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `twitter_id` | VARCHAR(25) | FK to user_profiles (unique) |
-| `username` | VARCHAR(255) | For quick reference |
-| `added_at` | TIMESTAMP | Queue entry time (for FIFO) |
+| Column       | Type         | Description                  |
+| ------------ | ------------ | ---------------------------- |
+| `id`         | UUID         | Primary key                  |
+| `twitter_id` | VARCHAR(25)  | FK to user_profiles (unique) |
+| `username`   | VARCHAR(255) | For quick reference          |
+| `added_at`   | TIMESTAMP    | Queue entry time (for FIFO)  |
 
 **Index:** `idx_added_at` for FIFO ordering
 
@@ -197,18 +198,19 @@ FIFO queue for profiles awaiting LLM scoring.
 
 LLM-generated scores, one per (profile, model) pair.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `twitter_id` | VARCHAR(25) | FK to user_profiles |
-| `score` | NUMERIC(3,2) | LLM score (0.00 - 1.00) |
-| `reason` | TEXT | LLM's reasoning |
-| `scored_at` | TIMESTAMP | When scored |
-| `scored_by` | VARCHAR(100) | Model identifier |
+| Column       | Type         | Description             |
+| ------------ | ------------ | ----------------------- |
+| `id`         | UUID         | Primary key             |
+| `twitter_id` | VARCHAR(25)  | FK to user_profiles     |
+| `score`      | NUMERIC(3,2) | LLM score (0.00 - 1.00) |
+| `reason`     | TEXT         | LLM's reasoning         |
+| `scored_at`  | TIMESTAMP    | When scored             |
+| `scored_by`  | VARCHAR(100) | Model identifier        |
 
 **Unique Constraint:** `(twitter_id, scored_by)` - one score per model
 
 **Example `scored_by` values:**
+
 - `claude-haiku-20241022`
 - `gemini-2.0-flash`
 - `mistral-7b-researcher-v1` (custom model)
@@ -217,21 +219,22 @@ LLM-generated scores, one per (profile, model) pair.
 
 API call tracking and pagination state.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `ids_hash` | VARCHAR(16) | Hash of returned IDs (dedup) |
-| `keyword` | VARCHAR(255) | Search keyword |
-| `items` | INTEGER | Requested items (default 20) |
-| `retries` | INTEGER | Retry count |
-| `next_page` | TEXT | Pagination cursor |
-| `page` | INTEGER | Page number |
-| `new_profiles` | INTEGER | New profiles found |
-| `query_at` | TIMESTAMP | Query timestamp |
+| Column         | Type         | Description                  |
+| -------------- | ------------ | ---------------------------- |
+| `id`           | UUID         | Primary key                  |
+| `ids_hash`     | VARCHAR(16)  | Hash of returned IDs (dedup) |
+| `keyword`      | VARCHAR(255) | Search keyword               |
+| `items`        | INTEGER      | Requested items (default 20) |
+| `retries`      | INTEGER      | Retry count                  |
+| `next_page`    | TEXT         | Pagination cursor            |
+| `page`         | INTEGER      | Page number                  |
+| `new_profiles` | INTEGER      | New profiles found           |
+| `query_at`     | TIMESTAMP    | Query timestamp              |
 
 **Unique Constraint:** `(keyword, items, next_page)` - prevent duplicate queries
 
 **Usage:**
+
 1. Track keyword effectiveness: `AVG(new_profiles) GROUP BY keyword`
 2. Resume pagination: `SELECT next_page WHERE keyword = ? ORDER BY page DESC LIMIT 1`
 3. Monitor API quota: `COUNT(*) WHERE query_at > NOW() - INTERVAL '1 month'`
@@ -240,22 +243,23 @@ API call tracking and pagination state.
 
 Keyword pool management with aggregated statistics. Updated daily by `keyword-stats-updater` lambda.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `keyword` | VARCHAR(255) | Primary key, the search keyword |
-| `semantic_tags` | TEXT[] | Semantic categorization tags (e.g., `#academia`, `#health`) |
-| `profiles_found` | INTEGER | Total profiles found with this keyword |
-| `avg_human_score` | NUMERIC(4,3) | Average HAS score of profiles |
-| `avg_llm_score` | NUMERIC(4,3) | Average LLM score of profiles |
-| `still_valid` | BOOLEAN | Whether keyword has more pagination pages |
-| `pages_searched` | INTEGER | Number of pages searched |
-| `high_quality_count` | INTEGER | Profiles with HAS > 0.7 |
-| `low_quality_count` | INTEGER | Profiles with HAS < 0.4 |
-| `first_search_at` | TIMESTAMP | First search timestamp |
-| `last_search_at` | TIMESTAMP | Most recent search |
-| `updated_at` | TIMESTAMP | Last stats recalculation |
+| Column               | Type         | Description                                                 |
+| -------------------- | ------------ | ----------------------------------------------------------- |
+| `keyword`            | VARCHAR(255) | Primary key, the search keyword                             |
+| `semantic_tags`      | TEXT[]       | Semantic categorization tags (e.g., `#academia`, `#health`) |
+| `profiles_found`     | INTEGER      | Total profiles found with this keyword                      |
+| `avg_human_score`    | NUMERIC(4,3) | Average HAS score of profiles                               |
+| `avg_llm_score`      | NUMERIC(4,3) | Average LLM score of profiles                               |
+| `still_valid`        | BOOLEAN      | Whether keyword has more pagination pages                   |
+| `pages_searched`     | INTEGER      | Number of pages searched                                    |
+| `high_quality_count` | INTEGER      | Profiles with HAS > 0.7                                     |
+| `low_quality_count`  | INTEGER      | Profiles with HAS < 0.4                                     |
+| `first_search_at`    | TIMESTAMP    | First search timestamp                                      |
+| `last_search_at`     | TIMESTAMP    | Most recent search                                          |
+| `updated_at`         | TIMESTAMP    | Last stats recalculation                                    |
 
 **Semantic Tags:**
+
 - `#academia` - Academic roles and institutions
 - `#credentials` - Titles and qualifications (PhD, Professor)
 - `#research` - Research-related roles
@@ -266,6 +270,7 @@ Keyword pool management with aggregated statistics. Updated daily by `keyword-st
 - `#interdisciplinary` - Cross-disciplinary fields
 
 **Usage:**
+
 1. `keyword-engine` fetches valid keywords: `SELECT * FROM keyword_stats WHERE still_valid = true`
 2. Daily stats update via `keyword-stats-updater` lambda (4 AM UTC)
 3. Add new keywords: `yarn add-keyword "new term" --tags=#academia,#research`
@@ -274,13 +279,13 @@ Keyword pool management with aggregated statistics. Updated daily by `keyword-st
 
 Many-to-many: profiles found by which keywords.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `twitter_id` | VARCHAR(25) | FK to user_profiles |
-| `keyword` | VARCHAR(255) | Search keyword |
-| `search_id` | UUID | FK to xapi_usage_search |
-| `added_at` | TIMESTAMP | When association created |
+| Column       | Type         | Description              |
+| ------------ | ------------ | ------------------------ |
+| `id`         | UUID         | Primary key              |
+| `twitter_id` | VARCHAR(25)  | FK to user_profiles      |
+| `keyword`    | VARCHAR(255) | Search keyword           |
+| `search_id`  | UUID         | FK to xapi_usage_search  |
+| `added_at`   | TIMESTAMP    | When association created |
 
 **Unique Constraint:** `(twitter_id, keyword)` - one entry per pair
 
@@ -308,15 +313,15 @@ const user = await xapiGetUser("DrJaneSmith");
 
 Both functions throw `TwitterXApiError` with standardized error codes:
 
-| Error Code | HTTP Status | Description |
-|------------|-------------|-------------|
-| `API_KEY_MISSING` | 401 | TWITTERX_APIKEY not set |
-| `RATE_LIMITED` | 429 | API rate limit exceeded |
-| `USER_NOT_FOUND` | 404 | User doesn't exist |
-| `USER_SUSPENDED` | 403 | User account suspended |
-| `MAX_RETRIES_EXCEEDED` | 503 | Failed after 10 retry attempts |
-| `NETWORK_ERROR` | 502 | Network/connection error |
-| `API_BOTTLENECK` | 503 | API returned empty response |
+| Error Code             | HTTP Status | Description                    |
+| ---------------------- | ----------- | ------------------------------ |
+| `API_KEY_MISSING`      | 401         | TWITTERX_APIKEY not set        |
+| `RATE_LIMITED`         | 429         | API rate limit exceeded        |
+| `USER_NOT_FOUND`       | 404         | User doesn't exist             |
+| `USER_SUSPENDED`       | 403         | User account suspended         |
+| `MAX_RETRIES_EXCEEDED` | 503         | Failed after 10 retry attempts |
+| `NETWORK_ERROR`        | 502         | Network/connection error       |
+| `API_BOTTLENECK`       | 503         | API returned empty response    |
 
 ```typescript
 import { TwitterXApiError } from "@profile-scorer/twitterx-api";
@@ -388,6 +393,7 @@ interface TwitterXapiUser {
 ```
 
 **Atomic Operations:** Each profile is processed atomically. The `upsertUserProfile` function:
+
 1. Inserts new profile OR updates existing (via unique constraint catch)
 2. Always inserts `user_keywords` relation (for both new and existing profiles)
 3. Upserts `user_stats` with `onConflictDoUpdate`
@@ -413,16 +419,16 @@ PROFILES:
 2. @pharma_news | PharmaCorp News | "Official news from PharmaCorp Inc." | Entity | Pharmaceutical Company
 ...
 
-OUTPUT:`
+OUTPUT:`;
 ```
 
 ### LLM Response → Storage
 
 ```typescript
 interface ScoredUser {
-  username: string;  // Maps to twitter_id via lookup
-  score: number;     // 0.00 - 1.00
-  reason: string;    // LLM reasoning
+  username: string; // Maps to twitter_id via lookup
+  score: number; // 0.00 - 1.00
+  reason: string; // LLM reasoning
 }
 
 // Stored in profile_scores with:

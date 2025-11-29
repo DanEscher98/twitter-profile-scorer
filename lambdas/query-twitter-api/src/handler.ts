@@ -1,4 +1,5 @@
-import { SQSHandler, SQSBatchResponse, SQSBatchItemFailure } from "aws-lambda";
+import { SQSBatchItemFailure, SQSBatchResponse, SQSHandler } from "aws-lambda";
+
 import { wrappers } from "@profile-scorer/twitterx-api";
 import { createLogger } from "@profile-scorer/utils";
 
@@ -36,8 +37,9 @@ export const handler: SQSHandler = async (event): Promise<SQSBatchResponse> => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       const errorStack = error instanceof Error ? error.stack : undefined;
-      const errorCause = error instanceof Error && 'cause' in error ? (error.cause as Error)?.message : undefined;
-      const errorCode = error instanceof Error && 'code' in error ? (error as any).code : undefined;
+      const errorCause =
+        error instanceof Error && "cause" in error ? (error.cause as Error)?.message : undefined;
+      const errorCode = error instanceof Error && "code" in error ? (error as any).code : undefined;
 
       // Check if it's a "fully paginated" error - don't retry these
       if (errorMessage.includes("fully paginated")) {
@@ -50,7 +52,7 @@ export const handler: SQSHandler = async (event): Promise<SQSBatchResponse> => {
         error: errorMessage,
         cause: errorCause,
         code: errorCode,
-        stack: errorStack
+        stack: errorStack,
       });
 
       batchItemFailures.push({ itemIdentifier: record.messageId });
@@ -59,7 +61,7 @@ export const handler: SQSHandler = async (event): Promise<SQSBatchResponse> => {
 
   log.info("Lambda completed", {
     processed: event.Records.length,
-    failed: batchItemFailures.length
+    failed: batchItemFailures.length,
   });
 
   return { batchItemFailures };

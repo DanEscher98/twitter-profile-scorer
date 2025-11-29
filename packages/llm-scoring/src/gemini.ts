@@ -1,7 +1,14 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+
 import { ProfileToScore } from "@profile-scorer/db";
 import { createLogger } from "@profile-scorer/utils";
-import { ScoreResult, SYSTEM_PROMPT, formatProfilesPrompt, parseAndValidateResponse } from "./shared";
+
+import {
+  SYSTEM_PROMPT,
+  ScoreResult,
+  formatProfilesPrompt,
+  parseAndValidateResponse,
+} from "./shared";
 
 const log = createLogger("gemini-wrapper");
 
@@ -53,13 +60,17 @@ export async function scoreWithGemini(
 
     if (isQuotaError) {
       log.error("GEMINI QUOTA/RATE LIMIT - Check billing or wait", {
-        model: modelName, statusCode: errorStatus, errorMessage,
+        model: modelName,
+        statusCode: errorStatus,
+        errorMessage,
         action: "CHECK_BILLING_OR_WAIT",
         profileCount: profiles.length,
       });
     } else {
       log.error("Gemini API error", {
-        model: modelName, statusCode: errorStatus, errorMessage,
+        model: modelName,
+        statusCode: errorStatus,
+        errorMessage,
         profileCount: profiles.length,
       });
     }

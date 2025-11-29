@@ -1,4 +1,14 @@
 #!/usr/bin/env tsx
+// Load environment variables from root .env
+
+import blessed from "blessed";
+import { Table } from "console-table-printer";
+
+import { ProfileToScore, getDb, getProfilesToScore, insertProfileScore } from "@profile-scorer/db";
+import { getAvailableModels, scoreProfiles } from "@profile-scorer/llm-scoring";
+
+import "./env.js";
+
 /**
  * Score all pending profiles for a given model using parallel batch processing.
  *
@@ -13,16 +23,6 @@
 
 // Suppress ALL library logs FIRST (before any imports)
 process.env.LOG_LEVEL = "silent";
-
-import "./env.js"; // Load environment variables from root .env
-
-import blessed from "blessed";
-import { Table } from "console-table-printer";
-import {
-  scoreProfiles,
-  getAvailableModels,
-} from "@profile-scorer/llm-scoring";
-import { getDb, getProfilesToScore, insertProfileScore, ProfileToScore } from "@profile-scorer/db";
 
 /**
  * Split array into chunks of specified size
@@ -173,13 +173,15 @@ Example:
     left: 0,
     width: "100%",
     height: 10,
-    content: `
+    content:
+      `
 ┌─────────────────────────────────────────────────────────────┐
 │  Score All Pending Profiles                                 │
 ├─────────────────────────────────────────────────────────────┤
 │  Model:       ${model.padEnd(45)}│
 │  Profiles:    ${String(totalProfiles).padEnd(45)}│
-│  Batches:     ${totalBatches} (size: ${batchSize}, concurrency: ${concurrency})`.padEnd(59) + `│
+│  Batches:     ${totalBatches} (size: ${batchSize}, concurrency: ${concurrency})`.padEnd(59) +
+      `│
 │  Threshold:   ${String(threshold).padEnd(45)}│
 └─────────────────────────────────────────────────────────────┘`,
     style: {
@@ -245,7 +247,9 @@ Example:
   const updateProgress = (current: number, batch: number) => {
     const pct = Math.floor((current / totalProfiles) * 100);
     progressBar.setProgress(pct);
-    progressBar.setLabel(` Progress: ${pct}% | ${current}/${totalProfiles} profiles | Batch ${batch}/${totalBatches} `);
+    progressBar.setLabel(
+      ` Progress: ${pct}% | ${current}/${totalProfiles} profiles | Batch ${batch}/${totalBatches} `
+    );
     screen.render();
   };
 

@@ -1,7 +1,8 @@
 import { Handler } from "aws-lambda";
-import { createLogger } from "@profile-scorer/utils";
+
 import { getValidKeywords } from "@profile-scorer/db";
 import { keywordStillHasPages } from "@profile-scorer/twitterx-api";
+import { createLogger } from "@profile-scorer/utils";
 
 const log = createLogger("keyword-engine");
 

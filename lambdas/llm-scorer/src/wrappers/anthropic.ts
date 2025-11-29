@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
+
 import { ProfileToScore } from "@profile-scorer/db";
 import { createLogger } from "@profile-scorer/utils";
+
 import { ScoreResult } from "../handler";
 import { SYSTEM_PROMPT, formatProfilesPrompt, parseAndValidateResponse } from "./shared";
 

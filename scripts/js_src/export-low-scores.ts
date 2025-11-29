@@ -18,19 +18,14 @@
  * Output:
  *   scripts/output/<timestamp>-lowscores.csv
  */
-
+import blessed from "blessed";
+import { eq } from "drizzle-orm";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import blessed from "blessed";
+
 import { getDb } from "@profile-scorer/db";
-import { eq } from "drizzle-orm";
-import {
-  userProfiles,
-  profileScores,
-  userKeywords,
-  userStats,
-} from "@profile-scorer/db";
+import { profileScores, userKeywords, userProfiles, userStats } from "@profile-scorer/db";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -237,9 +232,7 @@ function processProfile(
   const hasLlmScores = llmScores.length > 0;
 
   // Calculate average LLM score if available
-  const avgLlmScore = hasLlmScores
-    ? llmScores.reduce((a, b) => a + b, 0) / llmScores.length
-    : null;
+  const avgLlmScore = hasLlmScores ? llmScores.reduce((a, b) => a + b, 0) / llmScores.length : null;
 
   // Calculate final score
   // If LLM scores exist: 0.2 * HAS + 0.8 * AVG_LLM
@@ -310,12 +303,7 @@ async function fetchAllKeywords(): Promise<Map<string, string[]>> {
 }
 
 function escapeCsvValue(value: string): string {
-  if (
-    value.includes(",") ||
-    value.includes('"') ||
-    value.includes("\n") ||
-    value.includes("\r")
-  ) {
+  if (value.includes(",") || value.includes('"') || value.includes("\n") || value.includes("\r")) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
@@ -347,10 +335,10 @@ async function main() {
     "Total Profiles": 0,
     "With LLM Scores": 0,
     "Low Score (<0.5)": 0,
-    "Exported": 0,
+    Exported: 0,
     "Avg Low Score": "-",
-    "Processing": "...",
-    "Elapsed": "0s",
+    Processing: "...",
+    Elapsed: "0s",
   };
   updateStats(stats);
 
@@ -384,9 +372,7 @@ async function main() {
       const batch = profiles.slice(i, i + BATCH_SIZE);
 
       const results = await Promise.allSettled(
-        batch.map((profile) =>
-          Promise.resolve(processProfile(profile, allScores, allKeywords))
-        )
+        batch.map((profile) => Promise.resolve(processProfile(profile, allScores, allKeywords)))
       );
 
       for (const result of results) {
@@ -403,9 +389,7 @@ async function main() {
     }
 
     // Filter for low scores (< 0.5)
-    const lowScoreProfiles = allProcessed.filter(
-      (p) => p.finalScore < MAX_FINAL_SCORE
-    );
+    const lowScoreProfiles = allProcessed.filter((p) => p.finalScore < MAX_FINAL_SCORE);
 
     stats["Low Score (<0.5)"] = lowScoreProfiles.length;
     updateStats(stats);
@@ -420,8 +404,7 @@ async function main() {
     // Calculate stats
     const avgScore =
       lowScoreProfiles.length > 0
-        ? lowScoreProfiles.reduce((sum, p) => sum + p.finalScore, 0) /
-          lowScoreProfiles.length
+        ? lowScoreProfiles.reduce((sum, p) => sum + p.finalScore, 0) / lowScoreProfiles.length
         : 0;
 
     const withLlm = lowScoreProfiles.filter((p) => p.hasLlmScores).length;

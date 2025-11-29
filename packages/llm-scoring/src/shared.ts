@@ -1,5 +1,6 @@
-import { z } from "zod";
 import { encode as toToon } from "@toon-format/toon";
+import { z } from "zod";
+
 import { ProfileToScore } from "@profile-scorer/db";
 import { createLogger } from "@profile-scorer/utils";
 
@@ -59,10 +60,10 @@ ${config.domainContext}
 ## Scoring Signals
 
 HIGH-SIGNAL INDICATORS (increase score):
-${config.highSignals.map(s => `• ${s}`).join('\n')}
+${config.highSignals.map((s) => `• ${s}`).join("\n")}
 
 LOW-SIGNAL INDICATORS (decrease score or neutral):
-${config.lowSignals.map(s => `• ${s}`).join('\n')}
+${config.lowSignals.map((s) => `• ${s}`).join("\n")}
 
 ## Evaluation Process
 For each profile:
@@ -92,16 +93,17 @@ export const SYSTEM_PROMPT = generateSystemPrompt({
     "Roles: PI, lab director, research scientist with population-focused studies",
     "Fields with qualitative traditions: sociology, anthropology, social work, nursing, public health (health equity), education, communication",
     "Participant interaction: 'partnering with communities', studying vulnerable/marginalized populations",
-    "IRB-heavy contexts: HIV, mental health, trauma, sexual health, child welfare"
+    "IRB-heavy contexts: HIV, mental health, trauma, sexual health, child welfare",
   ],
   lowSignals: [
     "Clinical roles without research (MD focused on patient care)",
     "Quantitative indicators: epidemiologist, biostatistician, data scientist",
     "Industry/corporate focus",
     "Advocacy without research role",
-    "Teaching-only focus"
+    "Teaching-only focus",
   ],
-  domainContext: "These researchers need participant management, interview scheduling, transcription, IRB compliance, and secure data storage for sensitive research."
+  domainContext:
+    "These researchers need participant management, interview scheduling, transcription, IRB compliance, and secure data storage for sensitive research.",
 });
 
 /**
@@ -167,10 +169,7 @@ function extractJson(text: string): string {
  * @param profiles - Original profiles for mapping back twitterId
  * @returns Array of validated score results with twitterId
  */
-export function parseAndValidateResponse(
-  text: string,
-  profiles: ProfileToScore[]
-): ScoreResult[] {
+export function parseAndValidateResponse(text: string, profiles: ProfileToScore[]): ScoreResult[] {
   // Extract JSON from potential markdown blocks
   const jsonStr = extractJson(text);
 
@@ -200,9 +199,7 @@ export function parseAndValidateResponse(
   }
 
   // Map usernames back to twitterIds
-  const usernameToProfile = new Map(
-    profiles.map((p) => [p.username.toLowerCase(), p])
-  );
+  const usernameToProfile = new Map(profiles.map((p) => [p.username.toLowerCase(), p]));
 
   const results: ScoreResult[] = [];
 

@@ -1,11 +1,7 @@
 import { Handler } from "aws-lambda";
+
+import { ProfileToScore, getDb, getProfilesToScore, insertProfileScore } from "@profile-scorer/db";
 import { createLogger } from "@profile-scorer/utils";
-import {
-  getDb,
-  getProfilesToScore,
-  insertProfileScore,
-  ProfileToScore,
-} from "@profile-scorer/db";
 
 // Import model wrappers
 import { scoreWithAnthropic } from "./wrappers/anthropic";
@@ -120,12 +116,7 @@ export const handler: Handler<LlmScorerEvent, LlmScorerResponse> = async (event)
 
   for (const score of scores) {
     try {
-      await insertProfileScore(
-        score.twitterId,
-        score.score,
-        score.reason,
-        model
-      );
+      await insertProfileScore(score.twitterId, score.score, score.reason, model);
       scored++;
       scoredProfiles.push(score.twitterId);
       log.debug("Stored score", { twitterId: score.twitterId, score: score.score.toFixed(2) });

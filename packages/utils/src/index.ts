@@ -20,7 +20,6 @@
  * Production output (CloudWatch):
  *   {"severity":"info","message":"message","service":"my-service","key":"value"}
  */
-
 import winston from "winston";
 
 /**

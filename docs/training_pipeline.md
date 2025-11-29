@@ -178,12 +178,12 @@ training_job = aws.sagemaker.TrainingJob(
 
 ### Cost Estimates
 
-| Resource | Hourly Cost | Estimated Usage | Monthly Cost |
-|----------|-------------|-----------------|--------------|
-| SageMaker ml.g4dn.xlarge | $0.736 | 4 hrs/week | ~$12 |
-| EC2 g4dn.xlarge (inference) | $0.526 | On-demand | ~$0.50/run |
-| EC2 g4dn.xlarge (spot) | ~$0.16 | On-demand | ~$0.15/run |
-| S3 storage | $0.023/GB | 20GB | ~$0.50 |
+| Resource                    | Hourly Cost | Estimated Usage | Monthly Cost |
+| --------------------------- | ----------- | --------------- | ------------ |
+| SageMaker ml.g4dn.xlarge    | $0.736      | 4 hrs/week      | ~$12         |
+| EC2 g4dn.xlarge (inference) | $0.526      | On-demand       | ~$0.50/run   |
+| EC2 g4dn.xlarge (spot)      | ~$0.16      | On-demand       | ~$0.15/run   |
+| S3 storage                  | $0.023/GB   | 20GB            | ~$0.50       |
 
 **Total (weekly training):** ~$15/month
 
@@ -199,6 +199,7 @@ flowchart LR
 ```
 
 **Tradeoffs:**
+
 - Cold start: ~30-60s (loading 14.5GB model)
 - Max timeout: 15 minutes
 - Cost: Pay per invocation only
@@ -232,12 +233,12 @@ subprocess.run([
 
 ### Quantization Options
 
-| Quantization | Size (7B) | Quality | Speed |
-|--------------|-----------|---------|-------|
-| f16 | ~14GB | Best | Slowest |
-| q8_0 | ~7GB | Very Good | Fast |
-| q4_k_m | ~4GB | Good | Faster |
-| q4_0 | ~3.5GB | Acceptable | Fastest |
+| Quantization | Size (7B) | Quality    | Speed   |
+| ------------ | --------- | ---------- | ------- |
+| f16          | ~14GB     | Best       | Slowest |
+| q8_0         | ~7GB      | Very Good  | Fast    |
+| q4_k_m       | ~4GB      | Good       | Faster  |
+| q4_0         | ~3.5GB    | Acceptable | Fastest |
 
 **Recommendation:** `q4_k_m` for balance of quality/size.
 
@@ -261,17 +262,17 @@ SYSTEM """You are a profile scorer that evaluates Twitter profiles to identify a
 // lambdas/llm-scorer/src/ollama.ts
 async function queryOllama(prompt: string): Promise<string> {
   const response = await fetch(`${OLLAMA_ENDPOINT}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: 'mistral-researcher',
+      model: "mistral-researcher",
       prompt,
       stream: false,
       options: {
         temperature: 0.1,
         num_predict: 2048,
-      }
-    })
+      },
+    }),
   });
 
   const data = await response.json();
@@ -311,11 +312,11 @@ async function validateModel(modelName: string): Promise<ValidationResult> {
   const seedProfiles = await getSeedProfiles();
   const scores = await scoreWithModel(modelName, seedProfiles);
 
-  const avgScore = mean(scores.map(s => s.score));
-  const minScore = Math.min(...scores.map(s => s.score));
+  const avgScore = mean(scores.map((s) => s.score));
+  const minScore = Math.min(...scores.map((s) => s.score));
 
   return {
-    passed: avgScore > 0.75 && minScore > 0.50,
+    passed: avgScore > 0.75 && minScore > 0.5,
     avgScore,
     minScore,
     details: scores,
@@ -325,12 +326,12 @@ async function validateModel(modelName: string): Promise<ValidationResult> {
 
 ### Success Criteria
 
-| Metric | Threshold |
-|--------|-----------|
-| Avg score on seeds | > 0.75 |
-| Min score on seeds | > 0.50 |
-| Correlation with Claude | > 0.85 |
-| Inference latency | < 5s per profile |
+| Metric                  | Threshold        |
+| ----------------------- | ---------------- |
+| Avg score on seeds      | > 0.75           |
+| Min score on seeds      | > 0.50           |
+| Correlation with Claude | > 0.85           |
+| Inference latency       | < 5s per profile |
 
 ## Migration Path
 

@@ -12,14 +12,7 @@
  *
  * @see README.md for detailed equations and reasoning
  */
-
-import {
-  ProfileData,
-  DerivedFeatures,
-  HASResult,
-  HASConfig,
-  UserType,
-} from "./types";
+import { DerivedFeatures, HASConfig, HASResult, ProfileData, UserType } from "./types";
 
 // ============================================================================
 // Mathematical Helpers
@@ -144,13 +137,20 @@ export function extractFeatures(profile: ProfileData): DerivedFeatures {
   const P_verified = profile.isBlueVerified ? 1 : 0;
 
   return {
-    R_ff, R_ff_norm, R_eng, R_list, R_media,
-    A_age, A_activity,
-    P_custom, P_safe, P_verified,
+    R_ff,
+    R_ff_norm,
+    R_eng,
+    R_list,
+    R_media,
+    A_age,
+    A_activity,
+    P_custom,
+    P_safe,
+    P_verified,
     followers: profile.followers,
     friends: profile.following,
     statuses: profile.statuses,
-    days
+    days,
   };
 }
 
@@ -185,11 +185,11 @@ function computeBotScore(f: DerivedFeatures): number {
 
   return sigmoid(
     -3 +
-    3 * S_hyperactive +
-    2 * S_no_engage +
-    1.5 * S_unbalanced +
-    1.5 * (1 - f.P_custom) +
-    1 * S_new
+      3 * S_hyperactive +
+      2 * S_no_engage +
+      1.5 * S_unbalanced +
+      1.5 * (1 - f.P_custom) +
+      1 * S_new
   );
 }
 
@@ -214,11 +214,11 @@ function computeCreatorScore(f: DerivedFeatures): number {
 
   return sigmoid(
     -2.5 +
-    1.5 * S_high_ratio +
-    1.2 * f.R_media +
-    0.8 * f.R_list +
-    0.5 * f.P_verified +
-    0.8 * S_large_audience
+      1.5 * S_high_ratio +
+      1.2 * f.R_media +
+      0.8 * f.R_list +
+      0.5 * f.P_verified +
+      0.8 * S_large_audience
   );
 }
 
@@ -243,11 +243,11 @@ function computeEntityScore(f: DerivedFeatures): number {
 
   return sigmoid(
     -2.5 +
-    1.2 * S_very_high_ratio +
-    0.8 * (1 - f.R_eng) +
-    0.6 * f.R_media +
-    0.5 * f.P_verified +
-    0.8 * S_consistent
+      1.2 * S_very_high_ratio +
+      0.8 * (1 - f.R_eng) +
+      0.6 * f.R_media +
+      0.5 * f.P_verified +
+      0.8 * S_consistent
   );
 }
 
@@ -293,7 +293,7 @@ function computePersonScore(f: DerivedFeatures, config: HASConfig): number {
   if (f.A_activity < t.veryLow) {
     S_normal_activity = 0.5;
   } else if (f.A_activity < t.low) {
-    S_normal_activity = 0.5 + 0.4 * (f.A_activity - t.veryLow) / (t.low - t.veryLow);
+    S_normal_activity = 0.5 + (0.4 * (f.A_activity - t.veryLow)) / (t.low - t.veryLow);
   } else if (f.A_activity <= t.optimalMax) {
     // Peak in optimal range, slightly below 1.0
     S_normal_activity = 0.9 + 0.1 * bellCurve(f.A_activity, 1.0, 0.5);
@@ -315,11 +315,11 @@ function computePersonScore(f: DerivedFeatures, config: HASConfig): number {
   if (f.friends <= 500) {
     S_moderate_following = 1.0;
   } else if (f.friends <= 1500) {
-    S_moderate_following = 1.0 - 0.15 * (f.friends - 500) / 1000;
+    S_moderate_following = 1.0 - (0.15 * (f.friends - 500)) / 1000;
   } else if (f.friends <= 3000) {
-    S_moderate_following = 0.85 - 0.25 * (f.friends - 1500) / 1500;
+    S_moderate_following = 0.85 - (0.25 * (f.friends - 1500)) / 1500;
   } else {
-    S_moderate_following = Math.max(0.3, 0.6 - 0.1 * (f.friends - 3000) / 2000);
+    S_moderate_following = Math.max(0.3, 0.6 - (0.1 * (f.friends - 3000)) / 2000);
   }
 
   // Engagement: sqrt curve, harder to max
@@ -332,11 +332,11 @@ function computePersonScore(f: DerivedFeatures, config: HASConfig): number {
   if (f.statuses <= 5000) {
     S_reasonable_volume = 1.0;
   } else if (f.statuses <= 10000) {
-    S_reasonable_volume = 1.0 - 0.2 * (f.statuses - 5000) / 5000;
+    S_reasonable_volume = 1.0 - (0.2 * (f.statuses - 5000)) / 5000;
   } else if (f.statuses <= 20000) {
-    S_reasonable_volume = 0.8 - 0.3 * (f.statuses - 10000) / 10000;
+    S_reasonable_volume = 0.8 - (0.3 * (f.statuses - 10000)) / 10000;
   } else {
-    S_reasonable_volume = Math.max(0.3, 0.5 - 0.1 * (f.statuses - 20000) / 10000);
+    S_reasonable_volume = Math.max(0.3, 0.5 - (0.1 * (f.statuses - 20000)) / 10000);
   }
 
   // Account age: slower saturation
@@ -345,7 +345,7 @@ function computePersonScore(f: DerivedFeatures, config: HASConfig): number {
 
   // ---- Weighted Sum ----
   // Weights sum to ~0.90, leaving room for verification bonus
-  const baseScore = (
+  const baseScore =
     w.custom * f.P_custom +
     w.engaged * S_engaged +
     w.age * S_age +
@@ -354,8 +354,7 @@ function computePersonScore(f: DerivedFeatures, config: HASConfig): number {
     w.normalActivity * S_normal_activity +
     w.established * S_established +
     w.moderateFollowing * S_moderate_following +
-    w.reasonableVolume * S_reasonable_volume
-  );
+    w.reasonableVolume * S_reasonable_volume;
 
   // Verification bonus: adds up to 0.08 for verified accounts
   // Only applies if base score is already high (>0.7)
@@ -510,7 +509,7 @@ export function computeHASwithConfig(profile: ProfileData, config: HASConfig): H
       { type: UserType.Human, score: S_person, invert: false },
       { type: UserType.Creator, score: S_creator, invert: false },
       { type: UserType.Entity, score: S_entity, invert: true },
-      { type: UserType.Bot, score: S_bot, invert: true }
+      { type: UserType.Bot, score: S_bot, invert: true },
     ];
     scores.sort((a, b) => b.score - a.score);
 
@@ -530,7 +529,7 @@ export function computeHASwithConfig(profile: ProfileData, config: HASConfig): H
 
   return {
     score: finalScore,
-    likelyIs
+    likelyIs,
   };
 }
 
@@ -538,7 +537,10 @@ export function computeHASwithConfig(profile: ProfileData, config: HASConfig): H
  * Compute all intermediate scores for debugging/analysis.
  * Useful for understanding why a profile received a particular classification.
  */
-export function computeDetailedScores(profile: ProfileData, config: HASConfig): {
+export function computeDetailedScores(
+  profile: ProfileData,
+  config: HASConfig
+): {
   features: DerivedFeatures;
   botScore: number;
   personScore: number;
@@ -562,6 +564,6 @@ export function computeDetailedScores(profile: ProfileData, config: HASConfig): 
     creatorScore,
     entityScore,
     penalty,
-    result
+    result,
   };
 }

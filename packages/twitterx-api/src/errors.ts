@@ -41,11 +41,7 @@ export class TwitterXApiError extends Error {
   public readonly httpStatus: number;
   public readonly context?: Record<string, unknown>;
 
-  constructor(
-    errorCode: ErrorCode,
-    message: string,
-    context?: Record<string, unknown>
-  ) {
+  constructor(errorCode: ErrorCode, message: string, context?: Record<string, unknown>) {
     super(`${errorCode}: ${message}`);
     this.name = "TwitterXApiError";
     this.errorCode = errorCode;

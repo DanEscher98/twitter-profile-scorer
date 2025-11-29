@@ -1,14 +1,15 @@
-import { TwitterXapiUser, TwitterXapiMetadata } from "@profile-scorer/db";
-import { sleep } from "./utils"
-import crypto from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
-import logger from "./logger";
+import crypto from "crypto";
+import { v4 as uuidv4 } from "uuid";
+
+import { TwitterXapiMetadata, TwitterXapiUser } from "@profile-scorer/db";
+
 import { TwitterXApiError } from "./errors";
+import logger from "./logger";
+import { sleep } from "./utils";
 
 const RAPIDAPI_HOST = "twitter-x-api.p.rapidapi.com";
 const MAX_RETRIES = 10;
 const RETRY_DELAY_MS = 10_000;
-
 
 export async function xapiSearch(
   keyword: string,
@@ -61,7 +62,7 @@ export async function xapiSearch(
         keyword,
         retries,
         status: response.status,
-        statusText: response.statusText
+        statusText: response.statusText,
       });
     } catch (e: any) {
       // Re-throw TwitterXApiError
@@ -74,19 +75,23 @@ export async function xapiSearch(
   }
 
   if (!response?.ok) {
-    logger.error("xapiSearch failed after max retries", { keyword, retries: MAX_RETRIES, lastStatus });
-    throw new TwitterXApiError("MAX_RETRIES_EXCEEDED", `xapiSearch failed after ${MAX_RETRIES} attempts`, { keyword, lastStatus });
+    logger.error("xapiSearch failed after max retries", {
+      keyword,
+      retries: MAX_RETRIES,
+      lastStatus,
+    });
+    throw new TwitterXApiError(
+      "MAX_RETRIES_EXCEEDED",
+      `xapiSearch failed after ${MAX_RETRIES} attempts`,
+      { keyword, lastStatus }
+    );
   }
 
   const json_response: any = await response.json();
   const users: Array<TwitterXapiUser> = json_response.data;
 
-  const idsString = users.map((p) => p.legacy.screen_name).join(',');
-  const ids_hash = crypto
-    .createHash('md5')
-    .update(idsString)
-    .digest('hex')
-    .substring(0, 16);
+  const idsString = users.map((p) => p.legacy.screen_name).join(",");
+  const ids_hash = crypto.createHash("md5").update(idsString).digest("hex").substring(0, 16);
 
   const metadata: TwitterXapiMetadata = {
     id: uuidv4(),
@@ -102,7 +107,7 @@ export async function xapiSearch(
     keyword,
     usersFound: users.length,
     page,
-    hasNextPage: !!metadata.next_page
+    hasNextPage: !!metadata.next_page,
   });
 
   return { users, metadata };
@@ -146,7 +151,10 @@ export async function xapiGetUser(username: string): Promise<TwitterXapiUser> {
       // Check for rate limit
       if (response.status === 429) {
         logger.error("Rate limit exceeded", { username, retries, status: 429 });
-        throw new TwitterXApiError("RATE_LIMITED", "API rate limit exceeded", { username, retries });
+        throw new TwitterXApiError("RATE_LIMITED", "API rate limit exceeded", {
+          username,
+          retries,
+        });
       }
 
       if (!response.ok) {
@@ -160,7 +168,10 @@ export async function xapiGetUser(username: string): Promise<TwitterXapiUser> {
           await sleep(RETRY_DELAY_MS);
           continue;
         }
-        throw new TwitterXApiError("NETWORK_ERROR", `API request failed: ${response.status}`, { username, status: response.status });
+        throw new TwitterXApiError("NETWORK_ERROR", `API request failed: ${response.status}`, {
+          username,
+          status: response.status,
+        });
       }
 
       const data: any = await response.json();
@@ -179,7 +190,11 @@ export async function xapiGetUser(username: string): Promise<TwitterXapiUser> {
           await sleep(RETRY_DELAY_MS);
           continue;
         }
-        throw new TwitterXApiError("API_BOTTLENECK", `API bottleneck after ${MAX_RETRIES} attempts`, { username, retries });
+        throw new TwitterXApiError(
+          "API_BOTTLENECK",
+          `API bottleneck after ${MAX_RETRIES} attempts`,
+          { username, retries }
+        );
       }
 
       logger.info("xapiGetUser completed", { username, retries });
@@ -196,6 +211,13 @@ export async function xapiGetUser(username: string): Promise<TwitterXapiUser> {
     }
   }
 
-  logger.error("xapiGetUser failed after max retries", { username, retries: MAX_RETRIES, lastStatus });
-  throw new TwitterXApiError("MAX_RETRIES_EXCEEDED", `Failed after ${MAX_RETRIES} attempts`, { username, lastStatus });
+  logger.error("xapiGetUser failed after max retries", {
+    username,
+    retries: MAX_RETRIES,
+    lastStatus,
+  });
+  throw new TwitterXApiError("MAX_RETRIES_EXCEEDED", `Failed after ${MAX_RETRIES} attempts`, {
+    username,
+    lastStatus,
+  });
 }

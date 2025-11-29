@@ -2,9 +2,9 @@
  * Inspect Twitter API usage statistics
  * Usage: yarn workspace @profile-scorer/scripts run run js_src/inspect-api-usage.ts
  */
+import { count, desc, sum } from "drizzle-orm";
 
 import { getDb, xapiSearchUsage } from "@profile-scorer/db";
-import { desc, count, sum } from "drizzle-orm";
 
 const db = getDb();
 

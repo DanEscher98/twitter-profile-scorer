@@ -10,12 +10,12 @@
  * Example:
  *   yarn workspace @profile-scorer/scripts run tsx js_src/upload_curated_users.ts ../data/curated_usernames.txt
  */
-
-import { readFileSync } from "fs";
-import { wrappers, TwitterXApiError } from "@profile-scorer/twitterx-api";
-import { getDb, insertToScore } from "@profile-scorer/db";
-import { Table } from "console-table-printer";
 import cliProgress from "cli-progress";
+import { Table } from "console-table-printer";
+import { readFileSync } from "fs";
+
+import { getDb, insertToScore } from "@profile-scorer/db";
+import { TwitterXApiError, wrappers } from "@profile-scorer/twitterx-api";
 
 const { getUser } = wrappers;
 
@@ -144,7 +144,9 @@ async function main() {
   const successful = results.filter((r) => r.status === "success").length;
   const fromApi = results.filter((r) => r.from_api).length;
   const humans = results.filter((r) => r.human_score > 0.55).length;
-  console.log(`\nTotal: ${results.length} | Success: ${successful} | From API: ${fromApi} | Humans (HAS>0.55): ${humans}`);
+  console.log(
+    `\nTotal: ${results.length} | Success: ${successful} | From API: ${fromApi} | Humans (HAS>0.55): ${humans}`
+  );
 }
 
 main().catch(console.error);

@@ -1,7 +1,11 @@
-import { z } from "zod";
 import { encode as toToon } from "@toon-format/toon";
+import { z } from "zod";
+
 import { ProfileToScore } from "@profile-scorer/db";
 import { createLogger } from "@profile-scorer/utils";
+
+// Import the TheLAI customers config
+import thelaiConfig from "../audiences/thelai_customers.json";
 
 const log = createLogger("llm-shared");
 
@@ -51,10 +55,10 @@ ${config.domainContext}
 ## Scoring Signals
 
 HIGH-SIGNAL INDICATORS (increase score):
-${config.highSignals.map(s => `• ${s}`).join('\n')}
+${config.highSignals.map((s) => `• ${s}`).join("\n")}
 
 LOW-SIGNAL INDICATORS (decrease score or neutral):
-${config.lowSignals.map(s => `• ${s}`).join('\n')}
+${config.lowSignals.map((s) => `• ${s}`).join("\n")}
 
 ## Evaluation Process
 For each profile:
@@ -70,9 +74,6 @@ For each profile:
 - 0.7-0.9: Likely (clear alignment with ${config.targetProfile} profile)
 - 0.9-1.0: Definite (explicit match or perfect signal combination)`;
 }
-
-// Import the TheLAI customers config
-import thelaiConfig from "../audiences/thelai_customers.json";
 
 /**
  * Default system prompt using TheLAI customers config.
@@ -175,9 +176,7 @@ export function parseAndValidateResponse(
   }
 
   // Map usernames back to twitterIds
-  const usernameToProfile = new Map(
-    profiles.map((p) => [p.username.toLowerCase(), p])
-  );
+  const usernameToProfile = new Map(profiles.map((p) => [p.username.toLowerCase(), p]));
 
   const results: { twitterId: string; username: string; score: number; reason: string }[] = [];
 

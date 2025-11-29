@@ -1,9 +1,10 @@
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
-import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
+import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { ScheduledHandler } from "aws-lambda";
 import { sql } from "drizzle-orm";
-import { createLogger } from "@profile-scorer/utils";
+
 import { getDb, profilesToScore } from "@profile-scorer/db";
+import { createLogger } from "@profile-scorer/utils";
 
 const log = createLogger("orchestrator");
 const lambda = new LambdaClient({});
@@ -27,8 +28,8 @@ const LLM_SCORER_ARN = process.env.LLM_SCORER_ARN ?? "";
  */
 interface ModelConfig {
   model: string;
-  probability: number;  // 0.0 to 1.0 - chance of running each orchestrator cycle
-  batchSize: number;    // profiles per invocation
+  probability: number; // 0.0 to 1.0 - chance of running each orchestrator cycle
+  batchSize: number; // profiles per invocation
 }
 
 const SCORING_MODELS: ModelConfig[] = [
@@ -110,14 +111,13 @@ export const handler: ScheduledHandler = async (event) => {
   // Step 3: Check if there are profiles to score
   try {
     const db = getDb();
-    const pendingCount = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(profilesToScore);
+    const pendingCount = await db.select({ count: sql<number>`count(*)` }).from(profilesToScore);
 
     const count = Number(pendingCount[0]?.count ?? 0);
     log.info("Profiles pending scoring", { count });
 
-    if (count > 0 && false) { // DISABLED: LLM scoring temporarily shut down
+    if (count > 0 && false) {
+      // DISABLED: LLM scoring temporarily shut down
       // Step 4: Invoke llm-scorer for each model based on probability
       // Each invocation is independent - models don't interfere with each other
       // because profile_scores tracks (twitter_id, scored_by) uniquely
@@ -164,7 +164,10 @@ export const handler: ScheduledHandler = async (event) => {
           if (scorerResponse.FunctionError) {
             const errorPayload = JSON.parse(responseStr);
             const msg = `llm-scorer error for ${config.model}: ${errorPayload.errorMessage || "Unknown error"}`;
-            log.error("llm-scorer Lambda error", { model: config.model, error: errorPayload.errorMessage });
+            log.error("llm-scorer Lambda error", {
+              model: config.model,
+              error: errorPayload.errorMessage,
+            });
             results.errors.push(msg);
             results.scoringResults.push({ model: config.model, scored: 0, errors: 1 });
             continue;

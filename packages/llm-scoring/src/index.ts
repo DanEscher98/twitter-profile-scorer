@@ -8,19 +8,20 @@
  * - Batch scoring with automatic DB persistence
  * - Scoring profiles by keyword
  */
-
 import {
   ProfileToScore,
-  getProfilesToScore,
-  getAllProfilesByKeyword,
   countAllByKeyword,
+  getAllProfilesByKeyword,
+  getDb,
+  getProfilesToScore,
   insertProfileScore,
   upsertProfileScore,
-  getDb,
 } from "@profile-scorer/db";
 import { createLogger } from "@profile-scorer/utils";
+
 import { scoreWithAnthropic } from "./anthropic";
 import { scoreWithGemini } from "./gemini";
+import { ScoreResult } from "./shared";
 
 export {
   ScoreResult,
@@ -32,7 +33,6 @@ export {
 } from "./shared";
 export { scoreWithAnthropic } from "./anthropic";
 export { scoreWithGemini } from "./gemini";
-import { ScoreResult } from "./shared";
 
 const log = createLogger("llm-scoring");
 
@@ -327,7 +327,13 @@ export async function scoreByKeyword(
     totalUpdated += updated;
     offset += profiles.length;
 
-    const result: ScoreAndSaveResult = { model, scored, errors, skipped: updated, profiles: savedProfiles };
+    const result: ScoreAndSaveResult = {
+      model,
+      scored,
+      errors,
+      skipped: updated,
+      profiles: savedProfiles,
+    };
 
     if (onBatchComplete) {
       onBatchComplete(batch, result);

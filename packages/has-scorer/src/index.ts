@@ -9,10 +9,9 @@
  * - Types: All type definitions
  * - defaultConfig: Default configuration (can be used as base for modifications)
  */
-
 import defaultConfigJson from "./config.json";
-import { HASConfig, ProfileData, HASResult } from "./types";
-import { computeHASwithConfig, computeDetailedScores, extractFeatures } from "./scorer";
+import { computeDetailedScores, computeHASwithConfig, extractFeatures } from "./scorer";
+import { HASConfig, HASResult, ProfileData } from "./types";
 
 // Export all types
 export * from "./types";
@@ -49,7 +48,10 @@ export function createConfig(overrides: Partial<HASConfig>): HASConfig {
     personWeights: { ...defaultConfig.personWeights, ...overrides.personWeights },
     activityThresholds: { ...defaultConfig.activityThresholds, ...overrides.activityThresholds },
     penaltyThresholds: { ...defaultConfig.penaltyThresholds, ...overrides.penaltyThresholds },
-    classificationThresholds: { ...defaultConfig.classificationThresholds, ...overrides.classificationThresholds },
+    classificationThresholds: {
+      ...defaultConfig.classificationThresholds,
+      ...overrides.classificationThresholds,
+    },
     penalties: { ...defaultConfig.penalties, ...overrides.penalties },
   };
 }

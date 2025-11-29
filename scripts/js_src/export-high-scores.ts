@@ -19,19 +19,14 @@
  * Output:
  *   scripts/output/<timestamp>-highscores.csv
  */
-
+import blessed from "blessed";
+import { eq } from "drizzle-orm";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import blessed from "blessed";
+
 import { getDb } from "@profile-scorer/db";
-import { eq } from "drizzle-orm";
-import {
-  userProfiles,
-  profileScores,
-  userKeywords,
-  userStats,
-} from "@profile-scorer/db";
+import { profileScores, userKeywords, userProfiles, userStats } from "@profile-scorer/db";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -305,12 +300,7 @@ async function fetchAllKeywords(): Promise<Map<string, string[]>> {
 }
 
 function escapeCsvValue(value: string): string {
-  if (
-    value.includes(",") ||
-    value.includes('"') ||
-    value.includes("\n") ||
-    value.includes("\r")
-  ) {
+  if (value.includes(",") || value.includes('"') || value.includes("\n") || value.includes("\r")) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
@@ -340,8 +330,8 @@ async function main() {
     "With LLM Scores": 0,
     "High Score (>0.6)": 0,
     "Avg Final Score": "-",
-    "Processing": "...",
-    "Elapsed": "0s",
+    Processing: "...",
+    Elapsed: "0s",
   };
   updateStats(stats);
 
@@ -400,8 +390,7 @@ async function main() {
     // Calculate stats
     const avgScore =
       highScoreProfiles.length > 0
-        ? highScoreProfiles.reduce((sum, p) => sum + p.finalScore, 0) /
-          highScoreProfiles.length
+        ? highScoreProfiles.reduce((sum, p) => sum + p.finalScore, 0) / highScoreProfiles.length
         : 0;
 
     stats["Avg Final Score"] = avgScore.toFixed(3);

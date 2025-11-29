@@ -16,25 +16,25 @@
  * - FK constraint satisfied (metadata inserted before user_keywords)
  * - All records are immutable once inserted (no updates needed)
  */
-
 import {
-  TwitterXapiUser,
-  TwitterXapiMetadata,
   TwitterProfile,
-  upsertUserStats,
-  upsertUserProfile,
-  keywordLastUsages,
-  insertToScore,
-  insertMetadata,
-  profileExists,
-  getProfileByUsername,
-  userKeywords,
+  TwitterXapiMetadata,
+  TwitterXapiUser,
   getDb,
+  getProfileByUsername,
+  insertMetadata,
+  insertToScore,
+  keywordLastUsages,
+  profileExists,
+  upsertUserProfile,
+  upsertUserStats,
+  userKeywords,
 } from "@profile-scorer/db";
+
 import { computeHAS } from "./compute_has";
-import { normalizeString } from "./utils";
-import { xapiSearch, xapiGetUser } from "./fetch";
+import { xapiGetUser, xapiSearch } from "./fetch";
 import logger from "./logger";
+import { normalizeString } from "./utils";
 
 // ============================================================================
 // Constants
@@ -140,9 +140,7 @@ async function processUsers(
   const fulfilled = results.filter(
     (r): r is PromiseFulfilledResult<TwitterProfile> => r.status === "fulfilled"
   );
-  const rejected = results.filter(
-    (r): r is PromiseRejectedResult => r.status === "rejected"
-  );
+  const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
 
   if (rejected.length > 0) {
     const firstError = rejected[0]!;
@@ -274,9 +272,7 @@ export async function processKeyword(keyword: string): Promise<ProcessKeywordRes
   });
 
   // Queue for LLM scoring
-  await Promise.all(
-    humanProfiles.map((p) => insertToScore(p.twitter_id, p.username))
-  );
+  await Promise.all(humanProfiles.map((p) => insertToScore(p.twitter_id, p.username)));
 
   logger.info("processKeyword completed", {
     keyword,

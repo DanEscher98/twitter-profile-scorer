@@ -4,21 +4,20 @@
  * This module provides an adapter to use the has-scorer package with Twitter API data.
  * It converts TwitterXapiUser to ProfileData and re-exports the scoring functions.
  */
-
+import { TwitterUserType, TwitterXapiUser, UserScore } from "@profile-scorer/db";
 import {
+  DerivedFeatures,
+  HASConfig,
+  HASResult,
+  ProfileData,
+  UserType,
+  computeDetailedScores,
   computeHAS as computeHASBase,
   computeHASwithConfig,
-  computeDetailedScores,
-  extractFeatures as extractFeaturesBase,
-  ProfileData,
-  HASResult,
-  HASConfig,
-  UserType,
-  DerivedFeatures,
-  defaultConfig,
   createConfig,
+  defaultConfig,
+  extractFeatures as extractFeaturesBase,
 } from "@profile-scorer/has-scorer";
-import { TwitterXapiUser, UserScore, TwitterUserType } from "@profile-scorer/db";
 
 // ============================================================================
 // Type Conversion

@@ -2,9 +2,9 @@
  * Inspect user profiles in the database
  * Usage: yarn workspace @profile-scorer/scripts run run js_src/inspect-profiles.ts
  */
+import { avg, count, desc, sql } from "drizzle-orm";
 
-import { getDb, userProfiles, userStats, profilesToScore } from "@profile-scorer/db";
-import { desc, count, avg, sql } from "drizzle-orm";
+import { getDb, profilesToScore, userProfiles, userStats } from "@profile-scorer/db";
 
 const db = getDb();
 
@@ -20,9 +20,7 @@ async function main() {
   console.log(`Profiles pending scoring: ${pendingResult[0]?.pending ?? 0}`);
 
   // Average human score
-  const avgResult = await db
-    .select({ avgScore: avg(userProfiles.humanScore) })
-    .from(userProfiles);
+  const avgResult = await db.select({ avgScore: avg(userProfiles.humanScore) }).from(userProfiles);
   const avgScore = avgResult[0]?.avgScore;
   console.log(`Average human score: ${avgScore ? Number(avgScore).toFixed(3) : "N/A"}`);
 
@@ -85,9 +83,15 @@ async function main() {
   const stats = statsResult[0];
   if (stats) {
     console.log(`Profiles with stats: ${stats.totalWithStats}`);
-    console.log(`Avg followers: ${stats.avgFollowers ? Math.round(Number(stats.avgFollowers)) : "N/A"}`);
-    console.log(`Avg following: ${stats.avgFollowing ? Math.round(Number(stats.avgFollowing)) : "N/A"}`);
-    console.log(`Avg statuses: ${stats.avgStatuses ? Math.round(Number(stats.avgStatuses)) : "N/A"}`);
+    console.log(
+      `Avg followers: ${stats.avgFollowers ? Math.round(Number(stats.avgFollowers)) : "N/A"}`
+    );
+    console.log(
+      `Avg following: ${stats.avgFollowing ? Math.round(Number(stats.avgFollowing)) : "N/A"}`
+    );
+    console.log(
+      `Avg statuses: ${stats.avgStatuses ? Math.round(Number(stats.avgStatuses)) : "N/A"}`
+    );
   }
 
   process.exit(0);

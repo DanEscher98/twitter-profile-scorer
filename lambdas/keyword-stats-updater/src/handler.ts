@@ -1,10 +1,11 @@
 import { Handler } from "aws-lambda";
-import { createLogger } from "@profile-scorer/utils";
+
 import {
-  getAllSearchedKeywords,
   calculateKeywordStats,
+  getAllSearchedKeywords,
   upsertKeywordStats,
 } from "@profile-scorer/db";
+import { createLogger } from "@profile-scorer/utils";
 
 const log = createLogger("keyword-stats-updater");
 
@@ -18,7 +19,9 @@ export interface KeywordStatsUpdaterResponse {
   errors: string[];
 }
 
-export const handler: Handler<KeywordStatsUpdaterEvent, KeywordStatsUpdaterResponse> = async (event) => {
+export const handler: Handler<KeywordStatsUpdaterEvent, KeywordStatsUpdaterResponse> = async (
+  event
+) => {
   const action = event?.action ?? "update_all";
 
   log.info("Handler invoked", { action });

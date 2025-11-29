@@ -1,7 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
+
 import { ProfileToScore } from "@profile-scorer/db";
 import { createLogger } from "@profile-scorer/utils";
-import { ScoreResult, SYSTEM_PROMPT, formatProfilesPrompt, parseAndValidateResponse } from "./shared";
+
+import {
+  SYSTEM_PROMPT,
+  ScoreResult,
+  formatProfilesPrompt,
+  parseAndValidateResponse,
+} from "./shared";
 
 const log = createLogger("anthropic-wrapper");
 
@@ -54,13 +61,19 @@ export async function scoreWithAnthropic(
 
     if (isQuotaError) {
       log.error("ANTHROPIC QUOTA/RATE LIMIT - Purchase more credits or wait", {
-        model, statusCode, errorType, errorMessage,
+        model,
+        statusCode,
+        errorType,
+        errorMessage,
         action: "PURCHASE_TOKENS_OR_WAIT",
         profileCount: profiles.length,
       });
     } else {
       log.error("Anthropic API error", {
-        model, statusCode, errorType, errorMessage,
+        model,
+        statusCode,
+        errorType,
+        errorMessage,
         profileCount: profiles.length,
       });
     }

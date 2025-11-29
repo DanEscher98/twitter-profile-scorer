@@ -31,69 +31,86 @@ ProfileData → extractFeatures() → DerivedFeatures
 ## Feature Extraction
 
 ### Follower-Following Ratio
+
 ```
 R_ff = clamp(log₁₀((followers + 1) / (following + 1)), -2, 3)
 R_ff_norm = (R_ff + 2) / 5  ∈ [0, 1]
 ```
 
-| R_ff Value | Interpretation |
-|------------|----------------|
-| < 0 | Follows more than followed (spam/new user) |
-| ≈ 0 | Balanced (typical user) |
-| > 1 | 10x more followers (creator/influencer) |
-| > 2 | 100x more followers (celebrity/org) |
+| R_ff Value | Interpretation                             |
+| ---------- | ------------------------------------------ |
+| < 0        | Follows more than followed (spam/new user) |
+| ≈ 0        | Balanced (typical user)                    |
+| > 1        | 10x more followers (creator/influencer)    |
+| > 2        | 100x more followers (celebrity/org)        |
 
 ### Engagement Ratio
+
 ```
 R_eng = min(1, favorites / (statuses + 1))
 ```
+
 Measures how much the user likes others' content. High values suggest active human behavior.
 
 **Note**: This is NOT how engaging their content is (we don't have retweet/like data on their tweets).
 
 ### List Membership
+
 ```
 R_list = tanh(listed / 50)
 ```
+
 Being on lists suggests credibility. `tanh` provides diminishing returns past ~50 lists.
 
 ### Media Ratio
+
 ```
 R_media = min(1, media / (statuses + 1))
 ```
+
 High media ratio suggests content creator.
 
 ### Account Age
+
 ```
 A_age = 1 - e^(-days / 365)
 ```
+
 Asymptotically approaches 1:
+
 - ~0.63 at 1 year
 - ~0.86 at 2 years
 - ~0.95 at 3 years
 
 ### Activity Rate
+
 ```
 A_activity = statuses / (days + 1)
 ```
+
 Tweets per day average:
+
 - Typical human: 0.5-2 tweets/day
 - High activity: 3-5 tweets/day
 - Suspicious: >10 tweets/day
 - Bot-like: >50 tweets/day
 
 ### Profile Customization
+
 ```
 P_custom = (¬default_profile + ¬default_image) / 2  ∈ {0, 0.5, 1}
 ```
+
 - 0 = both default (strong spam signal)
 - 0.5 = one customized
 - 1 = fully customized
 
 ### Content Safety
+
 ```
 P_safe = 1 - 0.3 × possibly_sensitive
 ```
+
 Slight penalty for sensitive content flag.
 
 ## Type-Specific Scoring
@@ -101,6 +118,7 @@ Slight penalty for sensitive content flag.
 ### Bot Score
 
 Detects automated accounts using:
+
 - Hyperactive posting (>50 tweets/day)
 - Low engagement (doesn't like content)
 - Unbalanced ratio (follows >> followers)
@@ -119,6 +137,7 @@ S_bot = σ(-3 + 3×S_hyperactive + 2×S_no_engage + 1.5×S_unbalanced + 1.5×(1-
 ### Creator Score
 
 Detects content creators/influencers:
+
 - Large follower count (>10k)
 - High follower ratio (R_ff > 1)
 - Media content
@@ -135,6 +154,7 @@ S_creator = σ(-2.5 + 1.5×S_high_ratio + 1.2×R_media + 0.8×R_list + 0.5×P_ve
 ### Entity Score
 
 Detects organizations/brands:
+
 - Very high follower ratio (R_ff > 1.7)
 - Consistent posting (~3 tweets/day)
 - Low personal engagement
@@ -201,6 +221,7 @@ Default weights (sum to 0.83, leaving room for verification bonus):
 ### Verification Bonus
 
 Verified accounts with high base scores (>0.7) receive a bonus of up to 0.08:
+
 ```
 bonus = P_verified × 0.08 × σ(10 × (baseScore - 0.7))
 ```
@@ -236,22 +257,23 @@ Penalties are multiplicative factors applied to the final score:
 final_score = raw_score × penalty
 ```
 
-| Penalty | Multiplier | Condition |
-|---------|------------|-----------|
-| veryFewFollowers | 0.60 | followers < 10 |
-| fewFollowers | 0.80 | followers < 50 |
-| zeroStatuses | 0.40 | statuses = 0 |
-| veryFewStatuses | 0.70 | statuses < 10 |
-| veryNewAccount | 0.60 | days < 30 |
-| newAccount | 0.85 | days < 90 |
-| spamPattern | 0.50 | following > 5000 AND followers < 100 |
-| hyperactive | 0.65 | A_activity > 20 |
-| highActivity | 0.85 | A_activity > 10 |
-| highVolumeNoFollowers | 0.70 | statuses > 30000 AND followers < statuses/10 |
-| defaultProfile | 0.75 | P_custom < 0.5 |
-| lowEngagementHighActivity | 0.70 | R_eng < 0.1 AND A_activity > 5 |
+| Penalty                   | Multiplier | Condition                                    |
+| ------------------------- | ---------- | -------------------------------------------- |
+| veryFewFollowers          | 0.60       | followers < 10                               |
+| fewFollowers              | 0.80       | followers < 50                               |
+| zeroStatuses              | 0.40       | statuses = 0                                 |
+| veryFewStatuses           | 0.70       | statuses < 10                                |
+| veryNewAccount            | 0.60       | days < 30                                    |
+| newAccount                | 0.85       | days < 90                                    |
+| spamPattern               | 0.50       | following > 5000 AND followers < 100         |
+| hyperactive               | 0.65       | A_activity > 20                              |
+| highActivity              | 0.85       | A_activity > 10                              |
+| highVolumeNoFollowers     | 0.70       | statuses > 30000 AND followers < statuses/10 |
+| defaultProfile            | 0.75       | P_custom < 0.5                               |
+| lowEngagementHighActivity | 0.70       | R_eng < 0.1 AND A_activity > 5               |
 
 Multiple penalties stack multiplicatively:
+
 ```
 penalty = Π(penalty_i) for all triggered conditions
 ```
@@ -259,8 +281,9 @@ penalty = Π(penalty_i) for all triggered conditions
 ## Usage
 
 ### Basic Usage
+
 ```typescript
-import { computeHAS, ProfileData } from "@profile-scorer/has-scorer";
+import { ProfileData, computeHAS } from "@profile-scorer/has-scorer";
 
 const profile: ProfileData = {
   followers: 1500,
@@ -273,7 +296,7 @@ const profile: ProfileData = {
   defaultProfile: false,
   defaultProfileImage: false,
   possiblySensitive: false,
-  createdAt: "2020-01-15T00:00:00Z"
+  createdAt: "2020-01-15T00:00:00Z",
 };
 
 const result = computeHAS(profile);
@@ -281,21 +304,23 @@ const result = computeHAS(profile);
 ```
 
 ### With Custom Config
+
 ```typescript
-import { computeHASwithConfig, defaultConfig, createConfig } from "@profile-scorer/has-scorer";
+import { computeHASwithConfig, createConfig, defaultConfig } from "@profile-scorer/has-scorer";
 
 // Modify specific weights
 const customConfig = createConfig({
   personWeights: {
     ...defaultConfig.personWeights,
-    balanced: 0.20  // Increase importance of follower balance
-  }
+    balanced: 0.2, // Increase importance of follower balance
+  },
 });
 
 const result = computeHASwithConfig(profile, customConfig);
 ```
 
 ### Debug Mode
+
 ```typescript
 import { computeDetailedScores, defaultConfig } from "@profile-scorer/has-scorer";
 
@@ -328,14 +353,14 @@ yarn workspace @profile-scorer/scripts run run js_src/test-has-changes.ts /path/
 
 ## Mathematical Notation Reference
 
-| Symbol | Definition |
-|--------|------------|
-| σ(x) | Sigmoid function: 1/(1+e⁻ˣ) |
-| tanh(x) | Hyperbolic tangent |
-| e | Euler's number ≈ 2.718 |
-| log₁₀ | Base-10 logarithm |
-| clamp(x,a,b) | max(a, min(b, x)) |
-| ¬ | Logical NOT |
-| × | Multiplication |
-| Σ | Summation |
-| Π | Product |
+| Symbol       | Definition                  |
+| ------------ | --------------------------- |
+| σ(x)         | Sigmoid function: 1/(1+e⁻ˣ) |
+| tanh(x)      | Hyperbolic tangent          |
+| e            | Euler's number ≈ 2.718      |
+| log₁₀        | Base-10 logarithm           |
+| clamp(x,a,b) | max(a, min(b, x))           |
+| ¬            | Logical NOT                 |
+| ×            | Multiplication              |
+| Σ            | Summation                   |
+| Π            | Product                     |

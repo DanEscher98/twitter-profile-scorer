@@ -104,24 +104,27 @@ Tables defined in `packages/db/src/schema.ts`:
 
 The `llm-scorer` lambda supports multiple models with probability-based invocation:
 
-| Model | Probability | Batch Size | Notes |
-|-------|-------------|------------|-------|
-| claude-haiku-4-5-20251001 | 1.0 (100%) | 25 | Primary scorer, fast and cost-effective |
-| claude-sonnet-4-20250514 | 0.5 (50%) | 10 | Premium quality, higher cost |
-| gemini-2.0-flash | 0.2 (20%) | 15 | Free tier, contrast data |
+| Model                     | Probability | Batch Size | Notes                                   |
+| ------------------------- | ----------- | ---------- | --------------------------------------- |
+| claude-haiku-4-5-20251001 | 1.0 (100%)  | 25         | Primary scorer, fast and cost-effective |
+| claude-sonnet-4-20250514  | 0.5 (50%)   | 10         | Premium quality, higher cost            |
+| gemini-2.0-flash          | 0.2 (20%)   | 15         | Free tier, contrast data                |
 
 **Architecture:**
+
 - Orchestrator invokes llm-scorer directly (no SQS queue)
 - DB-as-queue pattern: `profiles_to_score` + LEFT JOIN filters already-scored
 - Unique constraint on `(twitter_id, scored_by)` prevents duplicate scoring
 - Each model scores independently - profiles accumulate scores from multiple models
 
 **Input/Output:**
+
 - Input: Profiles serialized in TOON format
 - Output: JSON array validated with Zod schema `{ username, score, reason }[]`
 - Handles `\`\`\`json` blocks (common with Haiku)
 
 **Error Handling:**
+
 - Quota/rate limit errors logged with `action: "PURCHASE_TOKENS_OR_WAIT"`
 - Returns empty array on error (allows other models to continue)
 - Invalid model names rejected at handler level with available models list
@@ -182,6 +185,7 @@ just test-debug              # Run with DEBUG logging
 ```
 
 Test coverage:
+
 - `test_keyword_engine.py` - Keyword retrieval and randomization
 - `test_query_twitter_api.py` - Profile fetching and HAS scoring
 - `test_orchestrator.py` - Pipeline coordination

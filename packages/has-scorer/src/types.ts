@@ -34,20 +34,20 @@ export interface ProfileData {
  */
 export interface DerivedFeatures {
   // Ratios
-  R_ff: number;           // Follower-following ratio (log, clamped)
-  R_ff_norm: number;      // Normalized to [0,1]
-  R_eng: number;          // Engagement ratio
-  R_list: number;         // List credibility (tanh)
-  R_media: number;        // Media ratio
+  R_ff: number; // Follower-following ratio (log, clamped)
+  R_ff_norm: number; // Normalized to [0,1]
+  R_eng: number; // Engagement ratio
+  R_list: number; // List credibility (tanh)
+  R_media: number; // Media ratio
 
   // Account maturity
-  A_age: number;          // Account age score (exp decay)
-  A_activity: number;     // Tweets per day
+  A_age: number; // Account age score (exp decay)
+  A_activity: number; // Tweets per day
 
   // Profile signals
-  P_custom: number;       // Profile customization
-  P_safe: number;         // Content safety
-  P_verified: number;     // Verification bonus
+  P_custom: number; // Profile customization
+  P_safe: number; // Content safety
+  P_verified: number; // Verification bonus
 
   // Raw values for thresholds
   followers: number;
@@ -79,13 +79,13 @@ export interface HASResult {
  * Weights for the Person score calculation.
  */
 export interface PersonScoreWeights {
-  custom: number;           // Profile customization
-  engaged: number;          // Engagement
-  age: number;              // Account age
-  safe: number;             // Content safety
-  balanced: number;         // Follower/following balance
-  normalActivity: number;   // Normal posting frequency
-  established: number;      // Has established following
+  custom: number; // Profile customization
+  engaged: number; // Engagement
+  age: number; // Account age
+  safe: number; // Content safety
+  balanced: number; // Follower/following balance
+  normalActivity: number; // Normal posting frequency
+  established: number; // Has established following
   moderateFollowing: number; // Not following too many
   reasonableVolume: number; // Reasonable tweet count
 }
@@ -94,11 +94,11 @@ export interface PersonScoreWeights {
  * Thresholds for activity scoring.
  */
 export interface ActivityThresholds {
-  veryLow: number;          // Below this = low activity score
-  low: number;              // Below this = slightly reduced
-  optimalMax: number;       // Sweet spot upper bound
-  highMax: number;          // Above this = suspicious
-  veryHighMax: number;      // Above this = very suspicious
+  veryLow: number; // Below this = low activity score
+  low: number; // Below this = slightly reduced
+  optimalMax: number; // Sweet spot upper bound
+  highMax: number; // Above this = suspicious
+  veryHighMax: number; // Above this = very suspicious
 }
 
 /**
@@ -157,21 +157,21 @@ export interface HASConfig {
   // All values in (0, 1] where 1 = no penalty
   penalties: {
     // Account credibility
-    veryFewFollowers: number;    // <10 followers
-    fewFollowers: number;        // <50 followers
-    zeroStatuses: number;        // 0 tweets
-    veryFewStatuses: number;     // <10 tweets
-    veryNewAccount: number;      // <30 days old
-    newAccount: number;          // <90 days old
+    veryFewFollowers: number; // <10 followers
+    fewFollowers: number; // <50 followers
+    zeroStatuses: number; // 0 tweets
+    veryFewStatuses: number; // <10 tweets
+    veryNewAccount: number; // <30 days old
+    newAccount: number; // <90 days old
 
     // Spam patterns
-    spamPattern: number;         // follows many, few followers
-    hyperactive: number;         // >20 tweets/day
-    highActivity: number;        // >10 tweets/day
+    spamPattern: number; // follows many, few followers
+    hyperactive: number; // >20 tweets/day
+    highActivity: number; // >10 tweets/day
     highVolumeNoFollowers: number; // >30k tweets, <3k followers
 
     // Profile signals
-    defaultProfile: number;      // default avatar/banner
+    defaultProfile: number; // default avatar/banner
     lowEngagementHighActivity: number; // posts a lot, never likes
   };
 }

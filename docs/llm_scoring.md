@@ -68,9 +68,21 @@ PROFILES:
 
 ```json
 [
-  {"handle": "neuro_jane", "score": 0.95, "reason": "PhD neuroscientist at MIT with publication record"},
-  {"handle": "pharma_bob", "score": 0.65, "reason": "Industry experience but no current research role"},
-  {"handle": "research_org", "score": 0.15, "reason": "Organization account, not individual researcher"}
+  {
+    "handle": "neuro_jane",
+    "score": 0.95,
+    "reason": "PhD neuroscientist at MIT with publication record"
+  },
+  {
+    "handle": "pharma_bob",
+    "score": 0.65,
+    "reason": "Industry experience but no current research role"
+  },
+  {
+    "handle": "research_org",
+    "score": 0.15,
+    "reason": "Organization account, not individual researcher"
+  }
 ]
 ```
 
@@ -82,7 +94,7 @@ PROFILES:
 const CLAUDE_CONFIG = {
   model: "claude-haiku-4-5-20251001",
   max_tokens: 2048,
-  temperature: 0.1,  // Low for consistency
+  temperature: 0.1, // Low for consistency
 };
 ```
 
@@ -111,6 +123,7 @@ FINAL_SCORE = 0.2 × HAS + 0.8 × AVG_LLM
 ```
 
 Where:
+
 - **HAS**: Human Authenticity Score (heuristic-based, 0-1)
 - **AVG_LLM**: Average of all LLM scores for the profile (0-1)
 
@@ -125,6 +138,7 @@ AVG_LLM = (S_haiku + S_sonnet + S_gemini + ...) / N_models
 ```
 
 This provides:
+
 1. **Robustness**: Reduces single-model bias
 2. **Confidence**: More models = more reliable score
 3. **Cost efficiency**: Mix expensive (Sonnet) with cheap (Haiku, Gemini)
@@ -133,12 +147,12 @@ This provides:
 
 Only profiles with `FINAL_SCORE >= 0.6` are exported for targeting:
 
-| Score Range | Interpretation | Action |
-|-------------|----------------|--------|
-| 0.8 - 1.0 | Excellent match | High priority target |
-| 0.7 - 0.8 | Good match | Target |
-| 0.6 - 0.7 | Acceptable | Include |
-| < 0.6 | Weak match | Exclude |
+| Score Range | Interpretation  | Action               |
+| ----------- | --------------- | -------------------- |
+| 0.8 - 1.0   | Excellent match | High priority target |
+| 0.7 - 0.8   | Good match      | Target               |
+| 0.6 - 0.7   | Acceptable      | Include              |
+| < 0.6       | Weak match      | Exclude              |
 
 ### SQL Query (Multi-Model)
 
@@ -159,15 +173,19 @@ ORDER BY final_score DESC;
 ### Alternative Strategies (Not Used)
 
 **Strategy 2: Multiplicative**
+
 ```
 S_final = S_HAS × S_LLM
 ```
+
 Penalizes profiles that score low on either metric. Too aggressive.
 
 **Strategy 3: Gated**
+
 ```
 S_final = S_LLM if S_HAS >= 0.55, else S_LLM × S_HAS
 ```
+
 Use HAS as a gate/penalty only. Complex without clear benefit.
 
 ## Lambda Implementation
@@ -199,7 +217,7 @@ export const handler = async (event: ScoringEvent) => {
   await storeScores(scores, model);
 
   // 5. Remove from profiles_to_score
-  await removeFromQueue(profiles.map(p => p.twitter_id));
+  await removeFromQueue(profiles.map((p) => p.twitter_id));
 
   return { scored: scores.length };
 };
@@ -227,9 +245,9 @@ Run multiple models in parallel for comparison:
 
 ```typescript
 // Orchestrator invokes llm-scorer directly for each model
-const models = ['claude-haiku-4-5-20251001', 'gemini-2.0-flash'];
+const models = ["claude-haiku-4-5-20251001", "gemini-2.0-flash"];
 for (const model of models) {
-  await lambda.invoke('llm-scorer', { model, batchSize: 25 });
+  await lambda.invoke("llm-scorer", { model, batchSize: 25 });
 }
 ```
 
@@ -275,5 +293,6 @@ WHERE username IN (/* 50 seed usernames */);
 ```
 
 **Success criteria:**
+
 - At least 40/50 seeds in top 100
 - Average seed rank < 75

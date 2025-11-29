@@ -4,10 +4,15 @@
  *
  * Usage: yarn workspace @profile-scorer/scripts run run js_src/test-has-changes.ts
  */
+import { eq, isNotNull } from "drizzle-orm";
 
 import { getDb, userProfiles, userStats } from "@profile-scorer/db";
-import { ProfileData, HASConfig, computeHASwithConfig, defaultConfig } from "@profile-scorer/has-scorer";
-import { eq, isNotNull } from "drizzle-orm";
+import {
+  HASConfig,
+  ProfileData,
+  computeHASwithConfig,
+  defaultConfig,
+} from "@profile-scorer/has-scorer";
 
 const db = getDb();
 
@@ -170,7 +175,9 @@ async function main() {
     const newVal = newDistribution[bucket] ?? 0;
     const change = newVal - old;
     const changeStr = change > 0 ? `+${change}` : change.toString();
-    console.log(`  ${bucket.padEnd(10)} | ${old.toString().padStart(6)} | ${newVal.toString().padStart(6)} | ${changeStr}`);
+    console.log(
+      `  ${bucket.padEnd(10)} | ${old.toString().padStart(6)} | ${newVal.toString().padStart(6)} | ${changeStr}`
+    );
   }
 
   // Classification distribution
@@ -193,7 +200,9 @@ async function main() {
     const newVal = newTypes[type] ?? 0;
     const change = newVal - old;
     const changeStr = change > 0 ? `+${change}` : change.toString();
-    console.log(`  ${type.padEnd(10)} | ${old.toString().padStart(6)} | ${newVal.toString().padStart(6)} | ${changeStr}`);
+    console.log(
+      `  ${type.padEnd(10)} | ${old.toString().padStart(6)} | ${newVal.toString().padStart(6)} | ${changeStr}`
+    );
   }
 
   process.exit(0);

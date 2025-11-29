@@ -1,7 +1,8 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
 import fs from "fs";
 import path from "path";
+import { Pool } from "pg";
+
 import { createLogger } from "@profile-scorer/utils";
 
 import * as schema from "./schema";
@@ -38,7 +39,11 @@ function loadRdsCaCert(): string | undefined {
     path.join(process.cwd(), "aws-rds-global-bundle.pem"),
   ];
 
-  log.info("Searching for RDS CA cert", { searchPaths: possiblePaths, cwd: process.cwd(), dirname: __dirname });
+  log.info("Searching for RDS CA cert", {
+    searchPaths: possiblePaths,
+    cwd: process.cwd(),
+    dirname: __dirname,
+  });
 
   for (const p of possiblePaths) {
     if (fs.existsSync(p)) {
@@ -65,15 +70,13 @@ export function getDb() {
 
     const ca = loadRdsCaCert();
 
-    const sslConfig = ca
-      ? { rejectUnauthorized: true, ca }
-      : { rejectUnauthorized: false };
+    const sslConfig = ca ? { rejectUnauthorized: true, ca } : { rejectUnauthorized: false };
 
     log.info("Creating DB connection pool", {
       hasCA: !!ca,
       caLength: ca?.length,
       rejectUnauthorized: sslConfig.rejectUnauthorized,
-      host: urlObj.hostname
+      host: urlObj.hostname,
     });
 
     pool = new Pool({

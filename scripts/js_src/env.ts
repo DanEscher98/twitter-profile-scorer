@@ -2,7 +2,6 @@
  * Load environment variables from root .env file.
  * Import this at the top of any script that needs env vars.
  */
-
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -27,8 +26,10 @@ if (fs.existsSync(envPath)) {
       let value = match[2].trim();
 
       // Remove surrounding quotes if present
-      if ((value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))) {
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
         value = value.slice(1, -1);
       }
 

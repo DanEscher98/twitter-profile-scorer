@@ -16,20 +16,20 @@
  *   scripts/output/<timestamp>-validated-leads.csv
  *   scripts/output/<timestamp>-validation-report.txt
  */
-
+import blessed from "blessed";
+import { eq, inArray } from "drizzle-orm";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import blessed from "blessed";
+
 import { getDb } from "@profile-scorer/db";
-import { eq, inArray } from "drizzle-orm";
-import { userProfiles, userStats, profileScores } from "@profile-scorer/db";
+import { profileScores, userProfiles, userStats } from "@profile-scorer/db";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Thresholds
-const FOLLOWER_DISCREPANCY_THRESHOLD = 0.20; // 20% difference
+const FOLLOWER_DISCREPANCY_THRESHOLD = 0.2; // 20% difference
 const SCORE_DISCREPANCY_THRESHOLD = 0.05; // 0.05 absolute difference
 
 interface CuratedLead {
@@ -155,7 +155,8 @@ function initTUI() {
 
 function log(message: string, type: "info" | "warn" | "error" = "info") {
   const timestamp = new Date().toISOString().slice(11, 19);
-  const prefix = type === "error" ? "{red-fg}✗{/}" : type === "warn" ? "{yellow-fg}⚠{/}" : "{green-fg}✓{/}";
+  const prefix =
+    type === "error" ? "{red-fg}✗{/}" : type === "warn" ? "{yellow-fg}⚠{/}" : "{green-fg}✓{/}";
   logs.push(`[${timestamp}] ${prefix} ${message}`);
   if (logs.length > 100) logs.shift();
   logBox.setContent(logs.join("\n"));
@@ -272,7 +273,10 @@ async function validateLeads(leads: CuratedLead[]): Promise<ValidationResult[]> 
   log(`Found ${dbProfiles.length} matching profiles in DB`);
 
   // Create lookup map
-  const dbMap = new Map<string, { followers: number | null; humanScore: string | null; canDm: boolean | null }>();
+  const dbMap = new Map<
+    string,
+    { followers: number | null; humanScore: string | null; canDm: boolean | null }
+  >();
   for (const p of dbProfiles) {
     dbMap.set(p.username.toLowerCase(), {
       followers: p.followers,
@@ -296,15 +300,16 @@ async function validateLeads(leads: CuratedLead[]): Promise<ValidationResult[]> 
   }
 
   const ids = Array.from(idMap.values());
-  const scores = ids.length > 0
-    ? await db
-        .select({
-          twitterId: profileScores.twitterId,
-          score: profileScores.score,
-        })
-        .from(profileScores)
-        .where(inArray(profileScores.twitterId, ids))
-    : [];
+  const scores =
+    ids.length > 0
+      ? await db
+          .select({
+            twitterId: profileScores.twitterId,
+            score: profileScores.score,
+          })
+          .from(profileScores)
+          .where(inArray(profileScores.twitterId, ids))
+      : [];
 
   // Compute average LLM score per profile
   const scoreMap = new Map<string, number[]>();
@@ -340,16 +345,18 @@ async function validateLeads(leads: CuratedLead[]): Promise<ValidationResult[]> 
 
     // Check follower discrepancy
     const dbFollowers = dbData.followers ?? 0;
-    const followerDiff = dbFollowers > 0
-      ? Math.abs(lead.followers - dbFollowers) / dbFollowers
-      : lead.followers > 0 ? 1 : 0;
+    const followerDiff =
+      dbFollowers > 0
+        ? Math.abs(lead.followers - dbFollowers) / dbFollowers
+        : lead.followers > 0
+          ? 1
+          : 0;
 
     // Compute DB final score
     const twitterId = idMap.get(lead.username.toLowerCase());
-    const llmScores = twitterId ? scoreMap.get(twitterId) ?? [] : [];
-    const avgLlm = llmScores.length > 0
-      ? llmScores.reduce((a, b) => a + b, 0) / llmScores.length
-      : 0;
+    const llmScores = twitterId ? (scoreMap.get(twitterId) ?? []) : [];
+    const avgLlm =
+      llmScores.length > 0 ? llmScores.reduce((a, b) => a + b, 0) / llmScores.length : 0;
     const hasScore = parseFloat(dbData.humanScore ?? "0");
     const dbFinalScore = 0.2 * hasScore + 0.8 * avgLlm;
 
@@ -382,7 +389,10 @@ async function validateLeads(leads: CuratedLead[]): Promise<ValidationResult[]> 
         canDm: dbData.canDm,
         note: `Score differs by ${scoreDiff.toFixed(4)}`,
       });
-      log(`@${lead.username} - Score mismatch: ${lead.score} vs ${dbFinalScore.toFixed(4)}`, "warn");
+      log(
+        `@${lead.username} - Score mismatch: ${lead.score} vs ${dbFinalScore.toFixed(4)}`,
+        "warn"
+      );
     } else {
       results.push({
         username: lead.username,
@@ -404,12 +414,7 @@ async function validateLeads(leads: CuratedLead[]): Promise<ValidationResult[]> 
 }
 
 function escapeCsvValue(value: string): string {
-  if (
-    value.includes(",") ||
-    value.includes('"') ||
-    value.includes("\n") ||
-    value.includes("\r")
-  ) {
+  if (value.includes(",") || value.includes('"') || value.includes("\n") || value.includes("\r")) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
@@ -422,21 +427,23 @@ function generateValidatedCsv(leads: CuratedLead[], results: ValidationResult[])
     .sort((a, b) => (b.dbScore ?? 0) - (a.dbScore ?? 0));
 
   const header = "USERNAME,BIO,FOLLOWERS,SCORE,CAN_DM,TAGS,RATIONALE";
-  const rows = validResults.map((result) => {
-    // Find matching lead for bio/tags/rationale
-    const lead = leads.find((l) => l.username.toLowerCase() === result.username.toLowerCase());
-    if (!lead) return null;
+  const rows = validResults
+    .map((result) => {
+      // Find matching lead for bio/tags/rationale
+      const lead = leads.find((l) => l.username.toLowerCase() === result.username.toLowerCase());
+      if (!lead) return null;
 
-    return [
-      escapeCsvValue(result.username),
-      escapeCsvValue(lead.bio),
-      (result.dbFollowers ?? lead.followers).toString(),
-      (result.dbScore ?? lead.score).toFixed(4),
-      result.canDm === true ? "true" : result.canDm === false ? "false" : "unknown",
-      escapeCsvValue(lead.tags),
-      escapeCsvValue(lead.rationale),
-    ].join(",");
-  }).filter((row): row is string => row !== null);
+      return [
+        escapeCsvValue(result.username),
+        escapeCsvValue(lead.bio),
+        (result.dbFollowers ?? lead.followers).toString(),
+        (result.dbScore ?? lead.score).toFixed(4),
+        result.canDm === true ? "true" : result.canDm === false ? "false" : "unknown",
+        escapeCsvValue(lead.tags),
+        escapeCsvValue(lead.rationale),
+      ].join(",");
+    })
+    .filter((row): row is string => row !== null);
 
   return [header, ...rows].join("\n");
 }
@@ -473,7 +480,10 @@ ${notFound.map((r) => `- @${r.username}`).join("\n")}
     report += `FOLLOWER MISMATCHES (>${FOLLOWER_DISCREPANCY_THRESHOLD * 100}% difference)
 --------------------------------------------------
 ${followerMismatch
-  .map((r) => `- @${r.username}: CSV=${r.csvFollowers}, DB=${r.dbFollowers} (${((r.followerDiff ?? 0) * 100).toFixed(1)}% diff)`)
+  .map(
+    (r) =>
+      `- @${r.username}: CSV=${r.csvFollowers}, DB=${r.dbFollowers} (${((r.followerDiff ?? 0) * 100).toFixed(1)}% diff)`
+  )
   .join("\n")}
 
 `;
@@ -483,7 +493,10 @@ ${followerMismatch
     report += `SCORE MISMATCHES (>${SCORE_DISCREPANCY_THRESHOLD} difference)
 -----------------------------------------
 ${scoreMismatch
-  .map((r) => `- @${r.username}: CSV=${r.csvScore.toFixed(4)}, DB=${r.dbScore?.toFixed(4)} (diff: ${r.scoreDiff?.toFixed(4)})`)
+  .map(
+    (r) =>
+      `- @${r.username}: CSV=${r.csvScore.toFixed(4)}, DB=${r.dbScore?.toFixed(4)} (diff: ${r.scoreDiff?.toFixed(4)})`
+  )
   .join("\n")}
 
 `;
@@ -514,11 +527,11 @@ async function main() {
   let stats = {
     "Input File": path.basename(inputPath),
     "Total Entries": 0,
-    "Valid": 0,
+    Valid: 0,
     "Not Found": 0,
     "Follower Issues": 0,
     "Score Issues": 0,
-    "Status": "Loading...",
+    Status: "Loading...",
   };
   updateStats(stats);
 

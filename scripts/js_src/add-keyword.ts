@@ -10,7 +10,6 @@
  *   yarn add-keyword epidemiologist --tags=#academia,#health
  *   yarn add-keyword "ML engineer" --tags=#industry,#tech
  */
-
 import { getDb, insertKeyword } from "@profile-scorer/db";
 
 async function main() {
@@ -51,7 +50,10 @@ Note:
   if (tagsArg) {
     const tagsValue = tagsArg.split("=")[1];
     if (tagsValue) {
-      semanticTags = tagsValue.split(",").map((t) => t.trim()).filter(Boolean);
+      semanticTags = tagsValue
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
     }
   }
 

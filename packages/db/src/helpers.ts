@@ -1,10 +1,20 @@
-import { getDb } from "./client";
-import { userProfiles, userKeywords, userStats, profilesToScore, profileScores, xapiSearchUsage, keywordStats } from "./schema";
-import { TwitterProfile, TwitterXapiUser, TwitterXapiMetadata, TwitterUserType } from "./models"
-import { sql, eq, desc, and, isNull, gt, asc, min, max, avg, count } from "drizzle-orm";
+import { and, asc, avg, count, desc, eq, gt, isNull, max, min, sql } from "drizzle-orm";
+
 import { createLogger } from "@profile-scorer/utils";
 
-const db = getDb()
+import { getDb } from "./client";
+import { TwitterProfile, TwitterUserType, TwitterXapiMetadata, TwitterXapiUser } from "./models";
+import {
+  keywordStats,
+  profileScores,
+  profilesToScore,
+  userKeywords,
+  userProfiles,
+  userStats,
+  xapiSearchUsage,
+} from "./schema";
+
+const db = getDb();
 const log = createLogger("db-helpers");
 
 export async function insertToScore(twitterId: string, username: string): Promise<number> {
@@ -12,7 +22,7 @@ export async function insertToScore(twitterId: string, username: string): Promis
     await db.insert(profilesToScore).values({ twitterId, username });
     return 1;
   } catch (e: any) {
-    if (e.code === '23505') return 0; // already exists
+    if (e.code === "23505") return 0; // already exists
     throw e;
   }
 }
@@ -97,7 +107,7 @@ export async function upsertUserProfile(
     await db.insert(userProfiles).values({
       twitterId: profile.twitter_id,
       username: profile.username,
-      displayName: profile.display_name ?? '',
+      displayName: profile.display_name ?? "",
       bio: profile.bio,
       createdAt: profile.created_at,
       followerCount: profile.follower_count,
@@ -109,9 +119,12 @@ export async function upsertUserProfile(
       gotByKeywords: [keyword],
     });
     isNew = 1;
-    log.debug("Inserted new user profile", { twitterId: profile.twitter_id, username: profile.username });
+    log.debug("Inserted new user profile", {
+      twitterId: profile.twitter_id,
+      username: profile.username,
+    });
   } catch (e: any) {
-    if (e.code === '23505') {
+    if (e.code === "23505") {
       // Unique violation - update existing profile
       await db
         .update(userProfiles)
@@ -127,7 +140,11 @@ export async function upsertUserProfile(
         .where(eq(userProfiles.twitterId, profile.twitter_id));
       log.debug("Updated existing user profile", { twitterId: profile.twitter_id, keyword });
     } else {
-      log.error("Failed to upsert user profile", { twitterId: profile.twitter_id, error: e.message, code: e.code });
+      log.error("Failed to upsert user profile", {
+        twitterId: profile.twitter_id,
+        error: e.message,
+        code: e.code,
+      });
       throw e;
     }
   }
@@ -138,9 +155,19 @@ export async function upsertUserProfile(
       .insert(userKeywords)
       .values({ twitterId: profile.twitter_id, keyword, searchId })
       .onConflictDoNothing();
-    log.debug("Inserted user keyword relation", { twitterId: profile.twitter_id, keyword, searchId });
+    log.debug("Inserted user keyword relation", {
+      twitterId: profile.twitter_id,
+      keyword,
+      searchId,
+    });
   } catch (e: any) {
-    log.error("Failed to insert user_keywords", { twitterId: profile.twitter_id, keyword, searchId, error: e.message, code: e.code });
+    log.error("Failed to insert user_keywords", {
+      twitterId: profile.twitter_id,
+      keyword,
+      searchId,
+      error: e.message,
+      code: e.code,
+    });
     throw e;
   }
 
@@ -177,7 +204,12 @@ export async function upsertUserStats(user: TwitterXapiUser): Promise<void> {
       });
     log.debug("Upserted user stats", { twitterId: user.rest_id, followers: values.followers });
   } catch (e: any) {
-    log.error("Failed to upsert user stats", { twitterId: user.rest_id, error: e.message, code: e.code, cause: e.cause?.message });
+    log.error("Failed to upsert user stats", {
+      twitterId: user.rest_id,
+      error: e.message,
+      code: e.code,
+      cause: e.cause?.message,
+    });
     throw e;
   }
 }
@@ -187,7 +219,7 @@ export async function keywordLastUsages(keyword: string) {
     .select()
     .from(xapiSearchUsage)
     .where(eq(xapiSearchUsage.keyword, keyword))
-    .orderBy(desc(xapiSearchUsage.page))
+    .orderBy(desc(xapiSearchUsage.page));
 }
 
 /**
@@ -218,19 +250,22 @@ export async function getKeywordLatestPage(keyword: string) {
  * @param metadata - Search metadata with new_profiles already calculated
  */
 export async function insertMetadata(metadata: TwitterXapiMetadata) {
-  await db
-    .insert(xapiSearchUsage)
-    .values({
-      id: metadata.id,
-      idsHash: metadata.ids_hash!,
-      keyword: metadata.keyword,
-      items: metadata.items,
-      retries: metadata.retries,
-      nextPage: metadata.next_page,
-      page: metadata.page,
-      newProfiles: metadata.new_profiles!,
-    });
-  log.debug("Inserted search metadata", { id: metadata.id, keyword: metadata.keyword, page: metadata.page, newProfiles: metadata.new_profiles });
+  await db.insert(xapiSearchUsage).values({
+    id: metadata.id,
+    idsHash: metadata.ids_hash!,
+    keyword: metadata.keyword,
+    items: metadata.items,
+    retries: metadata.retries,
+    nextPage: metadata.next_page,
+    page: metadata.page,
+    newProfiles: metadata.new_profiles!,
+  });
+  log.debug("Inserted search metadata", {
+    id: metadata.id,
+    keyword: metadata.keyword,
+    page: metadata.page,
+    newProfiles: metadata.new_profiles,
+  });
 }
 
 /**
@@ -277,17 +312,9 @@ export async function getProfilesToScore(
     .innerJoin(profilesToScore, eq(profilesToScore.twitterId, userProfiles.twitterId))
     .leftJoin(
       profileScores,
-      and(
-        eq(profileScores.twitterId, userProfiles.twitterId),
-        eq(profileScores.scoredBy, model)
-      )
+      and(eq(profileScores.twitterId, userProfiles.twitterId), eq(profileScores.scoredBy, model))
     )
-    .where(
-      and(
-        isNull(profileScores.id),
-        gt(userProfiles.humanScore, threshold.toString())
-      )
-    )
+    .where(and(isNull(profileScores.id), gt(userProfiles.humanScore, threshold.toString())))
     .orderBy(profilesToScore.addedAt)
     .limit(limit);
 
@@ -529,17 +556,9 @@ export async function getProfilesByKeyword(
     .innerJoin(userProfiles, eq(userKeywords.twitterId, userProfiles.twitterId))
     .leftJoin(
       profileScores,
-      and(
-        eq(profileScores.twitterId, userProfiles.twitterId),
-        eq(profileScores.scoredBy, model)
-      )
+      and(eq(profileScores.twitterId, userProfiles.twitterId), eq(profileScores.scoredBy, model))
     )
-    .where(
-      and(
-        eq(userKeywords.keyword, keyword),
-        isNull(profileScores.id)
-      )
-    )
+    .where(and(eq(userKeywords.keyword, keyword), isNull(profileScores.id)))
     .limit(limit);
 
   return rows.map((row) => ({
@@ -560,27 +579,16 @@ export async function getProfilesByKeyword(
  * @param model - The LLM model name to check against
  * @returns Count of unscored profiles
  */
-export async function countUnscoredByKeyword(
-  keyword: string,
-  model: string
-): Promise<number> {
+export async function countUnscoredByKeyword(keyword: string, model: string): Promise<number> {
   const result = await db
     .select({ count: count() })
     .from(userKeywords)
     .innerJoin(userProfiles, eq(userKeywords.twitterId, userProfiles.twitterId))
     .leftJoin(
       profileScores,
-      and(
-        eq(profileScores.twitterId, userProfiles.twitterId),
-        eq(profileScores.scoredBy, model)
-      )
+      and(eq(profileScores.twitterId, userProfiles.twitterId), eq(profileScores.scoredBy, model))
     )
-    .where(
-      and(
-        eq(userKeywords.keyword, keyword),
-        isNull(profileScores.id)
-      )
-    );
+    .where(and(eq(userKeywords.keyword, keyword), isNull(profileScores.id)));
 
   return Number(result[0]?.count ?? 0);
 }

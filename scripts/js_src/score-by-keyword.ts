@@ -19,25 +19,26 @@
  *   Creates a CSV file in scripts/output/<keyword>-<model>-<YYYYMMDD>.csv
  *   with columns: username, bio, has_score, llm_score, reason
  */
-
-import "./env.js"; // Load environment variables from root .env
+import cliProgress from "cli-progress";
+import { Table } from "console-table-printer";
+// Load environment variables from root .env
 
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import cliProgress from "cli-progress";
-import { Table } from "console-table-printer";
+
+import { countAllByKeyword, getDb } from "@profile-scorer/db";
+import {
+  ScoreAndSaveResult,
+  ScoredProfileWithMeta,
+  getAvailableModels,
+  scoreByKeyword,
+} from "@profile-scorer/llm-scoring";
+
+import "./env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-import {
-  scoreByKeyword,
-  getAvailableModels,
-  ScoreAndSaveResult,
-  ScoredProfileWithMeta,
-} from "@profile-scorer/llm-scoring";
-import { getDb, countAllByKeyword } from "@profile-scorer/db";
 
 /**
  * Escape a value for CSV (handles commas, quotes, newlines)
