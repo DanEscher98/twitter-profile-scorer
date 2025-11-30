@@ -66,19 +66,26 @@ just test-debug                 # Run E2E tests with DEBUG logging
 
 ## Environment Variables
 
-Required for database operations:
+**Infrastructure secrets** are loaded from `infra/.env` (never committed to git):
+
+```bash
+# Copy the template and fill in your values
+cp infra/.env.example infra/.env
+```
+
+Required variables in `infra/.env`:
+
+- `DB_PASSWORD` - PostgreSQL password
+- `TWITTERX_APIKEY` - RapidAPI key for TwitterX
+- `ANTHROPIC_API_KEY` - Claude API key for LLM scoring
+- `GEMINI_API_KEY` - Google AI API key for Gemini scoring
+- `GROQ_API_KEY` - Groq API key for Meta/Llama models
+
+**Database operations** require DATABASE_URL:
 
 ```bash
 export DATABASE_URL=$(cd infra && uv run pulumi stack output db_connection_string --show-secrets)
 ```
-
-Pulumi secrets (set via `pulumi config set --secret`):
-
-- `db_password` - PostgreSQL password
-- `twitterx_apikey` - RapidAPI key for TwitterX
-- `anthropic_apikey` - Claude API key for LLM scoring
-- `gemini_apikey` - Google AI API key for Gemini scoring
-- `groq_apikey` - Groq API key for Meta/Llama models
 
 ## Tech Stack
 

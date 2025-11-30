@@ -35,15 +35,38 @@ from components import (
 )
 
 # =============================================================================
-# Configuration (Secrets stored in Pulumi config)
+# Configuration (Secrets from environment variables)
 # =============================================================================
-# These secrets are set via: pulumi config set --secret <key> <value>
-# They're encrypted at rest and never exposed in logs or state files.
+# Secrets are loaded from environment variables for security:
+# - Never committed to git (infra/.env is gitignored)
+# - Each developer/deployment uses their own credentials
+# - Copy infra/.env.example to infra/.env and fill in your values
+#
+# For local dev: source infra/.env or use dotenv
+# For CI/CD: Set environment variables in your pipeline secrets
+
+import os
+from dotenv import load_dotenv
+
+# Load .env file if present (for local development)
+load_dotenv()
+
+def require_env(name: str) -> str:
+    """Get required environment variable or raise helpful error."""
+    value = os.environ.get(name)
+    if not value:
+        raise ValueError(
+            f"Missing required environment variable: {name}\n"
+            f"Copy infra/.env.example to infra/.env and set your values."
+        )
+    return value
 
 config = pulumi.Config()
-db_password = config.require_secret("db_password")        # PostgreSQL password
-twitterx_apikey = config.require_secret("twitterx_apikey")  # RapidAPI key for TwitterX
-anthropic_apikey = config.require_secret("anthropic_apikey")  # Claude API key for LLM scoring
+
+# Secrets from environment variables (not stored in Pulumi config)
+db_password = pulumi.Output.secret(require_env("DB_PASSWORD"))
+twitterx_apikey = pulumi.Output.secret(require_env("TWITTERX_APIKEY"))
+anthropic_apikey = pulumi.Output.secret(require_env("ANTHROPIC_API_KEY"))
 
 # =============================================================================
 # VPC - Network Foundation
@@ -177,8 +200,8 @@ llm_scorer_lambda = LambdaFunction(
     environment={
         "DATABASE_URL": db.connection_string,
         "ANTHROPIC_API_KEY": anthropic_apikey,
-        "GEMINI_API_KEY": config.require_secret("gemini_apikey"),
-        "GROQ_API_KEY": config.require_secret("groq_apikey"),
+        "GEMINI_API_KEY": pulumi.Output.secret(require_env("GEMINI_API_KEY")),
+        "GROQ_API_KEY": pulumi.Output.secret(require_env("GROQ_API_KEY")),
         "APP_MODE": "production",
     },
 )
