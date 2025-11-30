@@ -7,31 +7,32 @@ import { createLogger } from "@profile-scorer/utils";
 const log = createLogger("llm-shared");
 
 /**
- * Score result from LLM wrapper.
+ * Label result from LLM wrapper.
+ * Trivalent system: true=good, false=bad, null=uncertain
  */
-export interface ScoreResult {
+export interface LabelResult {
   twitterId: string;
-  username: string;
-  score: number;
+  handle: string;
+  label: boolean | null;
   reason: string;
 }
 
 /**
- * Zod schema for a single score result from LLM.
+ * Zod schema for a single label result from LLM.
  */
-const ScoreItemSchema = z.object({
-  username: z.string(),
+const LabelItemSchema = z.object({
+  handle: z.string(),
   reason: z.string(),
-  score: z.number().min(0).max(1),
+  label: z.boolean().nullable(),
 });
 
 /**
  * Zod schema for the full LLM response array.
  */
-const ScoreResponseSchema = z.array(ScoreItemSchema);
+const LabelResponseSchema = z.array(LabelItemSchema);
 
 /**
- * Configuration for audience-specific scoring prompts.
+ * Configuration for audience-specific labeling prompts.
  */
 export interface AudienceConfig {
   targetProfile: string;
@@ -39,104 +40,73 @@ export interface AudienceConfig {
   highSignals: string[];
   lowSignals: string[];
   domainContext: string;
-  scoringOverrides?: {
-    defaultFloor?: number;
-    roleBoosts?: Record<string, number>;
-  };
 }
 
 /**
  * Generate a system prompt based on audience configuration.
+ * Uses trivalent labeling: true (match), false (no match), null (uncertain).
  *
  * @param config - Audience configuration with target profile and signals
  * @returns System prompt string for LLM
  */
 export function generateSystemPrompt(config: AudienceConfig): string {
-  return `ROLE: You are an expert at evaluating social media profiles to identify ${config.targetProfile}s in ${config.sector.toUpperCase()}.
+  return `ROLE: You are an expert at identifying individual ${config.targetProfile}s in ${config.sector.toUpperCase()}.
 
 ## Domain Context
 ${config.domainContext}
 
-## Scoring Signals
+## Classification Signals
 
-HIGH-SIGNAL INDICATORS (increase score):
+POSITIVE INDICATORS (suggests target match):
 ${config.highSignals.map((s) => `• ${s}`).join("\n")}
 
-LOW-SIGNAL INDICATORS (decrease score or neutral):
+NEGATIVE INDICATORS (suggests non-match):
 ${config.lowSignals.map((s) => `• ${s}`).join("\n")}
 
 ## Evaluation Process
 For each profile:
-1. Analyze username, display name, bio, and category
-2. Identify HIGH-SIGNAL indicators—these often appear as domain expertise, topics, or affiliations rather than explicit role titles
-3. Weight: relevant affiliation + role alignment + domain keywords as strong proxy
-4. Determine likelihood of being a ${config.targetProfile}
+1. First: Is this an individual person? (Reject orgs, brands, podcasts, journals, bots)
+2. Then: Does this individual match ${config.targetProfile} criteria?
+IMPORTANT: When in doubt, use null. False positives are worse than uncertain labels.
 
-## Scoring Scale
-- 0.0-0.3: Bot, spam, or completely unrelated
-- 0.3-0.5: Unlikely (adjacent field or unclear relevance)
-- 0.5-0.7: Possible (some signals but not definitive)
-- 0.7-0.9: Likely (clear alignment with ${config.targetProfile} profile)
-- 0.9-1.0: Definite (explicit match or perfect signal combination)`;
+## Label Definitions
+- true: Individual person who clearly matches ${config.targetProfile}
+- false: Organization/brand account, bot, or individual clearly outside target criteria
+- null: Individual but insufficient signal to determine match (empty/vague bio)
+
+## Output Interface
+Respond with a JSON array. Each object must have:
+- handle: string (profile's handle)
+- label: boolean|null (is a "${config.targetProfile}"?)
+- reason: string (brief explanation, max 100 chars)
+
+IMPORTANT: Return ONLY the JSON array. No markdown formatting, no code blocks.
+Return: [{ "handle": string, "label": boolean|null, "reason": string }]`;
 }
-
-/**
- * Default system prompt for TheLAI customers (qualitative researchers).
- * Uses hardcoded config from lambdas/llm-scorer/src/audiences/thelai_customers.json
- */
-export const SYSTEM_PROMPT = generateSystemPrompt({
-  targetProfile: "qualitative researcher",
-  sector: "academia",
-  highSignals: [
-    "Explicit methodology: qualitative, ethnography, interviews, focus groups, grounded theory, phenomenology, narrative inquiry",
-    "Research topics inherently qualitative: lived experience, stigma, identity, community-based participatory research",
-    "Roles: PI, lab director, research scientist with population-focused studies",
-    "Fields with qualitative traditions: sociology, anthropology, social work, nursing, public health (health equity), education, communication",
-    "Participant interaction: 'partnering with communities', studying vulnerable/marginalized populations",
-    "IRB-heavy contexts: HIV, mental health, trauma, sexual health, child welfare",
-  ],
-  lowSignals: [
-    "Clinical roles without research (MD focused on patient care)",
-    "Quantitative indicators: epidemiologist, biostatistician, data scientist",
-    "Industry/corporate focus",
-    "Advocacy without research role",
-    "Teaching-only focus",
-  ],
-  domainContext:
-    "These researchers need participant management, interview scheduling, transcription, IRB compliance, and secure data storage for sensitive research.",
-});
 
 /**
  * Format profiles into a TOON prompt for the LLM.
  *
- * @param profiles - Array of profiles to score
+ * @param profiles - Array of profiles to label
  * @returns Formatted prompt string with TOON representation
  */
 export function formatProfilesPrompt(profiles: ProfileToScore[]): string {
   // Transform to TOON-friendly format
   const profilesData = profiles.map((p) => ({
-    username: p.username,
-    display_name: p.displayName,
+    handle: p.handle,
+    name: p.name,
     bio: p.bio,
     category: p.category,
-    likely_is: p.likelyIs,
+    followers: p.followers,
   }));
 
   const toonData = toToon(profilesData);
 
-  return `Score the following ${profiles.length} Twitter profiles:
+  return `Label the following ${profiles.length} Twitter profiles:
 
 \`\`\`toon
 ${toonData}
-\`\`\`
-
-Respond with a JSON array. Each object must have:
-- username: string (the profile's username)
-- score: number (0.00 to 1.00)
-- reason: string (brief explanation, max 100 chars)
-
-IMPORTANT: Return ONLY the JSON array. No markdown formatting, no code blocks.
-Return: [{ "username": string, "reason": string, "score": number }]`;
+\`\`\``;
 }
 
 /**
@@ -167,9 +137,9 @@ function extractJson(text: string): string {
  *
  * @param text - Raw LLM response text
  * @param profiles - Original profiles for mapping back twitterId
- * @returns Array of validated score results with twitterId
+ * @returns Array of validated label results with twitterId
  */
-export function parseAndValidateResponse(text: string, profiles: ProfileToScore[]): ScoreResult[] {
+export function parseAndValidateResponse(text: string, profiles: ProfileToScore[]): LabelResult[] {
   // Extract JSON from potential markdown blocks
   const jsonStr = extractJson(text);
 
@@ -186,7 +156,7 @@ export function parseAndValidateResponse(text: string, profiles: ProfileToScore[
   }
 
   // Validate with Zod
-  const validation = ScoreResponseSchema.safeParse(parsed);
+  const validation = LabelResponseSchema.safeParse(parsed);
   if (!validation.success) {
     log.error("Zod validation failed for LLM response", {
       errors: validation.error.errors.map((e) => ({
@@ -198,23 +168,23 @@ export function parseAndValidateResponse(text: string, profiles: ProfileToScore[
     return [];
   }
 
-  // Map usernames back to twitterIds
-  const usernameToProfile = new Map(profiles.map((p) => [p.username.toLowerCase(), p]));
+  // Map handles back to twitterIds
+  const handleToProfile = new Map(profiles.map((p) => [p.handle.toLowerCase(), p]));
 
-  const results: ScoreResult[] = [];
+  const results: LabelResult[] = [];
 
   for (const item of validation.data) {
-    const profile = usernameToProfile.get(item.username.toLowerCase());
+    const profile = handleToProfile.get(item.handle.toLowerCase());
     if (profile) {
       results.push({
         twitterId: profile.twitterId,
-        username: item.username,
-        score: Math.max(0, Math.min(1, item.score)),
+        handle: item.handle,
+        label: item.label,
         reason: item.reason.slice(0, 500),
       });
     } else {
-      log.warn("Username from LLM response not found in profiles", {
-        username: item.username,
+      log.warn("Handle from LLM response not found in profiles", {
+        handle: item.handle,
       });
     }
   }

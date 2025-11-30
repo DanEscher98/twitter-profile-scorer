@@ -161,3 +161,9 @@ score-all model batch_size="25" threshold="0.55" concurrency="10":
 # Example: just score-keyword epidemiologist claude-haiku-4-5-20251001
 score-keyword keyword model:
     yarn workspace @profile-scorer/scripts score-keyword {{keyword}} {{model}}
+
+# Generate system prompt from audience config JSON
+# Usage: just get-systemprompt <config-path>
+# Example: just get-systemprompt scripts/data/thelai_customers.json
+get-systemprompt path:
+    yarn workspace @profile-scorer/scripts run tsx js_src/get-system-prompt.ts {{path}}

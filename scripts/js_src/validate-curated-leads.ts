@@ -261,14 +261,14 @@ async function validateLeads(leads: CuratedLead[]): Promise<ValidationResult[]> 
 
   const dbProfiles = await db
     .select({
-      username: userProfiles.username,
+      handle: userProfiles.handle,
       followers: userStats.followers,
       humanScore: userProfiles.humanScore,
       canDm: userProfiles.canDm,
     })
     .from(userProfiles)
     .leftJoin(userStats, eq(userProfiles.twitterId, userStats.twitterId))
-    .where(inArray(userProfiles.username, usernames));
+    .where(inArray(userProfiles.handle, usernames));
 
   log(`Found ${dbProfiles.length} matching profiles in DB`);
 
@@ -278,44 +278,45 @@ async function validateLeads(leads: CuratedLead[]): Promise<ValidationResult[]> 
     { followers: number | null; humanScore: string | null; canDm: boolean | null }
   >();
   for (const p of dbProfiles) {
-    dbMap.set(p.username.toLowerCase(), {
+    dbMap.set(p.handle.toLowerCase(), {
       followers: p.followers,
       humanScore: p.humanScore,
       canDm: p.canDm,
     });
   }
 
-  // Fetch LLM scores for computing final score
+  // Fetch LLM labels for computing final score
   const twitterIds = await db
     .select({
-      username: userProfiles.username,
+      handle: userProfiles.handle,
       twitterId: userProfiles.twitterId,
     })
     .from(userProfiles)
-    .where(inArray(userProfiles.username, usernames));
+    .where(inArray(userProfiles.handle, usernames));
 
   const idMap = new Map<string, string>();
   for (const p of twitterIds) {
-    idMap.set(p.username.toLowerCase(), p.twitterId);
+    idMap.set(p.handle.toLowerCase(), p.twitterId);
   }
 
   const ids = Array.from(idMap.values());
-  const scores =
+  const labels =
     ids.length > 0
       ? await db
           .select({
             twitterId: profileScores.twitterId,
-            score: profileScores.score,
+            label: profileScores.label,
           })
           .from(profileScores)
           .where(inArray(profileScores.twitterId, ids))
       : [];
 
-  // Compute average LLM score per profile
+  // Compute average LLM score per profile (convert labels to numeric for backwards compat)
   const scoreMap = new Map<string, number[]>();
-  for (const s of scores) {
+  for (const s of labels) {
     const existing = scoreMap.get(s.twitterId) ?? [];
-    existing.push(parseFloat(s.score));
+    const numericScore = s.label === true ? 1.0 : s.label === false ? 0.0 : 0.5;
+    existing.push(numericScore);
     scoreMap.set(s.twitterId, existing);
   }
 

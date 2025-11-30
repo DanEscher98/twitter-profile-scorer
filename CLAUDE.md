@@ -78,6 +78,7 @@ Pulumi secrets (set via `pulumi config set --secret`):
 - `twitterx_apikey` - RapidAPI key for TwitterX
 - `anthropic_apikey` - Claude API key for LLM scoring
 - `gemini_apikey` - Google AI API key for Gemini scoring
+- `groq_apikey` - Groq API key for Meta/Llama models
 
 ## Tech Stack
 
@@ -85,7 +86,7 @@ Pulumi secrets (set via `pulumi config set --secret`):
 - **Python**: uv package manager, Pulumi 3.x/4.x
 - **Database**: PostgreSQL 16.3, Drizzle ORM
 - **Lambda Runtime**: Node.js 20.x, 256MB memory, 30s timeout
-- **LLM SDKs**: @anthropic-ai/sdk, @google/generative-ai
+- **LLM SDKs**: LangChain providers (@langchain/anthropic, @langchain/google-genai, @langchain/groq)
 - **Validation**: Zod for LLM response validation
 - **Serialization**: TOON format for LLM input
 
@@ -103,32 +104,38 @@ Tables defined in `packages/db/src/schema.ts`:
 
 ## LLM Scoring System
 
-The `llm-scorer` lambda supports multiple models with probability-based invocation:
+The `llm-scorer` lambda supports multiple models with probability-based invocation. Models use simplified aliases for logging, with full names stored in DB.
 
-| Model                     | Probability | Batch Size | Notes                                   |
-| ------------------------- | ----------- | ---------- | --------------------------------------- |
-| claude-haiku-4-5-20251001 | 1.0 (100%)  | 25         | Primary scorer, fast and cost-effective |
-| claude-sonnet-4-20250514  | 0.5 (50%)   | 10         | Premium quality, higher cost            |
-| gemini-2.0-flash          | 0.2 (20%)   | 15         | Free tier, contrast data                |
+| Alias              | Full Name                                    | Probability | Batch Size |
+| ------------------ | -------------------------------------------- | ----------- | ---------- |
+| `meta-maverick-17b`  | `meta-llama/llama-4-maverick-17b-128e-instruct` | 0.7 (70%)   | 25         |
+| `claude-haiku-4.5`   | `claude-haiku-4-5-20251001`                    | 0.6 (60%)   | 25         |
+| `gemini-flash-2.0`   | `gemini-2.0-flash`                             | 0.4 (40%)   | 15         |
+
+**Additional models available:**
+- `claude-sonnet-4.5` → `claude-sonnet-4-20250514`
+- `claude-opus-4.5` → `claude-opus-4-5-20251101`
+- `gemini-flash-1.5` → `gemini-1.5-flash`
 
 **Architecture:**
 
-- Orchestrator invokes llm-scorer directly (no SQS queue)
-- DB-as-queue pattern: `profiles_to_score` + LEFT JOIN filters already-scored
+- Orchestrator invokes llm-scorer with model alias (e.g., `claude-haiku-4.5`)
+- `packages/llm-scoring` resolves alias to full model name via `MODEL_REGISTRY`
+- DB `labeled_by` column stores full model name for precise tracking
 - Unique constraint on `(twitter_id, scored_by)` prevents duplicate scoring
-- Each model scores independently - profiles accumulate scores from multiple models
+- Each model scores independently - profiles accumulate labels from multiple models
 
 **Input/Output:**
 
 - Input: Profiles serialized in TOON format
-- Output: JSON array validated with Zod schema `{ username, score, reason }[]`
-- Handles `\`\`\`json` blocks (common with Haiku)
+- Output: JSON array validated with Zod schema `{ handle, label, reason }[]`
+- Trivalent labeling: `true` (match), `false` (no match), `null` (uncertain)
 
 **Error Handling:**
 
 - Quota/rate limit errors logged with `action: "PURCHASE_TOKENS_OR_WAIT"`
 - Returns empty array on error (allows other models to continue)
-- Invalid model names rejected at handler level with available models list
+- Invalid model aliases rejected with available models list
 
 ## Deployment Workflow
 

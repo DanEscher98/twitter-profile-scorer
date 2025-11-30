@@ -4,8 +4,8 @@
 import blessed from "blessed";
 import { Table } from "console-table-printer";
 
-import { ProfileToScore, getDb, getProfilesToScore, insertProfileScore } from "@profile-scorer/db";
-import { getAvailableModels, scoreProfiles } from "@profile-scorer/llm-scoring";
+import { ProfileToScore, getDb, getProfilesToScore, insertProfileLabel } from "@profile-scorer/db";
+import { getAvailableModels, labelProfiles, AudienceConfig } from "@profile-scorer/llm-scoring";
 
 import "./env.js";
 
@@ -35,33 +35,50 @@ function chunkArray<T>(array: T[], size: number): T[][] {
   return chunks;
 }
 
+// Default audience config for CLI usage
+const defaultAudienceConfig: AudienceConfig = {
+  targetProfile: "qualitative researcher",
+  sector: "academia",
+  highSignals: [
+    "Qualitative methodology keywords: ethnography, grounded theory, discourse analysis",
+    "Fields with strong qualitative foundations: sociology, anthropology, social work",
+    "Academic research leadership roles: PI, lab director, research scientist",
+  ],
+  lowSignals: [
+    "Clinical-only roles without research designation",
+    "Quantitative-primary fields: biostatistics, data science",
+    "Organization/company account (not individual)",
+  ],
+  domainContext: "Target profiles conduct human-subjects research requiring participant recruitment and qualitative data analysis.",
+};
+
 /**
- * Process a single batch: score and save to DB
+ * Process a single batch: label and save to DB
  */
 async function processBatch(
   profiles: ProfileToScore[],
   model: string,
   batchNum: number,
   logFn: (msg: string) => void
-): Promise<{ scored: number; errors: number; skipped: number }> {
+): Promise<{ labeled: number; errors: number; skipped: number }> {
   if (profiles.length === 0) {
-    return { scored: 0, errors: 0, skipped: 0 };
+    return { labeled: 0, errors: 0, skipped: 0 };
   }
 
   logFn(`Batch ${batchNum}: Sending ${profiles.length} profiles...`);
 
-  // Score profiles with LLM
-  const scores = await scoreProfiles(profiles, model);
+  // Label profiles with LLM
+  const labels = await labelProfiles(profiles, model, defaultAudienceConfig);
 
   // Save to DB
-  let scored = 0;
+  let labeled = 0;
   let errors = 0;
   let skipped = 0;
 
-  for (const score of scores) {
+  for (const result of labels) {
     try {
-      await insertProfileScore(score.twitterId, score.score, score.reason, model);
-      scored++;
+      await insertProfileLabel(result.twitterId, result.label, result.reason, model);
+      labeled++;
     } catch (error: any) {
       if (error.code === "23505") {
         skipped++;
@@ -71,8 +88,8 @@ async function processBatch(
     }
   }
 
-  logFn(`Batch ${batchNum}: ✓ ${scored} scored, ${skipped} skipped, ${errors} errors`);
-  return { scored, errors, skipped };
+  logFn(`Batch ${batchNum}: ✓ ${labeled} labeled, ${skipped} skipped, ${errors} errors`);
+  return { labeled, errors, skipped };
 }
 
 async function main() {
@@ -255,7 +272,7 @@ Example:
 
   log(`Starting scoring with ${concurrency} concurrent batches...`);
 
-  let totalScored = 0;
+  let totalLabeled = 0;
   let totalErrors = 0;
   let totalSkipped = 0;
   let completedBatches = 0;
@@ -280,8 +297,8 @@ Example:
       const batchProfiles = chunk[i]?.length ?? 0;
 
       if (result.status === "fulfilled") {
-        const { scored, errors, skipped } = result.value;
-        totalScored += scored;
+        const { labeled, errors, skipped } = result.value;
+        totalLabeled += labeled;
         totalErrors += errors;
         totalSkipped += skipped;
       } else {
@@ -297,11 +314,11 @@ Example:
   // Final summary in log
   log("");
   log("═".repeat(50));
-  log("✓ SCORING COMPLETE");
+  log("✓ LABELING COMPLETE");
   log("═".repeat(50));
   log(`  Total profiles: ${totalProfiles}`);
   log(`  Batches:        ${totalBatches}`);
-  log(`  Scored:         ${totalScored}`);
+  log(`  Labeled:        ${totalLabeled}`);
   log(`  Skipped:        ${totalSkipped}`);
   log(`  Errors:         ${totalErrors}`);
   log("");
@@ -317,7 +334,7 @@ Example:
   // Cleanup and show final table
   screen.destroy();
 
-  console.log("\n✓ Scoring complete!\n");
+  console.log("\n✓ Labeling complete!\n");
 
   const summaryTable = new Table({
     columns: [
@@ -331,8 +348,8 @@ Example:
     { metric: "Total profiles", value: totalProfiles },
     { metric: "Batches processed", value: totalBatches },
     { metric: "Concurrency", value: concurrency },
-    { metric: "Scored", value: totalScored },
-    { metric: "Skipped (already scored)", value: totalSkipped },
+    { metric: "Labeled", value: totalLabeled },
+    { metric: "Skipped (already labeled)", value: totalSkipped },
     { metric: "Errors", value: totalErrors },
   ]);
 

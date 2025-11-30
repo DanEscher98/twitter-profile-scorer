@@ -17,9 +17,9 @@ import {
 const db = getDb();
 const log = createLogger("db-helpers");
 
-export async function insertToScore(twitterId: string, username: string): Promise<number> {
+export async function insertToScore(twitterId: string, handle: string): Promise<number> {
   try {
-    await db.insert(profilesToScore).values({ twitterId, username });
+    await db.insert(profilesToScore).values({ twitterId, handle });
     return 1;
   } catch (e: any) {
     if (e.code === "23505") return 0; // already exists
@@ -41,17 +41,17 @@ export async function profileExists(twitterId: string): Promise<boolean> {
 }
 
 /**
- * Get a profile by username from the database.
+ * Get a profile by handle from the database.
  *
- * @param username - Twitter handle (case-insensitive)
+ * @param handle - Twitter handle (case-insensitive)
  * @returns Profile if found, null otherwise
  */
-export async function getProfileByUsername(username: string): Promise<TwitterProfile | null> {
+export async function getProfileByHandle(handle: string): Promise<TwitterProfile | null> {
   const result = await db
     .select({
       twitter_id: userProfiles.twitterId,
-      username: userProfiles.username,
-      display_name: userProfiles.displayName,
+      handle: userProfiles.handle,
+      name: userProfiles.name,
       bio: userProfiles.bio,
       created_at: userProfiles.createdAt,
       follower_count: userProfiles.followerCount,
@@ -62,7 +62,7 @@ export async function getProfileByUsername(username: string): Promise<TwitterPro
       likely_is: userProfiles.likelyIs,
     })
     .from(userProfiles)
-    .where(sql`lower(${userProfiles.username}) = lower(${username})`)
+    .where(sql`lower(${userProfiles.handle}) = lower(${handle})`)
     .limit(1);
 
   if (result.length === 0) return null;
@@ -70,8 +70,8 @@ export async function getProfileByUsername(username: string): Promise<TwitterPro
   const row = result[0]!;
   return {
     twitter_id: row.twitter_id,
-    username: row.username,
-    display_name: row.display_name,
+    handle: row.handle,
+    name: row.name,
     bio: row.bio,
     created_at: row.created_at ?? "",
     follower_count: row.follower_count,
@@ -106,8 +106,8 @@ export async function upsertUserProfile(
   try {
     await db.insert(userProfiles).values({
       twitterId: profile.twitter_id,
-      username: profile.username,
-      displayName: profile.display_name ?? "",
+      handle: profile.handle,
+      name: profile.name ?? "",
       bio: profile.bio,
       createdAt: profile.created_at,
       followerCount: profile.follower_count,
@@ -121,7 +121,7 @@ export async function upsertUserProfile(
     isNew = 1;
     log.debug("Inserted new user profile", {
       twitterId: profile.twitter_id,
-      username: profile.username,
+      handle: profile.handle,
     });
   } catch (e: any) {
     if (e.code === "23505") {
@@ -269,87 +269,92 @@ export async function insertMetadata(metadata: TwitterXapiMetadata) {
 }
 
 /**
- * Profile data returned by getProfilesToScore
+ * Profile data returned by getProfilesToScore.
+ * Used as input for LLM labeling.
  */
 export interface ProfileToScore {
   twitterId: string;
-  username: string;
-  displayName: string;
-  bio: string;
-  likelyIs: string;
-  category: string;
-  humanScore: number;
+  handle: string;
+  name: string;
+  bio: string; // never null - query filters out null bios
+  category: string | null;
+  followers: number;
 }
 
 /**
- * Retrieves profiles that haven't been scored by the specified model.
- * Uses LEFT JOIN to filter out already-scored profiles.
- *
- * Note: This doesn't use FOR UPDATE SKIP LOCKED because Drizzle doesn't support it natively.
- * For atomic claiming, use claimProfilesToScore() instead.
+ * Retrieves profiles that haven't been labeled by the specified model.
+ * Uses LEFT JOIN to filter out already-labeled profiles.
+ * Filters out profiles with null/empty bio or name (cannot be meaningfully labeled).
+ * Returns profiles in random order for diversity in labeling batches.
  *
  * @param model - The LLM model name to check against `profile_scores.scored_by`
  * @param limit - Maximum number of profiles to return (default 25)
- * @param threshold - Minimum human_score to consider (default 0.6)
- * @returns Array of profiles ready for scoring
+ * @param threshold - Minimum human_score to consider (default 0.55)
+ * @returns Array of profiles ready for labeling
  */
 export async function getProfilesToScore(
   model: string,
   limit: number = 25,
-  threshold: number = 0.6
+  threshold: number = 0.55
 ): Promise<ProfileToScore[]> {
   const rows = await db
     .select({
       twitterId: userProfiles.twitterId,
-      username: userProfiles.username,
-      displayName: userProfiles.displayName,
+      handle: userProfiles.handle,
+      name: userProfiles.name,
       bio: userProfiles.bio,
-      likelyIs: userProfiles.likelyIs,
       category: userProfiles.category,
-      humanScore: userProfiles.humanScore,
+      followers: userStats.followers,
     })
     .from(userProfiles)
     .innerJoin(profilesToScore, eq(profilesToScore.twitterId, userProfiles.twitterId))
+    .leftJoin(userStats, eq(userStats.twitterId, userProfiles.twitterId))
     .leftJoin(
       profileScores,
       and(eq(profileScores.twitterId, userProfiles.twitterId), eq(profileScores.scoredBy, model))
     )
-    .where(and(isNull(profileScores.id), gt(userProfiles.humanScore, threshold.toString())))
-    .orderBy(profilesToScore.addedAt)
+    .where(
+      and(
+        isNull(profileScores.id),
+        gt(userProfiles.humanScore, threshold.toString()),
+        sql`${userProfiles.bio} IS NOT NULL AND ${userProfiles.bio} != ''`,
+        sql`${userProfiles.name} IS NOT NULL AND ${userProfiles.name} != ''`
+      )
+    )
+    .orderBy(sql`RANDOM()`)
     .limit(limit);
 
   return rows.map((row) => ({
     twitterId: row.twitterId,
-    username: row.username,
-    displayName: row.displayName ?? "",
-    bio: row.bio ?? "",
-    likelyIs: row.likelyIs ?? "",
-    category: row.category ?? "",
-    humanScore: parseFloat(row.humanScore ?? "0"),
+    handle: row.handle,
+    name: row.name!, // Safe: filtered in WHERE clause
+    bio: row.bio!, // Safe: filtered in WHERE clause
+    category: row.category,
+    followers: row.followers ?? 0,
   }));
 }
 
 /**
- * Inserts a score for a profile.
+ * Inserts a label for a profile.
  *
  * @param twitterId - Twitter ID of the profile
- * @param score - Score between 0 and 1
- * @param reason - Explanation for the score
- * @param scoredBy - Model name that generated the score
+ * @param label - Trivalent label: true=good, false=bad, null=uncertain
+ * @param reason - Explanation for the label
+ * @param scoredBy - Model name that generated the label
  */
-export async function insertProfileScore(
+export async function insertProfileLabel(
   twitterId: string,
-  score: number,
+  label: boolean | null,
   reason: string,
   scoredBy: string
 ): Promise<void> {
   await db.insert(profileScores).values({
     twitterId,
-    score: score.toFixed(2),
+    label,
     reason,
     scoredBy,
   });
-  log.debug("Inserted profile score", { twitterId, score: score.toFixed(2), scoredBy });
+  log.debug("Inserted profile label", { twitterId, label, scoredBy });
 }
 
 // ============================================================================
@@ -361,7 +366,7 @@ export interface KeywordStatsData {
   semanticTags: string[];
   profilesFound: number;
   avgHumanScore: number;
-  avgLlmScore: number;
+  labelRate: number; // Percentage of true labels (0.0-1.0)
   stillValid: boolean;
   pagesSearched: number;
   highQualityCount: number;
@@ -386,10 +391,12 @@ export async function calculateKeywordStats(keyword: string): Promise<KeywordSta
     .innerJoin(userProfiles, eq(userKeywords.twitterId, userProfiles.twitterId))
     .where(eq(userKeywords.keyword, keyword));
 
-  // Get average LLM score for profiles found with this keyword
+  // Get label rate for profiles found with this keyword
+  // labelRate = count(true labels) / count(all non-null labels)
   const llmStats = await db
     .select({
-      avgLlmScore: avg(profileScores.score),
+      totalLabeled: sql<number>`count(*) filter (where ${profileScores.label} is not null)`,
+      trueLabels: sql<number>`count(*) filter (where ${profileScores.label} = true)`,
     })
     .from(userKeywords)
     .innerJoin(profileScores, eq(userKeywords.twitterId, profileScores.twitterId))
@@ -420,12 +427,17 @@ export async function calculateKeywordStats(keyword: string): Promise<KeywordSta
   const llm = llmStats[0];
   const search = searchStats[0];
 
+  // Calculate label rate (percentage of true labels among all non-null labels)
+  const totalLabeled = Number(llm?.totalLabeled) || 0;
+  const trueLabels = Number(llm?.trueLabels) || 0;
+  const labelRate = totalLabeled > 0 ? trueLabels / totalLabeled : 0;
+
   return {
     keyword,
     semanticTags: existingKeyword[0]?.semanticTags ?? [],
     profilesFound: Number(stats?.profilesFound) || 0,
     avgHumanScore: parseFloat(stats?.avgHumanScore ?? "0") || 0,
-    avgLlmScore: parseFloat(llm?.avgLlmScore ?? "0") || 0,
+    labelRate,
     stillValid,
     pagesSearched: Number(search?.pagesSearched) || 0,
     highQualityCount: Number(stats?.highQualityCount) || 0,
@@ -445,7 +457,7 @@ export async function upsertKeywordStats(stats: KeywordStatsData): Promise<void>
       keyword: stats.keyword,
       profilesFound: stats.profilesFound,
       avgHumanScore: stats.avgHumanScore.toFixed(3),
-      avgLlmScore: stats.avgLlmScore.toFixed(3),
+      labelRate: stats.labelRate.toFixed(3),
       stillValid: stats.stillValid,
       pagesSearched: stats.pagesSearched,
       highQualityCount: stats.highQualityCount,
@@ -458,7 +470,7 @@ export async function upsertKeywordStats(stats: KeywordStatsData): Promise<void>
       set: {
         profilesFound: stats.profilesFound,
         avgHumanScore: stats.avgHumanScore.toFixed(3),
-        avgLlmScore: stats.avgLlmScore.toFixed(3),
+        labelRate: stats.labelRate.toFixed(3),
         stillValid: stats.stillValid,
         pagesSearched: stats.pagesSearched,
         highQualityCount: stats.highQualityCount,
@@ -497,7 +509,7 @@ export async function getValidKeywords(): Promise<KeywordStatsData[]> {
     semanticTags: r.semanticTags ?? [],
     profilesFound: r.profilesFound,
     avgHumanScore: parseFloat(r.avgHumanScore ?? "0"),
-    avgLlmScore: parseFloat(r.avgLlmScore ?? "0"),
+    labelRate: parseFloat(r.labelRate ?? "0"),
     stillValid: r.stillValid,
     pagesSearched: r.pagesSearched,
     highQualityCount: r.highQualityCount,
@@ -529,13 +541,14 @@ export async function insertKeyword(keyword: string, semanticTags: string[] = []
 }
 
 /**
- * Get profiles by keyword that haven't been scored by a specific model.
- * Used for bulk scoring profiles found via a particular search keyword.
+ * Get profiles by keyword that haven't been labeled by a specific model.
+ * Used for bulk labeling profiles found via a particular search keyword.
+ * Filters out profiles with null bios.
  *
  * @param keyword - The search keyword to filter by
- * @param model - The LLM model name to check against (filters out already-scored)
+ * @param model - The LLM model name to check against (filters out already-labeled)
  * @param limit - Maximum number of profiles to return
- * @returns Array of profiles ready for scoring
+ * @returns Array of profiles ready for labeling
  */
 export async function getProfilesByKeyword(
   keyword: string,
@@ -545,30 +558,35 @@ export async function getProfilesByKeyword(
   const rows = await db
     .select({
       twitterId: userProfiles.twitterId,
-      username: userProfiles.username,
-      displayName: userProfiles.displayName,
+      handle: userProfiles.handle,
+      name: userProfiles.name,
       bio: userProfiles.bio,
-      likelyIs: userProfiles.likelyIs,
       category: userProfiles.category,
-      humanScore: userProfiles.humanScore,
+      followers: userStats.followers,
     })
     .from(userKeywords)
     .innerJoin(userProfiles, eq(userKeywords.twitterId, userProfiles.twitterId))
+    .leftJoin(userStats, eq(userStats.twitterId, userProfiles.twitterId))
     .leftJoin(
       profileScores,
       and(eq(profileScores.twitterId, userProfiles.twitterId), eq(profileScores.scoredBy, model))
     )
-    .where(and(eq(userKeywords.keyword, keyword), isNull(profileScores.id)))
+    .where(
+      and(
+        eq(userKeywords.keyword, keyword),
+        isNull(profileScores.id),
+        sql`${userProfiles.bio} IS NOT NULL AND ${userProfiles.bio} != ''`
+      )
+    )
     .limit(limit);
 
   return rows.map((row) => ({
     twitterId: row.twitterId,
-    username: row.username,
-    displayName: row.displayName ?? "",
-    bio: row.bio ?? "",
-    likelyIs: row.likelyIs ?? "",
-    category: row.category ?? "",
-    humanScore: parseFloat(row.humanScore ?? "0"),
+    handle: row.handle,
+    name: row.name ?? "",
+    bio: row.bio!,
+    category: row.category,
+    followers: row.followers ?? 0,
   }));
 }
 
@@ -594,8 +612,9 @@ export async function countUnscoredByKeyword(keyword: string, model: string): Pr
 }
 
 /**
- * Get ALL profiles by keyword (regardless of scoring status).
- * Used for bulk scoring all profiles found via a particular search keyword.
+ * Get ALL profiles by keyword (regardless of labeling status).
+ * Used for bulk labeling all profiles found via a particular search keyword.
+ * Filters out profiles with null bios.
  *
  * @param keyword - The search keyword to filter by
  * @param limit - Maximum number of profiles to return
@@ -610,27 +629,31 @@ export async function getAllProfilesByKeyword(
   const rows = await db
     .select({
       twitterId: userProfiles.twitterId,
-      username: userProfiles.username,
-      displayName: userProfiles.displayName,
+      handle: userProfiles.handle,
+      name: userProfiles.name,
       bio: userProfiles.bio,
-      likelyIs: userProfiles.likelyIs,
       category: userProfiles.category,
-      humanScore: userProfiles.humanScore,
+      followers: userStats.followers,
     })
     .from(userKeywords)
     .innerJoin(userProfiles, eq(userKeywords.twitterId, userProfiles.twitterId))
-    .where(eq(userKeywords.keyword, keyword))
+    .leftJoin(userStats, eq(userStats.twitterId, userProfiles.twitterId))
+    .where(
+      and(
+        eq(userKeywords.keyword, keyword),
+        sql`${userProfiles.bio} IS NOT NULL AND ${userProfiles.bio} != ''`
+      )
+    )
     .limit(limit)
     .offset(offset);
 
   return rows.map((row) => ({
     twitterId: row.twitterId,
-    username: row.username,
-    displayName: row.displayName ?? "",
-    bio: row.bio ?? "",
-    likelyIs: row.likelyIs ?? "",
-    category: row.category ?? "",
-    humanScore: parseFloat(row.humanScore ?? "0"),
+    handle: row.handle,
+    name: row.name ?? "",
+    bio: row.bio!,
+    category: row.category,
+    followers: row.followers ?? 0,
   }));
 }
 
@@ -650,18 +673,18 @@ export async function countAllByKeyword(keyword: string): Promise<number> {
 }
 
 /**
- * Upsert a profile score (insert or update if exists).
- * Uses ON CONFLICT to update existing scores for the same twitter_id + model.
+ * Upsert a profile label (insert or update if exists).
+ * Uses ON CONFLICT to update existing labels for the same twitter_id + model.
  *
  * @param twitterId - Twitter ID of the profile
- * @param score - Score between 0 and 1
- * @param reason - Explanation for the score
- * @param scoredBy - Model name that generated the score
+ * @param label - Trivalent label: true=good, false=bad, null=uncertain
+ * @param reason - Explanation for the label
+ * @param scoredBy - Model name that generated the label
  * @returns 'inserted' if new, 'updated' if existing
  */
-export async function upsertProfileScore(
+export async function upsertProfileLabel(
   twitterId: string,
-  score: number,
+  label: boolean | null,
   reason: string,
   scoredBy: string
 ): Promise<"inserted" | "updated"> {
@@ -669,20 +692,20 @@ export async function upsertProfileScore(
     .insert(profileScores)
     .values({
       twitterId,
-      score: score.toFixed(2),
+      label,
       reason,
       scoredBy,
     })
     .onConflictDoUpdate({
       target: [profileScores.twitterId, profileScores.scoredBy],
       set: {
-        score: score.toFixed(2),
+        label,
         reason,
         scoredAt: sql`now()`,
       },
     });
 
   // Drizzle doesn't distinguish insert vs update, so we return 'inserted' for simplicity
-  log.debug("Upserted profile score", { twitterId, score: score.toFixed(2), scoredBy });
+  log.debug("Upserted profile label", { twitterId, label, scoredBy });
   return "inserted";
 }

@@ -296,3 +296,62 @@ WHERE username IN (/* 50 seed usernames */);
 
 - At least 40/50 seeds in top 100
 - Average seed rank < 75
+
+
+## UPDATE Scoring Guidelines
+
+### Label = `true` if ANY of:
+- Bio mentions: qualitative research, ethnography, grounded theory, 
+  thematic analysis, interviews, focus groups, mixed methods
+- Academic role + research context (PhD student, professor, postdoc 
+  in social sciences, psychology, education, nursing, public health)
+- Works at research institution + mentions studies/data collection
+
+### Label = `false` if ANY of:
+- Organization/company account (not individual)
+- Bot indicators (no bio, default image, suspicious patterns)
+- Quantitative-only researcher (statistician, data scientist, ML)
+- Journalist, marketer, or content creator
+- No research connection whatsoever
+
+### Label = `null` if:
+- Bio is empty or ambiguous
+- Can't determine if individual or org
+- Language barrier prevents understanding
+
+```typescript
+export function generateSystemPrompt(config: AudienceConfig): string {
+  return `ROLE: You are an expert at evaluating social media profiles to identify ${config.targetProfile}s in ${config.sector.toUpperCase()}.
+
+## Domain Context
+${config.domainContext}
+
+## Scoring Signals
+
+HIGH-SIGNAL INDICATORS (increase score):
+${config.highSignals.map((s) => `• ${s}`).join("\n")}
+
+LOW-SIGNAL INDICATORS (decrease score or neutral):
+${config.lowSignals.map((s) => `• ${s}`).join("\n")}
+
+## Evaluation Process
+For each profile:
+1. Analyze handle, name, bio, and category
+2. Identify HIGH-SIGNAL indicators, these often appear as domain expertise, topics, or affiliations rather than explicit role titles
+3. Weight: relevant affiliation + role alignment + domain keywords as strong proxy
+4. Determine likelihood of being a ${config.targetProfile}
+
+## Scoring Guidelines
+- true: clear alignment with ${config.targetProfile} profile
+- false: Bot, spam, or unaligned profile
+- null: ambiguous, unclear relevance, empty bio
+
+Respond with a JSON array. Each object must have:
+- handle: string (profile's handle)
+- label: boolean|null (is a "${config.targetProfile}"?)
+- reason: string (brief explanation, max 100 chars)
+
+IMPORTANT: Return ONLY the JSON array. No markdown formatting, no code blocks.
+Return: [{ "handle": string, "label": boolean|null, "reason": string }]`;
+}
+```

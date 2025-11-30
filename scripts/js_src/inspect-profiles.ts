@@ -28,8 +28,8 @@ async function main() {
   console.log("\n=== Top 10 Profiles by Human Score ===");
   const topProfiles = await db
     .select({
-      username: userProfiles.username,
-      displayName: userProfiles.displayName,
+      handle: userProfiles.handle,
+      name: userProfiles.name,
       humanScore: userProfiles.humanScore,
       followerCount: userProfiles.followerCount,
     })
@@ -40,7 +40,7 @@ async function main() {
   for (const profile of topProfiles) {
     const score = profile.humanScore ? Number(profile.humanScore).toFixed(3) : "N/A";
     console.log(
-      `@${profile.username} (${profile.displayName}) - Score: ${score} | Followers: ${profile.followerCount}`
+      `@${profile.handle} (${profile.name}) - Score: ${score} | Followers: ${profile.followerCount}`
     );
   }
 

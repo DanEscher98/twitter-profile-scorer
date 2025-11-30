@@ -1,92 +1,89 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { ChatAnthropic } from "@langchain/anthropic";
 
 import { ProfileToScore } from "@profile-scorer/db";
 import { createLogger } from "@profile-scorer/utils";
 
 import {
-  SYSTEM_PROMPT,
-  ScoreResult,
+  AudienceConfig,
+  LabelResult,
   formatProfilesPrompt,
+  generateSystemPrompt,
   parseAndValidateResponse,
 } from "./shared";
 
 const log = createLogger("anthropic-wrapper");
 
 /**
- * Score profiles using Anthropic Claude.
- *
- * @param profiles - Array of profiles to score
- * @param model - Model identifier (e.g., "claude-sonnet-4-20250514", "claude-haiku-4-5-20251001")
- * @param apiKey - Optional API key (defaults to ANTHROPIC_API_KEY env var)
- * @returns Array of score results (empty array on error)
+ * Check if error is a rate limit error (429).
  */
-export async function scoreWithAnthropic(
+function isRateLimitError(error: unknown): boolean {
+  const err = error as any;
+  return err?.status === 429 || err?.code === 429 || err?.message?.includes("429");
+}
+
+/**
+ * Label profiles using Anthropic Claude via LangChain.
+ *
+ * @param profiles - Array of profiles to label
+ * @param model - Model identifier (e.g., "claude-sonnet-4-20250514", "claude-haiku-4-5-20251001")
+ * @param audienceConfig - Audience configuration for generating system prompt
+ * @param apiKey - Optional API key (defaults to ANTHROPIC_API_KEY env var)
+ * @returns Array of label results (empty array on error)
+ */
+export async function labelWithAnthropic(
   profiles: ProfileToScore[],
   model: string,
+  audienceConfig: AudienceConfig,
   apiKey?: string
-): Promise<ScoreResult[]> {
+): Promise<LabelResult[]> {
   const key = apiKey ?? process.env.ANTHROPIC_API_KEY ?? "";
   if (!key) {
     log.error("ANTHROPIC_API_KEY environment variable is required");
     return [];
   }
 
-  const client = new Anthropic({ apiKey: key });
-  const prompt = formatProfilesPrompt(profiles);
+  const systemPrompt = generateSystemPrompt(audienceConfig);
+  const userPrompt = formatProfilesPrompt(profiles);
 
   log.info("Sending profiles to Anthropic", { model, profileCount: profiles.length });
 
-  let message;
+  let text: string;
   try {
-    message = await client.messages.create({
-      model: model,
-      max_tokens: 4096,
-      messages: [{ role: "user", content: prompt }],
-      system: SYSTEM_PROMPT,
+    const chat = new ChatAnthropic({
+      model,
+      apiKey: key,
+      maxTokens: 4096,
     });
-  } catch (error: any) {
-    const statusCode = error.status || error.statusCode || "unknown";
-    const errorType = error.error?.error?.type || error.type || "unknown";
-    const errorMessage = error.error?.error?.message || error.message || "Unknown error";
 
-    const isQuotaError =
-      statusCode === 429 ||
-      errorType === "rate_limit_error" ||
-      errorType === "insufficient_quota" ||
-      errorType === "billing_hard_limit_reached" ||
-      errorMessage.toLowerCase().includes("quota") ||
-      errorMessage.toLowerCase().includes("rate limit") ||
-      errorMessage.toLowerCase().includes("billing") ||
-      errorMessage.toLowerCase().includes("credit");
+    const response = await chat.invoke([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ]);
 
-    if (isQuotaError) {
-      log.error("ANTHROPIC QUOTA/RATE LIMIT - Purchase more credits or wait", {
+    text = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
+  } catch (error: unknown) {
+    const err = error as any;
+
+    if (isRateLimitError(error)) {
+      log.error("ANTHROPIC RATE LIMIT (429)", {
         model,
-        statusCode,
-        errorType,
-        errorMessage,
-        action: "PURCHASE_TOKENS_OR_WAIT",
+        message: err.message,
+        action: "WAIT_AND_RETRY",
         profileCount: profiles.length,
       });
-    } else {
-      log.error("Anthropic API error", {
-        model,
-        statusCode,
-        errorType,
-        errorMessage,
-        profileCount: profiles.length,
-      });
+      return [];
     }
+
+    log.error("Anthropic API error", {
+      model,
+      status: err.status,
+      message: err.message,
+      profileCount: profiles.length,
+    });
     return [];
   }
 
-  const textContent = message.content.find((c) => c.type === "text");
-  if (!textContent || textContent.type !== "text") {
-    log.error("No text content in Anthropic response", { model });
-    return [];
-  }
+  log.info("Received response from Anthropic", { model, responseLength: text.length });
 
-  log.info("Received response from Anthropic", { model, responseLength: textContent.text.length });
-
-  return parseAndValidateResponse(textContent.text, profiles);
+  return parseAndValidateResponse(text, profiles);
 }

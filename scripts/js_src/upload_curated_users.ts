@@ -34,7 +34,7 @@ async function processHandler(handle: string): Promise<ResultRow> {
 
     // Queue for LLM scoring (ignore duplicates)
     try {
-      await insertToScore(profile.twitter_id, profile.username);
+      await insertToScore(profile.twitter_id, profile.handle);
     } catch {
       // Ignore - profile may already be queued
     }

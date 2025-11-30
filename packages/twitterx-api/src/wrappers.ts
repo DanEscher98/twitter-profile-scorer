@@ -21,7 +21,7 @@ import {
   TwitterXapiMetadata,
   TwitterXapiUser,
   getDb,
-  getProfileByUsername,
+  getProfileByHandle,
   insertMetadata,
   insertToScore,
   keywordLastUsages,
@@ -57,8 +57,8 @@ export function extractTwitterProfile(user: TwitterXapiUser): TwitterProfile {
 
   return {
     twitter_id: user.rest_id,
-    username: user.legacy.screen_name,
-    display_name: user.legacy.name ?? null,
+    handle: user.legacy.screen_name,
+    name: user.legacy.name ?? null,
     bio: user.legacy.description ? normalizeString(user.legacy.description) : null,
     created_at: user.legacy.created_at,
     follower_count: user.legacy.followers_count ?? null,
@@ -99,7 +99,7 @@ export async function handleTwitterXapiUser(
 
   logger.debug("Processing user", {
     twitterId: profile.twitter_id,
-    username: profile.username,
+    handle: profile.handle,
     humanScore: profile.human_score,
   });
 
@@ -272,7 +272,7 @@ export async function processKeyword(keyword: string): Promise<ProcessKeywordRes
   });
 
   // Queue for LLM scoring
-  await Promise.all(humanProfiles.map((p) => insertToScore(p.twitter_id, p.username)));
+  await Promise.all(humanProfiles.map((p) => insertToScore(p.twitter_id, p.handle)));
 
   logger.info("processKeyword completed", {
     keyword,
@@ -329,11 +329,11 @@ export async function getUser(
 ): Promise<GetUserResult> {
   const { update = false, keyword = "@manual" } = options;
 
-  logger.info("getUser starting", { username, update, keyword });
+  logger.info("getUser starting", { handle: username, update, keyword });
 
   // Check DB cache first (unless update is forced)
   if (!update) {
-    const cached = await getProfileByUsername(username);
+    const cached = await getProfileByHandle(username);
     if (cached) {
       // Create keyword association even for cached profiles
       const db = getDb();
@@ -343,25 +343,25 @@ export async function getUser(
           .values({ twitterId: cached.twitter_id, keyword, searchId: null })
           .onConflictDoNothing();
         logger.debug("Created keyword association for cached profile", {
-          username,
+          handle: username,
           keyword,
         });
       } catch (e: any) {
         logger.warn("Failed to create keyword association for cached profile", {
-          username,
+          handle: username,
           keyword,
           error: e.message,
         });
       }
 
       logger.info("getUser returning cached profile", {
-        username,
+        handle: username,
         twitterId: cached.twitter_id,
         humanScore: cached.human_score,
       });
       return { profile: cached, fromApi: false };
     }
-    logger.debug("Profile not in cache, fetching from API", { username });
+    logger.debug("Profile not in cache, fetching from API", { handle: username });
   }
 
   // Fetch from API, compute HAS, and save to DB
@@ -369,7 +369,7 @@ export async function getUser(
   const profile = await handleTwitterXapiUser(rawUser, keyword);
 
   logger.info("getUser completed from API", {
-    username,
+    handle: username,
     twitterId: profile.twitter_id,
     humanScore: profile.human_score,
     likelyIs: profile.likely_is,

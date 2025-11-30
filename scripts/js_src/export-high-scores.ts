@@ -38,7 +38,7 @@ const MIN_FINAL_SCORE = 0.6;
 
 interface ProfileData {
   twitterId: string;
-  username: string;
+  handle: string;
   bio: string;
   followers: number;
   hasScore: number;
@@ -182,7 +182,7 @@ function updateOutput(profiles: ProfileWithScores[]) {
   const preview = profiles.slice(0, 10).map((p, i) => {
     const score = p.finalScore.toFixed(3);
     const bio = p.bio.slice(0, 40).replace(/\n/g, " ");
-    return `${i + 1}. @${p.username} (${score}) - ${bio}...`;
+    return `${i + 1}. @${p.handle} (${score}) - ${bio}...`;
   });
 
   outputBox.setContent(
@@ -200,7 +200,7 @@ async function fetchAllProfilesWithScores(): Promise<ProfileData[]> {
   const profiles = await db
     .selectDistinctOn([userProfiles.twitterId], {
       twitterId: userProfiles.twitterId,
-      username: userProfiles.username,
+      handle: userProfiles.handle,
       bio: userProfiles.bio,
       hasScore: userProfiles.humanScore,
       likelyIs: userProfiles.likelyIs,
@@ -214,7 +214,7 @@ async function fetchAllProfilesWithScores(): Promise<ProfileData[]> {
 
   return profiles.map((p) => ({
     twitterId: p.twitterId,
-    username: p.username,
+    handle: p.handle,
     bio: p.bio ?? "",
     followers: p.followers ?? 0,
     hasScore: parseFloat(p.hasScore ?? "0"),
@@ -255,19 +255,21 @@ async function fetchAllScores(): Promise<Map<string, number[]>> {
   const db = getDb();
   log("Fetching all LLM scores...");
 
-  const scores = await db
+  const labels = await db
     .select({
       twitterId: profileScores.twitterId,
-      score: profileScores.score,
+      label: profileScores.label,
     })
     .from(profileScores);
 
-  log(`Fetched ${scores.length} total scores`);
+  log(`Fetched ${labels.length} total labels`);
 
+  // Convert labels to numeric scores for backwards compatibility: true=1.0, false=0.0, null=0.5
   const scoreMap = new Map<string, number[]>();
-  for (const s of scores) {
+  for (const s of labels) {
     const existing = scoreMap.get(s.twitterId) ?? [];
-    existing.push(parseFloat(s.score));
+    const numericScore = s.label === true ? 1.0 : s.label === false ? 0.0 : 0.5;
+    existing.push(numericScore);
     scoreMap.set(s.twitterId, existing);
   }
 
@@ -307,10 +309,10 @@ function escapeCsvValue(value: string): string {
 }
 
 function toCsv(profiles: ProfileWithScores[]): string {
-  const header = "USERNAME,BIO,FOLLOWERS,SCORE,IS_LIKELY,TAGS";
+  const header = "HANDLE,BIO,FOLLOWERS,SCORE,IS_LIKELY,TAGS";
   const rows = profiles.map((p) => {
     return [
-      escapeCsvValue(p.username),
+      escapeCsvValue(p.handle),
       escapeCsvValue(p.bio.replace(/\n/g, " ").slice(0, 500)),
       p.followers.toString(),
       p.finalScore.toFixed(4),

@@ -178,6 +178,7 @@ llm_scorer_lambda = LambdaFunction(
         "DATABASE_URL": db.connection_string,
         "ANTHROPIC_API_KEY": anthropic_apikey,
         "GEMINI_API_KEY": config.require_secret("gemini_apikey"),
+        "GROQ_API_KEY": config.require_secret("groq_apikey"),
         "APP_MODE": "production",
     },
 )

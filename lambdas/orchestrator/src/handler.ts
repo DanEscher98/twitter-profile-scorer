@@ -19,26 +19,26 @@ const LLM_SCORER_ARN = process.env.LLM_SCORER_ARN ?? "";
  * Model configuration with priority and probability.
  *
  * Priority Strategy:
- * - Haiku (1.0): Always runs, cost-effective for bulk scoring
- * - Sonnet (0.5): Higher quality but more expensive, runs ~50% of the time
- * - Gemini (0.2): Free tier contrast data, runs ~20% of the time
+ * - Groq/Meta (0.7): Fast inference, runs ~70% of the time
+ * - Haiku (0.6): Cost-effective Claude, runs ~60% of the time
+ * - Gemini (0.4): Free tier contrast data, runs ~40% of the time
  *
- * This balances cost vs quality while ensuring all profiles get scored
- * by at least one model (Haiku) and building comparison data over time.
+ * Uses simplified model aliases for logging. The llm-scorer lambda
+ * resolves aliases to full model names for API calls and DB storage.
  */
 interface ModelConfig {
-  model: string;
+  model: string; // Simplified alias (e.g., "claude-haiku-4.5")
   probability: number; // 0.0 to 1.0 - chance of running each orchestrator cycle
   batchSize: number; // profiles per invocation
 }
 
 const SCORING_MODELS: ModelConfig[] = [
-  // Primary scorer - always runs, fast and cost-effective
-  { model: "claude-haiku-4-5-20251001", probability: 1.0, batchSize: 25 },
-  // Premium scorer - runs 50% of cycles for quality comparison
-  { model: "claude-sonnet-4-20250514", probability: 0.5, batchSize: 10 },
-  // Free tier contrast - runs 20% of cycles
-  { model: "gemini-2.0-flash", probability: 0.2, batchSize: 15 },
+  // Groq/Meta - fast inference, runs 70% of cycles
+  { model: "meta-maverick-17b", probability: 0.7, batchSize: 25 },
+  // Claude Haiku - cost-effective, runs 60% of cycles
+  { model: "claude-haiku-4.5", probability: 0.6, batchSize: 25 },
+  // Gemini Flash - free tier contrast, runs 40% of cycles
+  { model: "gemini-flash-2.0", probability: 0.4, batchSize: 15 },
 ];
 
 interface KeywordEngineResponse {

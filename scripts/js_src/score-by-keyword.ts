@@ -29,10 +29,11 @@ import { fileURLToPath } from "url";
 
 import { countAllByKeyword, getDb } from "@profile-scorer/db";
 import {
-  ScoreAndSaveResult,
-  ScoredProfileWithMeta,
+  AudienceConfig,
+  LabelAndSaveResult,
+  LabeledProfileWithMeta,
   getAvailableModels,
-  scoreByKeyword,
+  labelByKeyword,
 } from "@profile-scorer/llm-scoring";
 
 import "./env.js";
@@ -50,17 +51,34 @@ function escapeCsvValue(value: string): string {
   return value;
 }
 
+// Default audience config for CLI usage
+const defaultAudienceConfig: AudienceConfig = {
+  targetProfile: "qualitative researcher",
+  sector: "academia",
+  highSignals: [
+    "Qualitative methodology keywords: ethnography, grounded theory, discourse analysis",
+    "Fields with strong qualitative foundations: sociology, anthropology, social work",
+    "Academic research leadership roles: PI, lab director, research scientist",
+  ],
+  lowSignals: [
+    "Clinical-only roles without research designation",
+    "Quantitative-primary fields: biostatistics, data science",
+    "Organization/company account (not individual)",
+  ],
+  domainContext: "Target profiles conduct human-subjects research requiring participant recruitment and qualitative data analysis.",
+};
+
 /**
- * Convert scored profiles to CSV string
+ * Convert labeled profiles to CSV string
  */
-function toCsv(profiles: ScoredProfileWithMeta[]): string {
-  const header = "username,bio,has_score,llm_score,reason";
+function toCsv(profiles: LabeledProfileWithMeta[]): string {
+  const header = "handle,bio,label,reason";
   const rows = profiles.map((p) => {
+    const labelStr = p.label === true ? "true" : p.label === false ? "false" : "null";
     return [
-      escapeCsvValue(p.username),
+      escapeCsvValue(p.handle),
       escapeCsvValue(p.bio),
-      p.hasScore.toFixed(3),
-      p.llmScore.toFixed(3),
+      labelStr,
       escapeCsvValue(p.reason),
     ].join(",");
   });
@@ -126,7 +144,7 @@ Example:
     process.exit(1);
   }
 
-  console.log(`\nScoring ALL profiles for keyword "${keyword}" with ${model}`);
+  console.log(`\nLabeling ALL profiles for keyword "${keyword}" with ${model}`);
   console.log(`Batch size: 30 (fixed)\n`);
 
   // Initialize DB and get total count
@@ -138,7 +156,7 @@ Example:
     process.exit(0);
   }
 
-  console.log(`Found ${totalProfiles} profiles to score\n`);
+  console.log(`Found ${totalProfiles} profiles to label\n`);
 
   // Progress bar
   const progressBar = new cliProgress.SingleBar(
@@ -153,11 +171,12 @@ Example:
 
   let totalProcessed = 0;
 
-  const result = await scoreByKeyword(
+  const result = await labelByKeyword(
     keyword,
     model,
-    (batch: number, batchResult: ScoreAndSaveResult) => {
-      totalProcessed += batchResult.scored + batchResult.skipped;
+    defaultAudienceConfig,
+    (batch: number, batchResult: LabelAndSaveResult) => {
+      totalProcessed += batchResult.labeled + batchResult.skipped;
       progressBar.update(Math.min(totalProcessed, totalProfiles), { batch });
     }
   );
@@ -165,7 +184,7 @@ Example:
   progressBar.stop();
 
   // Display results in table
-  console.log(`\n✓ Scoring complete!\n`);
+  console.log(`\n✓ Labeling complete!\n`);
 
   const summaryTable = new Table({
     columns: [
@@ -179,15 +198,15 @@ Example:
     { metric: "Model", value: model },
     { metric: "Total profiles", value: result.totalProfiles },
     { metric: "Batches processed", value: result.batches },
-    { metric: "New scores", value: result.totalScored },
-    { metric: "Updated scores", value: result.totalSkipped },
+    { metric: "New labels", value: result.totalLabeled },
+    { metric: "Updated labels", value: result.totalSkipped },
     { metric: "Errors", value: result.totalErrors },
   ]);
 
   summaryTable.printTable();
 
-  // Write CSV if there are scored profiles
-  if (result.scoredProfiles.length > 0) {
+  // Write CSV if there are labeled profiles
+  if (result.labeledProfiles.length > 0) {
     const outputDir = path.join(__dirname, "..", "output");
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
@@ -195,13 +214,13 @@ Example:
 
     const filename = getOutputFilename(keyword, model);
     const outputPath = path.join(outputDir, filename);
-    const csv = toCsv(result.scoredProfiles);
+    const csv = toCsv(result.labeledProfiles);
 
     fs.writeFileSync(outputPath, csv, "utf-8");
     console.log(`\n✓ CSV saved to: ${outputPath}`);
-    console.log(`  Rows: ${result.scoredProfiles.length}`);
+    console.log(`  Rows: ${result.labeledProfiles.length}`);
   } else {
-    console.log(`\nNo profiles scored - CSV not created.`);
+    console.log(`\nNo profiles labeled - CSV not created.`);
   }
 }
 

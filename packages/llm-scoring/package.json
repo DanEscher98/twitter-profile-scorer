@@ -9,8 +9,10 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.52.0",
-    "@google/generative-ai": "^0.21.0",
+    "@langchain/anthropic": "^1.1.3",
+    "@langchain/core": "^1.1.0",
+    "@langchain/google-genai": "^2.0.0",
+    "@langchain/groq": "^1.0.2",
     "@profile-scorer/db": "workspace:*",
     "@profile-scorer/utils": "workspace:*",
     "@toon-format/toon": "^2.0.1",

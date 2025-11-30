@@ -56,8 +56,8 @@ export interface TwitterXapiUser {
 
 export interface TwitterProfile {
   twitter_id: string;
-  username: string;
-  display_name: string | null;
+  handle: string;
+  name: string | null;
   bio: string | null;
   created_at: string;
   follower_count: number | null;
@@ -68,12 +68,16 @@ export interface TwitterProfile {
   likely_is: TwitterUserType;
 }
 
-export interface ParamsScoreProfile {
-  username: string;
-  display_name: string | null;
-  bio: string | null;
-  likely_is: string; //TwitterUserType
+/**
+ * Input profile data for LLM scoring.
+ * Sent to LLM in TOON format for labeling.
+ */
+export interface ProfileToLabel {
+  handle: string;
+  name: string | null;
+  bio: string | null; // null bio should result in label: null
   category: string | null;
+  followers: number;
 }
 
 export enum TwitterUserType {
@@ -84,9 +88,13 @@ export enum TwitterUserType {
   Bot = "Bot",
 }
 
-export interface ScoredUser {
-  username: string;
-  score: number;
+/**
+ * LLM output for a labeled profile.
+ * Trivalent system: true=good, false=bad, null=uncertain
+ */
+export interface LabeledProfile {
+  handle: string;
+  label: boolean | null;
   reason: string;
 }
 

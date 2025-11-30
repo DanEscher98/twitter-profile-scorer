@@ -23,8 +23,8 @@ export const userProfiles = pgTable(
   "user_profiles",
   {
     twitterId: varchar("twitter_id", { length: 25 }).primaryKey(),
-    username: varchar("username", { length: 255 }).notNull(),
-    displayName: varchar("display_name", { length: 255 }).notNull(),
+    handle: varchar("handle", { length: 255 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
     bio: text("bio"),
     createdAt: varchar("created_at", { length: 100 }).notNull(),
     followerCount: integer("follower_count"),
@@ -36,7 +36,7 @@ export const userProfiles = pgTable(
     humanScore: numeric("human_score"),
     likelyIs: twitterUserType("likely_is"),
   },
-  (table) => [uniqueIndex("uq_username").on(table.username)]
+  (table) => [uniqueIndex("uq_handle").on(table.handle)]
 );
 
 export const profileScores = pgTable(
@@ -49,7 +49,7 @@ export const profileScores = pgTable(
         onDelete: "cascade",
         onUpdate: "cascade",
       }),
-    score: numeric("score", { precision: 3, scale: 2 }).notNull(),
+    label: boolean("label"), // true=good, false=bad, null=uncertain
     reason: text("reason"),
     scoredAt: timestamp("scored_at", {
       withTimezone: false,
@@ -94,7 +94,7 @@ export const profilesToScore = pgTable(
         onDelete: "cascade",
         onUpdate: "cascade",
       }),
-    username: varchar("username", { length: 255 }).notNull(),
+    handle: varchar("handle", { length: 255 }).notNull(),
     addedAt: timestamp("added_at", { withTimezone: false, mode: "string" }).defaultNow().notNull(),
   },
   (table) => [index("idx_added_at").on(table.addedAt)]
@@ -161,9 +161,9 @@ export const keywordStats = pgTable("keyword_stats", {
   semanticTags: text("semantic_tags").array().$type<string[]>().default([]),
   // Profile counts
   profilesFound: integer("profiles_found").default(0).notNull(),
-  // Average scores
+  // Quality metrics
   avgHumanScore: numeric("avg_human_score", { precision: 4, scale: 3 }).default("0"),
-  avgLlmScore: numeric("avg_llm_score", { precision: 4, scale: 3 }).default("0"),
+  labelRate: numeric("label_rate", { precision: 4, scale: 3 }).default("0"), // Percentage of true labels
   // Pagination state
   stillValid: boolean("still_valid").default(true).notNull(),
   pagesSearched: integer("pages_searched").default(0).notNull(),

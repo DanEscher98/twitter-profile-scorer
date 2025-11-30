@@ -18,7 +18,7 @@ const db = getDb();
 
 interface ProfileRow {
   twitterId: string;
-  username: string;
+  handle: string;
   createdAt: string;
   humanScore: string | null;
   likelyIs: string | null;
@@ -76,7 +76,7 @@ async function main() {
   const rows = await db
     .select({
       twitterId: userProfiles.twitterId,
-      username: userProfiles.username,
+      handle: userProfiles.handle,
       createdAt: userProfiles.createdAt,
       humanScore: userProfiles.humanScore,
       likelyIs: userProfiles.likelyIs,
@@ -103,7 +103,7 @@ async function main() {
   let typeChanges = 0;
 
   const biggestDowngrades: Array<{
-    username: string;
+    handle: string;
     oldScore: number;
     newScore: number;
     oldType: string;
@@ -129,7 +129,7 @@ async function main() {
     } else {
       downgrades++;
       biggestDowngrades.push({
-        username: row.username,
+        handle: row.handle,
         oldScore,
         newScore,
         oldType,
@@ -162,7 +162,7 @@ async function main() {
   console.log("\n=== Top 20 Biggest Downgrades ===");
   for (const d of biggestDowngrades.slice(0, 20)) {
     console.log(
-      `  @${d.username}: ${d.oldScore.toFixed(3)} → ${d.newScore.toFixed(3)} (${d.diff.toFixed(3)}) [${d.oldType} → ${d.newType}]`
+      `  @${d.handle}: ${d.oldScore.toFixed(3)} → ${d.newScore.toFixed(3)} (${d.diff.toFixed(3)}) [${d.oldType} → ${d.newType}]`
     );
   }
 
