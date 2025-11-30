@@ -34,9 +34,9 @@ interface ModelConfig {
 
 const SCORING_MODELS: ModelConfig[] = [
   // Groq/Meta - fast inference, runs 70% of cycles
-  { model: "meta-maverick-17b", probability: 0.7, batchSize: 25 },
+  { model: "meta-maverick-17b", probability: 0.8, batchSize: 25 },
   // Claude Haiku - cost-effective, runs 60% of cycles
-  { model: "claude-haiku-4.5", probability: 0.6, batchSize: 25 },
+  { model: "claude-haiku-4.5", probability: 0.7, batchSize: 25 },
   // Gemini Flash - free tier contrast, runs 40% of cycles
   { model: "gemini-flash-2.0", probability: 0.4, batchSize: 15 },
 ];
@@ -116,7 +116,7 @@ export const handler: ScheduledHandler = async (event) => {
     const count = Number(pendingCount[0]?.count ?? 0);
     log.info("Profiles pending scoring", { count });
 
-    if (count > 0 && false) {
+    if (count > 0) {
       // DISABLED: LLM scoring temporarily shut down
       // Step 4: Invoke llm-scorer for each model based on probability
       // Each invocation is independent - models don't interfere with each other

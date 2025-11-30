@@ -167,3 +167,10 @@ score-keyword keyword model:
 # Example: just get-systemprompt scripts/data/thelai_customers.json
 get-systemprompt path:
     yarn workspace @profile-scorer/scripts run tsx js_src/get-system-prompt.ts {{path}}
+
+# Export N random profiles to a TOON file
+# Usage: just export-profiles <N>
+# Example: just export-profiles 50
+# Output: scripts/output/profilesToScore-<N>_<unixtimestamp>.toon
+export-profiles n:
+    yarn workspace @profile-scorer/scripts run tsx js_src/export-random-profiles.ts {{n}}
