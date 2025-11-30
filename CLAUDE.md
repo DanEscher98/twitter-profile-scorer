@@ -102,7 +102,7 @@ export DATABASE_URL=$(cd infra && uv run pulumi stack output db_connection_strin
 Tables defined in `packages/db/src/schema.ts`:
 
 - `user_profiles` - Core Twitter user data with HAS (Human Authenticity Score)
-- `profile_scores` - LLM scoring records (unique per twitter_id + scored_by model)
+- `profile_scores` - LLM scoring records (unique per twitter_id + scored_by model, includes `audience` version)
 - `user_stats` - Raw numeric fields for ML training
 - `xapi_usage_search` - API call tracking and pagination state
 - `profiles_to_score` - Queue of profiles pending LLM evaluation (HAS > 0.65)
@@ -128,9 +128,16 @@ The `llm-scorer` lambda supports multiple models with probability-based invocati
 
 - Orchestrator invokes llm-scorer with model alias (e.g., `claude-haiku-4.5`)
 - `packages/llm-scoring` resolves alias to full model name via `MODEL_REGISTRY`
-- DB `labeled_by` column stores full model name for precise tracking
+- DB `scored_by` column stores full model name for precise tracking
+- DB `audience` column stores audience config version (e.g., `thelai_customers.v1`)
 - Unique constraint on `(twitter_id, scored_by)` prevents duplicate scoring
 - Each model scores independently - profiles accumulate labels from multiple models
+
+**Audience Configs:**
+
+Audience configurations define the target profile for scoring. Located in `lambdas/llm-scorer/src/audiences/`:
+- `thelai_customers.v1.json` - Current version for TheLai customers
+- Default: `thelai_customers.v1` (passed via `audienceConfigPath` parameter)
 
 **Input/Output:**
 

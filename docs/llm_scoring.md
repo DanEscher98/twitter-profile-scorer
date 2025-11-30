@@ -197,10 +197,11 @@ Use HAS as a gate/penalty only. Complex without clear benefit.
 interface ScoringEvent {
   model: string;
   batchSize?: number;
+  audienceConfigPath?: string; // e.g., "thelai_customers.v1"
 }
 
 export const handler = async (event: ScoringEvent) => {
-  const { model, batchSize = 25 } = event;
+  const { model, batchSize = 25, audienceConfigPath = "thelai_customers.v1" } = event;
 
   // 1. Fetch profiles using FOR UPDATE SKIP LOCKED (atomic claim)
   const profiles = await fetchProfilesToScore(model, batchSize);
@@ -297,6 +298,42 @@ WHERE username IN (/* 50 seed usernames */);
 - At least 40/50 seeds in top 100
 - Average seed rank < 75
 
+
+## Audience Versioning
+
+Each scoring run records which audience configuration was used, enabling:
+- **Reproducibility**: Track which criteria were applied to each score
+- **A/B testing**: Compare scoring accuracy across different audience definitions
+- **Iteration**: Update targeting criteria without losing historical context
+
+### Database Schema
+
+```sql
+-- profile_scores table includes audience version
+CREATE TABLE profile_scores (
+    id UUID PRIMARY KEY,
+    twitter_id VARCHAR(25) REFERENCES user_profiles(twitter_id),
+    label BOOLEAN,        -- true=match, false=no match, null=uncertain
+    reason TEXT,
+    scored_at TIMESTAMP,
+    scored_by VARCHAR(100),  -- full model name (e.g., "claude-haiku-4-5-20251001")
+    audience VARCHAR(100)    -- audience config (e.g., "thelai_customers.v1")
+);
+```
+
+### Audience Config Files
+
+Located in `lambdas/llm-scorer/src/audiences/`:
+- `thelai_customers.v1.json` - Current version for TheLai customers
+
+Config files define target profile criteria, domain context, and scoring signals.
+
+### Version History
+
+| Version | Description | Date |
+|---------|-------------|------|
+| `thelai_customers.v0` | Initial scoring criteria (implicit) | Pre Nov 30, 2025 |
+| `thelai_customers.v1` | First explicit versioned config | Nov 30, 2025 |
 
 ## UPDATE Scoring Guidelines
 

@@ -341,20 +341,23 @@ export async function getProfilesToScore(
  * @param label - Trivalent label: true=good, false=bad, null=uncertain
  * @param reason - Explanation for the label
  * @param scoredBy - Model name that generated the label
+ * @param audience - Audience config name used for scoring (e.g., "thelai_customers.v1")
  */
 export async function insertProfileLabel(
   twitterId: string,
   label: boolean | null,
   reason: string,
-  scoredBy: string
+  scoredBy: string,
+  audience?: string
 ): Promise<void> {
   await db.insert(profileScores).values({
     twitterId,
     label,
     reason,
     scoredBy,
+    audience,
   });
-  log.debug("Inserted profile label", { twitterId, label, scoredBy });
+  log.debug("Inserted profile label", { twitterId, label, scoredBy, audience });
 }
 
 // ============================================================================
@@ -680,13 +683,15 @@ export async function countAllByKeyword(keyword: string): Promise<number> {
  * @param label - Trivalent label: true=good, false=bad, null=uncertain
  * @param reason - Explanation for the label
  * @param scoredBy - Model name that generated the label
+ * @param audience - Audience config name used for scoring (e.g., "thelai_customers.v1")
  * @returns 'inserted' if new, 'updated' if existing
  */
 export async function upsertProfileLabel(
   twitterId: string,
   label: boolean | null,
   reason: string,
-  scoredBy: string
+  scoredBy: string,
+  audience?: string
 ): Promise<"inserted" | "updated"> {
   await db
     .insert(profileScores)
@@ -695,17 +700,19 @@ export async function upsertProfileLabel(
       label,
       reason,
       scoredBy,
+      audience,
     })
     .onConflictDoUpdate({
       target: [profileScores.twitterId, profileScores.scoredBy],
       set: {
         label,
         reason,
+        audience,
         scoredAt: sql`now()`,
       },
     });
 
   // Drizzle doesn't distinguish insert vs update, so we return 'inserted' for simplicity
-  log.debug("Upserted profile label", { twitterId, label, scoredBy });
+  log.debug("Upserted profile label", { twitterId, label, scoredBy, audience });
   return "inserted";
 }

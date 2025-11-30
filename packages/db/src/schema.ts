@@ -56,12 +56,14 @@ export const profileScores = pgTable(
       mode: "string",
     }).defaultNow(),
     scoredBy: varchar("scored_by", { length: 100 }).notNull(),
+    audience: varchar("audience", { length: 100 }), // Audience config name (e.g., "thelai_customers.v1")
   },
   (table) => [
     uniqueIndex("uq_profile_model").on(table.twitterId, table.scoredBy),
     index("idx_scored_at").on(table.scoredAt),
     index("idx_twitter_id").on(table.twitterId),
     index("idx_scored_by").on(table.scoredBy),
+    index("idx_audience").on(table.audience),
   ]
 );
 

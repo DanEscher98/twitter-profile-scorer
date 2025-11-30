@@ -37,9 +37,18 @@ export interface LlmScorerResponse {
 }
 
 /**
- * Load audience config from JSON file.
+ * Result of loading audience config.
  */
-function loadAudienceConfig(configName: string = "thelai_customers"): AudienceConfig {
+interface LoadedAudienceConfig {
+  config: AudienceConfig;
+  name: string; // Config name without .json extension (e.g., "thelai_customers.v1")
+}
+
+/**
+ * Load audience config from JSON file.
+ * Returns both the config and the resolved config name (for DB storage).
+ */
+function loadAudienceConfig(configName: string = "thelai_customers.v1"): LoadedAudienceConfig {
   // Try Lambda path first, then local path
   const paths = [
     join("/var/task", "audiences", `${configName}.json`),
@@ -51,8 +60,8 @@ function loadAudienceConfig(configName: string = "thelai_customers"): AudienceCo
     try {
       const content = readFileSync(path, "utf-8");
       const config = JSON.parse(content) as AudienceConfig;
-      log.info("Loaded audience config", { path, targetProfile: config.targetProfile });
-      return config;
+      log.info("Loaded audience config", { path, configName, targetProfile: config.targetProfile });
+      return { config, name: configName };
     } catch {
       // Try next path
     }
@@ -75,7 +84,7 @@ function loadAudienceConfig(configName: string = "thelai_customers"): AudienceCo
  * This prevents duplicate labeling even if multiple Lambdas run simultaneously.
  */
 export const handler: Handler<LlmScorerEvent, LlmScorerResponse> = async (event) => {
-  const { model: modelAlias, batchSize = 25, audienceConfigPath = "thelai_customers" } = event;
+  const { model: modelAlias, batchSize = 25, audienceConfigPath = "thelai_customers.v1" } = event;
 
   log.info("Starting labeling", { model: modelAlias, batchSize, audienceConfigPath });
 
@@ -91,7 +100,7 @@ export const handler: Handler<LlmScorerEvent, LlmScorerResponse> = async (event)
   const { fullName } = modelConfig;
 
   // Load audience config
-  const audienceConfig = loadAudienceConfig(audienceConfigPath);
+  const { config: audienceConfig, name: audienceName } = loadAudienceConfig(audienceConfigPath);
 
   // Initialize DB connection
   getDb();
@@ -128,10 +137,10 @@ export const handler: Handler<LlmScorerEvent, LlmScorerResponse> = async (event)
 
   for (const result of labels) {
     try {
-      await insertProfileLabel(result.twitterId, result.label, result.reason, fullName);
+      await insertProfileLabel(result.twitterId, result.label, result.reason, fullName, audienceName);
       labeled++;
       labeledProfiles.push(result.twitterId);
-      log.debug("Stored label", { twitterId: result.twitterId, label: result.label });
+      log.debug("Stored label", { twitterId: result.twitterId, label: result.label, audience: audienceName });
     } catch (error: any) {
       if (error.code === "23505") {
         // Unique violation - already labeled by this model
