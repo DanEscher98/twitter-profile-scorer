@@ -19,7 +19,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Profile Scorer is an AWS-based Twitter profile analysis pipeline. It uses Pulumi (Python) for infrastructure, Node.js Lambda functions for processing, and PostgreSQL with Drizzle ORM for data storage. The codebase is a monorepo managed by Yarn workspaces.
+Profile Scorer is an AWS-based Twitter profile analysis pipeline. It uses Pulumi (Python) for infrastructure, with two execution modes:
+
+1. **Lambda Pipeline (Legacy)**: Node.js Lambda functions triggered by EventBridge/SQS
+2. **Airflow Pipeline (Migration Target)**: Python DAGs on EC2 with Apache Airflow 3.x
+
+The codebase is a monorepo managed by Yarn workspaces for TypeScript and uv workspaces for Python.
 
 ## Architecture
 
@@ -30,7 +35,7 @@ VPC (10.0.0.0/16)
 └── Isolated Subnets → RDS PostgreSQL + Lambda: keyword-engine (DB-only)
 ```
 
-**Key components:**
+**Key components (Lambda):**
 
 - `packages/db/` - Shared database layer (Drizzle ORM, TypeScript)
 - `packages/twitterx-api/` - Twitter API wrapper with HAS scoring (RapidAPI client, Winston logging)
@@ -40,14 +45,25 @@ VPC (10.0.0.0/16)
 - `lambdas/llm-scorer/` - Multi-model LLM scoring lambda (private subnet with NAT)
 - `infra/` - Pulumi infrastructure (Python, uv package manager)
 
+**Key components (Airflow):**
+
+- `airflow/dags/` - Airflow DAGs (profile_scoring, keyword_stats)
+- `airflow/packages/scorer_db/` - SQLModel database layer
+- `airflow/packages/scorer_twitter/` - Twitter API client (httpx + Pydantic)
+- `airflow/packages/scorer_llm/` - LangChain LLM scoring with model registry
+- `airflow/packages/scorer_has/` - Human Authenticity Score algorithm
+- `airflow/packages/scorer_utils/` - Logging, settings, base models
+- `airflow/alembic/` - Database migrations (synced with Drizzle)
+
 ## Build Commands
 
 ```bash
 # Install dependencies
 yarn install                    # Node.js packages
 cd infra && uv sync            # Python/Pulumi packages
+cd airflow && uv sync          # Python/Airflow packages
 
-# Build
+# Build (Lambda)
 yarn build                      # Build all packages and lambdas
 yarn build:lambdas             # Build only lambda functions
 
@@ -62,6 +78,10 @@ cd infra && uv run pulumi up   # Interactive deploy
 # Testing
 just test                       # Run E2E tests
 just test-debug                 # Run E2E tests with DEBUG logging
+
+# Airflow (lint/format)
+cd airflow && uv run ruff check --fix
+cd airflow && uv run ruff format
 ```
 
 ## Environment Variables
@@ -99,15 +119,19 @@ export DATABASE_URL=$(cd infra && uv run pulumi stack output db_connection_strin
 
 ## Database Schema
 
-Tables defined in `packages/db/src/schema.ts`:
+Tables defined in `packages/db/src/schema.ts` (TypeScript) and `airflow/packages/scorer_db/src/scorer_db/models.py` (Python):
 
-- `user_profiles` - Core Twitter user data with HAS (Human Authenticity Score)
+- `user_profiles` - Core Twitter user data with HAS (Human Authenticity Score), includes `platform` column (twitter/bluesky)
 - `profile_scores` - LLM scoring records (unique per twitter_id + scored_by model, includes `audience` version)
 - `user_stats` - Raw numeric fields for ML training
-- `xapi_usage_search` - API call tracking and pagination state
+- `api_search_usage` - API call tracking and pagination state (renamed from `xapi_usage_search`)
 - `profiles_to_score` - Queue of profiles pending LLM evaluation (HAS > 0.65)
 - `user_keywords` - Many-to-many linking profiles to search keywords
 - `keyword_stats` - Keyword pool with semantic tags and quality metrics
+
+**Database Migrations:**
+- TypeScript: Drizzle ORM (`yarn push`)
+- Python: Alembic (`cd airflow && uv run alembic upgrade head`)
 
 ## LLM Scoring System
 

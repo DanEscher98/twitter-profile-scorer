@@ -2,6 +2,10 @@
 
 ## Overview
 
+The system supports two deployment modes during the Lambda → Airflow migration:
+
+### Current: Lambda Pipeline (Legacy)
+
 ```mermaid
 graph TB
     subgraph Region["AWS us-east-2"]
@@ -43,6 +47,41 @@ graph TB
     KSU --> RDS
     EB -->|daily 4 AM UTC| KSU
 ```
+
+### Migration Target: Airflow Pipeline
+
+```mermaid
+graph TB
+    subgraph Region["AWS us-east-2"]
+        subgraph "EC2 t3.small"
+            AF[Apache Airflow 3.x]
+            PS_DAG[profile_scoring DAG]
+            KS_DAG[keyword_stats DAG]
+        end
+
+        subgraph Storage
+            RDS[(RDS PostgreSQL)]
+        end
+    end
+
+    subgraph External
+        RapidAPI[RapidAPI TwitterX]
+        Claude[Claude API]
+        Gemini[Gemini API]
+        Groq[Groq API]
+    end
+
+    AF -->|every 15 min| PS_DAG
+    AF -->|daily 2 AM| KS_DAG
+    PS_DAG --> RapidAPI
+    PS_DAG --> Claude
+    PS_DAG --> Gemini
+    PS_DAG --> Groq
+    PS_DAG --> RDS
+    KS_DAG --> RDS
+```
+
+**Airflow URL:** https://profile-scorer.admin.ateliertech.xyz
 
 **Resource Group:** [`profile-scorer-saas`](https://console.aws.amazon.com/resource-groups) - View all resources in AWS Console
 
@@ -157,6 +196,43 @@ Daily maintenance lambda that recalculates keyword statistics:
 - Tracks quality metrics (high/low quality counts)
 - Runs at 4 AM UTC via EventBridge schedule
 
+## Airflow DAGs (Migration Target)
+
+**Location:** `airflow/dags/`
+
+The Airflow implementation uses Python with strict Pydantic typing.
+
+### profile_scoring DAG
+
+**Schedule:** Every 15 minutes
+
+Tasks:
+1. `get_keywords` - Select valid keywords from `keyword_stats` table
+2. `search_profiles` - Dynamic task per keyword (Twitter API search → DB insert)
+3. `score_profiles_with_model` - Probability-based LLM scoring (Claude, Gemini, Groq)
+4. `aggregate_results` - Log pipeline summary
+
+### keyword_stats DAG
+
+**Schedule:** Daily at 2 AM
+
+Tasks:
+1. `get_all_keywords` - Get distinct keywords from `api_search_usage`
+2. `calculate_keyword_stats` - Aggregate profiles, HAS scores, label rates
+3. `upsert_keyword_stats` - Update `keyword_stats` table
+
+### Airflow Packages
+
+**Location:** `airflow/packages/`
+
+| Package          | Description                           |
+| ---------------- | ------------------------------------- |
+| `scorer_db`      | SQLModel models, session management   |
+| `scorer_twitter` | Twitter API client (httpx + Pydantic) |
+| `scorer_has`     | Human Authenticity Score algorithm    |
+| `scorer_llm`     | LangChain multi-provider LLM scoring  |
+| `scorer_utils`   | Logging, settings, base models        |
+
 ## Network Architecture
 
 ```mermaid
@@ -237,6 +313,7 @@ The dashboard provides a unified view of all system components:
 | **Database I/O**       | Read/write IOPS, read/write latency                   |
 | **Queue Metrics**      | Message age, sent/received/deleted, empty receives    |
 | **Network**            | NAT Gateway traffic in/out, connection counts         |
+| **EC2 Airflow**        | CPU utilization, network I/O, status checks           |
 
 ### Cost Management
 
@@ -300,6 +377,11 @@ uv run pulumi stack output budget_name
 
 # Resource Group
 uv run pulumi stack output resource_group_arn
+
+# EC2 Airflow (if deployed)
+uv run pulumi stack output airflow_public_ip
+uv run pulumi stack output airflow_ssh_command
+uv run pulumi stack output airflow_url
 ```
 
 ## Testing
