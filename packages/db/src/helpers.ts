@@ -5,13 +5,13 @@ import { createLogger } from "@profile-scorer/utils";
 import { getDb } from "./client";
 import { TwitterProfile, TwitterUserType, TwitterXapiMetadata, TwitterXapiUser } from "./models";
 import {
+  apiSearchUsage,
   keywordStats,
   profileScores,
   profilesToScore,
   userKeywords,
   userProfiles,
   userStats,
-  xapiSearchUsage,
 } from "./schema";
 
 const db = getDb();
@@ -217,9 +217,9 @@ export async function upsertUserStats(user: TwitterXapiUser): Promise<void> {
 export async function keywordLastUsages(keyword: string) {
   return await db
     .select()
-    .from(xapiSearchUsage)
-    .where(eq(xapiSearchUsage.keyword, keyword))
-    .orderBy(desc(xapiSearchUsage.page));
+    .from(apiSearchUsage)
+    .where(eq(apiSearchUsage.keyword, keyword))
+    .orderBy(desc(apiSearchUsage.page));
 }
 
 /**
@@ -229,13 +229,13 @@ export async function keywordLastUsages(keyword: string) {
 export async function getKeywordLatestPage(keyword: string) {
   const result = await db
     .select({
-      page: xapiSearchUsage.page,
-      nextPage: xapiSearchUsage.nextPage,
-      queryAt: xapiSearchUsage.queryAt,
+      page: apiSearchUsage.page,
+      nextPage: apiSearchUsage.nextPage,
+      queryAt: apiSearchUsage.queryAt,
     })
-    .from(xapiSearchUsage)
-    .where(eq(xapiSearchUsage.keyword, keyword))
-    .orderBy(desc(xapiSearchUsage.page))
+    .from(apiSearchUsage)
+    .where(eq(apiSearchUsage.keyword, keyword))
+    .orderBy(desc(apiSearchUsage.page))
     .limit(1);
 
   return result[0] ?? null;
@@ -250,7 +250,7 @@ export async function getKeywordLatestPage(keyword: string) {
  * @param metadata - Search metadata with new_profiles already calculated
  */
 export async function insertMetadata(metadata: TwitterXapiMetadata) {
-  await db.insert(xapiSearchUsage).values({
+  await db.insert(apiSearchUsage).values({
     id: metadata.id,
     idsHash: metadata.ids_hash!,
     keyword: metadata.keyword,
@@ -408,12 +408,12 @@ export async function calculateKeywordStats(keyword: string): Promise<KeywordSta
   // Get pagination info from xapi_usage_search
   const searchStats = await db
     .select({
-      pagesSearched: max(xapiSearchUsage.page),
-      firstSearchAt: min(xapiSearchUsage.queryAt),
-      lastSearchAt: max(xapiSearchUsage.queryAt),
+      pagesSearched: max(apiSearchUsage.page),
+      firstSearchAt: min(apiSearchUsage.queryAt),
+      lastSearchAt: max(apiSearchUsage.queryAt),
     })
-    .from(xapiSearchUsage)
-    .where(eq(xapiSearchUsage.keyword, keyword));
+    .from(apiSearchUsage)
+    .where(eq(apiSearchUsage.keyword, keyword));
 
   // Check if keyword still has pages (latest page has next_page)
   const latestPage = await getKeywordLatestPage(keyword);
@@ -490,9 +490,9 @@ export async function upsertKeywordStats(stats: KeywordStatsData): Promise<void>
  */
 export async function getAllSearchedKeywords(): Promise<string[]> {
   const result = await db
-    .selectDistinct({ keyword: xapiSearchUsage.keyword })
-    .from(xapiSearchUsage)
-    .orderBy(asc(xapiSearchUsage.keyword));
+    .selectDistinct({ keyword: apiSearchUsage.keyword })
+    .from(apiSearchUsage)
+    .orderBy(asc(apiSearchUsage.keyword));
 
   return result.map((r) => r.keyword);
 }

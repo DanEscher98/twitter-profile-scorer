@@ -35,8 +35,13 @@ export const userProfiles = pgTable(
     category: varchar("category", { length: 255 }),
     humanScore: numeric("human_score"),
     likelyIs: twitterUserType("likely_is"),
+    platform: varchar("platform", { length: 20 }).notNull().default("twitter"),
   },
-  (table) => [uniqueIndex("uq_handle").on(table.handle)]
+  (table) => [
+    uniqueIndex("uq_handle").on(table.handle),
+    index("idx_user_profiles_platform").on(table.platform),
+    index("idx_user_profiles_platform_handle").on(table.platform, table.handle),
+  ]
 );
 
 export const profileScores = pgTable(
@@ -67,8 +72,8 @@ export const profileScores = pgTable(
   ]
 );
 
-export const xapiSearchUsage = pgTable(
-  "xapi_usage_search",
+export const apiSearchUsage = pgTable(
+  "api_search_usage",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     idsHash: varchar("ids_hash", { length: 16 }).notNull(),
@@ -82,9 +87,16 @@ export const xapiSearchUsage = pgTable(
       withTimezone: false,
       mode: "string",
     }).defaultNow(),
+    platform: varchar("platform", { length: 20 }).notNull().default("twitter"),
   },
-  (table) => [uniqueIndex("uq_xapi_usage_search").on(table.keyword, table.items, table.nextPage)]
+  (table) => [
+    uniqueIndex("uq_api_search_usage").on(table.keyword, table.items, table.nextPage),
+    index("idx_api_search_usage_platform").on(table.platform),
+  ]
 );
+
+// Alias for backward compatibility during migration
+export const xapiSearchUsage = apiSearchUsage;
 
 export const profilesToScore = pgTable(
   "profiles_to_score",
@@ -113,7 +125,7 @@ export const userKeywords = pgTable(
         onUpdate: "cascade",
       }),
     keyword: varchar("keyword", { length: 255 }).notNull(),
-    searchId: uuid("search_id").references(() => xapiSearchUsage.id, {
+    searchId: uuid("search_id").references(() => apiSearchUsage.id, {
       onDelete: "set null",
       onUpdate: "cascade",
     }),
