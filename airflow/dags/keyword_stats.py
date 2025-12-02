@@ -1,37 +1,32 @@
-"""Keyword Statistics Update DAG.
+"""Keyword Stats Update DAG.
 
-Updates keyword_stats table with aggregated metrics from related tables.
-Runs daily to calculate:
-- Profile counts and quality metrics per keyword
-- Label rates (percentage of true labels)
-- Pagination state (still_valid flag)
+Daily maintenance DAG that recalculates keyword statistics.
+
+Flow:
+1. get_all_keywords -> Get all keywords from api_search_usage
+2. calculate_stats -> Calculate stats per keyword (parallel)
+3. upsert_stats -> Update keyword_stats table (parallel)
+4. summarize -> Log results
+
+Schedule: Daily at 2 AM UTC
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from decimal import Decimal
 
-from airflow.decorators import dag, task
-from sqlalchemy import func
+from airflow.sdk import dag, task
+from utils import get_logger
 
-from scorer_db import (
-    ApiSearchUsage,
-    KeywordStats,
-    ProfileScore,
-    UserKeyword,
-    UserProfile,
-    get_session,
-)
-from scorer_utils import get_logger
+from tasks.stats import calculate_keyword_stats, get_all_keywords, upsert_keyword_stats
 
 log = get_logger("dag.keyword_stats")
 
 
 @dag(
     dag_id="keyword_stats_update",
-    description="Update keyword statistics and quality metrics",
-    schedule="0 2 * * *",  # Daily at 2 AM
+    description="Daily update of keyword statistics",
+    schedule="0 2 * * *",  # Daily at 2 AM UTC
     start_date=datetime(2025, 1, 1),
     catchup=False,
     max_active_runs=1,
@@ -40,175 +35,111 @@ log = get_logger("dag.keyword_stats")
         "retries": 1,
         "retry_delay": timedelta(minutes=5),
     },
-    tags=["profile-scorer", "stats"],
+    tags=["profile-scorer", "stats", "maintenance"],
 )
-def keyword_stats_pipeline() -> None:
-    """Keyword statistics update DAG."""
+def keyword_stats_dag() -> None:
+    """Keyword statistics update pipeline."""
 
     @task
-    def get_all_keywords() -> list[str]:
-        """Get all distinct keywords from api_search_usage."""
-        with get_session() as session:
-            keywords = (
-                session.query(ApiSearchUsage.keyword)
-                .distinct()
-                .order_by(ApiSearchUsage.keyword)
-                .all()
-            )
-            keyword_list = [k[0] for k in keywords]
-            log.info("keywords_found", count=len(keyword_list))
-            return keyword_list
+    def get_keywords_task() -> list[str]:
+        """Get all keywords to update.
+
+        Returns:
+            List of keyword strings.
+        """
+        log.info("task_get_all_keywords")
+        keywords = get_all_keywords()
+        log.info("keywords_to_update", count=len(keywords))
+        return keywords
 
     @task
-    def calculate_keyword_stats(keyword: str) -> dict:
-        """Calculate statistics for a single keyword."""
-        with get_session() as session:
-            # Profile counts and HAS averages
-            profile_stats = (
-                session.query(
-                    func.count(UserKeyword.twitter_id).label("profiles_found"),
-                    func.avg(UserProfile.human_score).label("avg_human_score"),
-                    func.count()
-                    .filter(UserProfile.human_score > Decimal("0.7"))
-                    .label("high_quality_count"),
-                    func.count()
-                    .filter(UserProfile.human_score < Decimal("0.4"))
-                    .label("low_quality_count"),
-                )
-                .join(UserProfile, UserKeyword.twitter_id == UserProfile.twitter_id)
-                .filter(UserKeyword.keyword == keyword)
-                .first()
-            )
+    def calculate_stats_task(keyword: str) -> dict:
+        """Calculate stats for a keyword.
 
-            # Label rate calculation
-            llm_stats = (
-                session.query(
-                    func.count()
-                    .filter(ProfileScore.label.isnot(None))
-                    .label("total_labeled"),
-                    func.count()
-                    .filter(ProfileScore.label.is_(True))
-                    .label("true_labels"),
-                )
-                .join(UserKeyword, UserKeyword.twitter_id == ProfileScore.twitter_id)
-                .filter(UserKeyword.keyword == keyword)
-                .first()
-            )
+        Returns:
+            Dict with calculated statistics.
+        """
+        log.debug("task_calculate_stats", keyword=keyword)
+        stats = calculate_keyword_stats(keyword)
 
-            # Pagination stats
-            search_stats = (
-                session.query(
-                    func.max(ApiSearchUsage.page).label("pages_searched"),
-                    func.min(ApiSearchUsage.query_at).label("first_search_at"),
-                    func.max(ApiSearchUsage.query_at).label("last_search_at"),
-                )
-                .filter(ApiSearchUsage.keyword == keyword)
-                .first()
-            )
-
-            # Check if keyword still has pages
-            latest_page = (
-                session.query(ApiSearchUsage)
-                .filter(ApiSearchUsage.keyword == keyword)
-                .order_by(ApiSearchUsage.page.desc())
-                .first()
-            )
-            still_valid = latest_page is None or latest_page.next_page is not None
-
-            # Calculate label rate
-            total_labeled = llm_stats.total_labeled if llm_stats else 0
-            true_labels = llm_stats.true_labels if llm_stats else 0
-            label_rate = true_labels / total_labeled if total_labeled > 0 else 0.0
-
-            return {
-                "keyword": keyword,
-                "profiles_found": profile_stats.profiles_found or 0,
-                "avg_human_score": float(profile_stats.avg_human_score or 0),
-                "label_rate": label_rate,
-                "still_valid": still_valid,
-                "pages_searched": search_stats.pages_searched or 0,
-                "high_quality_count": profile_stats.high_quality_count or 0,
-                "low_quality_count": profile_stats.low_quality_count or 0,
-                "first_search_at": (
-                    search_stats.first_search_at.isoformat()
-                    if search_stats.first_search_at
-                    else None
-                ),
-                "last_search_at": (
-                    search_stats.last_search_at.isoformat()
-                    if search_stats.last_search_at
-                    else None
-                ),
-            }
+        return {
+            "keyword": stats.keyword,
+            "profiles_found": stats.profiles_found,
+            "avg_human_score": stats.avg_human_score,
+            "label_rate": stats.label_rate,
+            "still_valid": stats.still_valid,
+            "pages_searched": stats.pages_searched,
+            "high_quality_count": stats.high_quality_count,
+            "low_quality_count": stats.low_quality_count,
+            "first_search_at": stats.first_search_at.isoformat() if stats.first_search_at else None,
+            "last_search_at": stats.last_search_at.isoformat() if stats.last_search_at else None,
+        }
 
     @task
-    def upsert_keyword_stats(stats: dict) -> None:
-        """Upsert keyword statistics to database."""
-        with get_session() as session:
-            existing = session.get(KeywordStats, stats["keyword"])
+    def upsert_stats_task(stats_dict: dict) -> dict:
+        """Upsert keyword stats to database.
 
-            if existing:
-                # Update existing
-                existing.profiles_found = stats["profiles_found"]
-                existing.avg_human_score = Decimal(str(round(stats["avg_human_score"], 3)))
-                existing.label_rate = Decimal(str(round(stats["label_rate"], 3)))
-                existing.still_valid = stats["still_valid"]
-                existing.pages_searched = stats["pages_searched"]
-                existing.high_quality_count = stats["high_quality_count"]
-                existing.low_quality_count = stats["low_quality_count"]
-                if stats["first_search_at"]:
-                    existing.first_search_at = datetime.fromisoformat(stats["first_search_at"])
-                if stats["last_search_at"]:
-                    existing.last_search_at = datetime.fromisoformat(stats["last_search_at"])
-                existing.updated_at = datetime.utcnow()
-            else:
-                # Insert new
-                keyword_stat = KeywordStats(
-                    keyword=stats["keyword"],
-                    profiles_found=stats["profiles_found"],
-                    avg_human_score=Decimal(str(round(stats["avg_human_score"], 3))),
-                    label_rate=Decimal(str(round(stats["label_rate"], 3))),
-                    still_valid=stats["still_valid"],
-                    pages_searched=stats["pages_searched"],
-                    high_quality_count=stats["high_quality_count"],
-                    low_quality_count=stats["low_quality_count"],
-                    first_search_at=(
-                        datetime.fromisoformat(stats["first_search_at"])
-                        if stats["first_search_at"]
-                        else None
-                    ),
-                    last_search_at=(
-                        datetime.fromisoformat(stats["last_search_at"])
-                        if stats["last_search_at"]
-                        else None
-                    ),
-                )
-                session.add(keyword_stat)
+        Returns:
+            Dict with upsert result.
+        """
+        from datetime import datetime as dt
 
-            log.info(
-                "keyword_stats_updated",
-                keyword=stats["keyword"],
-                profiles=stats["profiles_found"],
-                still_valid=stats["still_valid"],
-            )
+        from tasks.stats import KeywordStatData
+
+        # Reconstruct dataclass
+        first_at = stats_dict["first_search_at"]
+        last_at = stats_dict["last_search_at"]
+
+        stats = KeywordStatData(
+            keyword=stats_dict["keyword"],
+            profiles_found=stats_dict["profiles_found"],
+            avg_human_score=stats_dict["avg_human_score"],
+            label_rate=stats_dict["label_rate"],
+            still_valid=stats_dict["still_valid"],
+            pages_searched=stats_dict["pages_searched"],
+            high_quality_count=stats_dict["high_quality_count"],
+            low_quality_count=stats_dict["low_quality_count"],
+            first_search_at=dt.fromisoformat(first_at) if first_at else None,
+            last_search_at=dt.fromisoformat(last_at) if last_at else None,
+        )
+
+        upsert_keyword_stats(stats)
+
+        return {
+            "keyword": stats.keyword,
+            "still_valid": stats.still_valid,
+            "profiles_found": stats.profiles_found,
+        }
 
     @task
-    def log_summary(keywords: list[str]) -> None:
-        """Log pipeline summary."""
-        log.info("keyword_stats_complete", keywords_updated=len(keywords))
+    def summarize_task(upsert_results: list[dict]) -> dict:
+        """Summarize stats update results."""
+        total_keywords = len(upsert_results)
+        valid_keywords = len([r for r in upsert_results if r.get("still_valid")])
+        exhausted_keywords = total_keywords - valid_keywords
+        total_profiles = sum(r.get("profiles_found", 0) for r in upsert_results)
 
-    # DAG Task Flow
-    keywords = get_all_keywords()
+        log.info(
+            "stats_update_summary",
+            total_keywords=total_keywords,
+            valid_keywords=valid_keywords,
+            exhausted_keywords=exhausted_keywords,
+            total_profiles=total_profiles,
+        )
 
-    # Calculate stats for each keyword (dynamic mapping)
-    stats = calculate_keyword_stats.expand(keyword=keywords)
+        return {
+            "total_keywords": total_keywords,
+            "valid_keywords": valid_keywords,
+            "exhausted_keywords": exhausted_keywords,
+            "total_profiles": total_profiles,
+        }
 
-    # Upsert stats to database
-    upsert_keyword_stats.expand(stats=stats)
-
-    # Log summary
-    log_summary(keywords)
+    # DAG flow
+    keywords = get_keywords_task()
+    stats = calculate_stats_task.expand(keyword=keywords)
+    upsert_results = upsert_stats_task.expand(stats_dict=stats)
+    summarize_task(upsert_results)
 
 
 # Instantiate DAG
-keyword_stats_pipeline()
+keyword_stats_dag()

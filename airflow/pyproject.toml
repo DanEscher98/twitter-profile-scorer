@@ -6,13 +6,10 @@ requires-python = ">=3.12"
 readme = "README.md"
 dependencies = [
     "apache-airflow>=3.0.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.24.0",
-    "pytest-cov>=4.0.0",
+    "utils",
+    "db",
+    "scoring",
+    "search-profiles",
 ]
 
 [tool.uv]
@@ -20,23 +17,25 @@ dev-dependencies = [
     "ruff>=0.8.0",
     "mypy>=1.13.0",
     "pre-commit>=4.0.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=4.0.0",
+    "pydantic>=2.0.0",
 ]
 
 [tool.uv.workspace]
 members = [
-    "packages/scorer_db",
-    "packages/scorer_llm",
-    "packages/scorer_twitter",
-    "packages/scorer_has",
-    "packages/scorer_utils",
+    "packages/utils",
+    "packages/db",
+    "packages/scoring",
+    "packages/search_profiles",
 ]
 
 [tool.uv.sources]
-scorer-db = { workspace = true }
-scorer-llm = { workspace = true }
-scorer-twitter = { workspace = true }
-scorer-has = { workspace = true }
-scorer-utils = { workspace = true }
+utils = { workspace = true }
+db = { workspace = true }
+scoring = { workspace = true }
+search-profiles = { workspace = true }
 
 # Note: Root workspace is not a buildable package (virtual)
 # Individual packages in packages/ have their own build-system

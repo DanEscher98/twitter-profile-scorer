@@ -7,9 +7,10 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, pool
+
+from alembic import context
 
 # Add airflow directory to path for package imports
 sys.path.insert(0, str(Path(__file__).parent.parent))

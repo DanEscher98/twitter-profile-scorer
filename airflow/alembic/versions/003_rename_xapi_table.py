@@ -9,9 +9,10 @@ Deploy sequence: 1) Update TS code, 2) Run this migration, 3) Deploy TS
 """
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "003_rename_xapi_table"
