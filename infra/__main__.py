@@ -25,6 +25,7 @@ import pulumi_aws as aws
 
 from components import (
     Database,
+    Ec2Airflow,
     LambdaFunction,
     ProjectBudget,
     ScheduledLambda,
@@ -506,6 +507,43 @@ budget = ProjectBudget(
 # https://console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors
 
 # =============================================================================
+# EC2 Airflow Instance (Migration Target)
+# =============================================================================
+# This EC2 instance runs Apache Airflow to replace the Lambda-based orchestration.
+# During migration, both systems run in parallel:
+# - Lambda pipeline: EventBridge → orchestrator → keyword-engine → query-twitter → llm-scorer
+# - Airflow pipeline: DAGs on EC2 (profile_scoring, keyword_stats)
+#
+# Post-migration steps:
+# 1. Disable EventBridge schedule for orchestrator
+# 2. Enable Airflow DAGs
+# 3. Monitor for stability
+# 4. Remove Lambda resources (optional, keep for rollback)
+#
+# SSH key: Must exist in AWS EC2 console. Create via:
+#   aws ec2 create-key-pair --key-name profile-scorer-airflow --query 'KeyMaterial' --output text > ~/.ssh/profile-scorer-airflow.pem
+#   chmod 600 ~/.ssh/profile-scorer-airflow.pem
+
+# Optional: Only create EC2 if SSH key is configured
+ssh_key_name = os.environ.get("AIRFLOW_SSH_KEY_NAME")
+
+airflow_instance = None
+if ssh_key_name:
+    airflow_instance = Ec2Airflow(
+        "profile-scorer-airflow",
+        vpc_id=vpc.vpc.id,
+        subnet_id=vpc.public_subnet_1.id,  # Public subnet for direct access
+        db_security_group_id=db.security_group.id,
+        ssh_key_name=ssh_key_name,
+        database_url=db.connection_string,
+        twitterx_apikey=twitterx_apikey,
+        anthropic_api_key=anthropic_apikey,
+        gemini_api_key=pulumi.Output.secret(require_env("GEMINI_API_KEY")),
+        groq_api_key=pulumi.Output.secret(require_env("GROQ_API_KEY")),
+        instance_type="t3.small",  # 2 vCPU, 2GB RAM
+    )
+
+# =============================================================================
 # Stack Outputs - Infrastructure References
 # =============================================================================
 # These outputs are used by:
@@ -559,3 +597,12 @@ pulumi.export("cost_explorer_url",
     "%22INCLUDES%22%2C%22values%22%3A%5B%7B%22value%22%3A%22Project%24profile-scorer-saas%22%7D%5D%7D%5D&"
     "granularity=Daily&groupBy=%5B%22Service%22%5D&startDate=2025-11-01"
 )
+
+# EC2 Airflow (only exported if configured)
+if airflow_instance:
+    pulumi.export("airflow_instance_id", airflow_instance.instance.id)
+    pulumi.export("airflow_public_ip", airflow_instance.eip.public_ip)
+    pulumi.export("airflow_ssh_command", airflow_instance.eip.public_ip.apply(
+        lambda ip: f"ssh -i ~/.ssh/{ssh_key_name}.pem ec2-user@{ip}"
+    ))
+    pulumi.export("airflow_url", "https://profile-scorer.admin.ateliertech.xyz")
