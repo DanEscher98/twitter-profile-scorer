@@ -200,17 +200,43 @@ Daily maintenance lambda that recalculates keyword statistics:
 
 **Location:** `airflow/dags/`
 
-The Airflow implementation uses Python with strict Pydantic typing.
+The Airflow implementation uses Python with strict Pydantic typing and supports multi-platform search.
 
-### profile_scoring DAG
+### profile_search DAG
 
 **Schedule:** Every 15 minutes
 
+Multi-platform profile search with dynamic task expansion:
+
+```
+platforms() → ['twitter', 'bluesky']
+    ↓
+keyword_engine.expand(platform) → [configs_twitter, configs_bluesky]
+    ↓
+flatten_keywords() → [all_keyword_configs]
+    ↓
+query_profiles.expand(keyword_config) → uses search_profiles router
+    ↓
+collect_results() → update_db() → summarize()
+```
+
 Tasks:
-1. `get_keywords` - Select valid keywords from `keyword_stats` table
-2. `search_profiles` - Dynamic task per keyword (Twitter API search → DB insert)
-3. `score_profiles_with_model` - Probability-based LLM scoring (Claude, Gemini, Groq)
-4. `aggregate_results` - Log pipeline summary
+1. `platforms` - Returns list of all platforms from `Platform` enum
+2. `keyword_engine` (expanded per platform) - Gets valid keywords that have `still_valid=True` and are not exhausted
+3. `flatten_keywords` - Combines keyword configs from all platforms into single list
+4. `query_profiles` (expanded per keyword) - Uses `search_profiles` router to query the appropriate API
+5. `collect_results` - Bridge task to materialize lazy proxy for virtualenv
+6. `update_db` - Processes results with per-platform statistics
+7. `summarize` - Logs per-platform and total summaries
+
+### llm_scoring DAG
+
+**Schedule:** Every 15 minutes
+
+Probability-based LLM scoring:
+1. `get_profiles_to_score` - Fetches from `profiles_to_score` queue
+2. `score_with_model` (expanded per model) - Invokes LLM with probability-based selection
+3. `summarize` - Logs scoring results
 
 ### keyword_stats DAG
 
@@ -218,20 +244,43 @@ Tasks:
 
 Tasks:
 1. `get_all_keywords` - Get distinct keywords from `api_search_usage`
-2. `calculate_keyword_stats` - Aggregate profiles, HAS scores, label rates
-3. `upsert_keyword_stats` - Update `keyword_stats` table
+2. `calculate_keyword_stats` - Aggregate profiles, HAS scores, label rates per platform
+3. `upsert_keyword_stats` - Update `keyword_stats` and `keyword_status` tables
 
 ### Airflow Packages
 
 **Location:** `airflow/packages/`
 
-| Package          | Description                           |
-| ---------------- | ------------------------------------- |
-| `scorer_db`      | SQLModel models, session management   |
-| `scorer_twitter` | Twitter API client (httpx + Pydantic) |
-| `scorer_has`     | Human Authenticity Score algorithm    |
-| `scorer_llm`     | LangChain multi-provider LLM scoring  |
-| `scorer_utils`   | Logging, settings, base models        |
+| Package           | Description                                           |
+| ----------------- | ----------------------------------------------------- |
+| `db`              | SQLModel models, session management                   |
+| `search_profiles` | Multi-platform search router (Twitter, Bluesky, etc.) |
+| `scoring`         | HAS algorithm + LangChain multi-provider LLM scoring  |
+| `utils`           | Logging, settings, base models                        |
+
+### search_profiles Router
+
+The `search_profiles` package provides a unified interface for multi-platform search:
+
+```python
+from search_profiles import search_profiles, Platform, SearchResult
+
+# High-level API
+result = search_profiles(Platform.TWITTER, "data scientist")
+for user in result.users:
+    print(user["screen_name"])
+
+# Result includes normalized fields across platforms
+result.platform      # 'twitter'
+result.users         # List of normalized user dicts with platform_id
+result.next_cursor   # Pagination cursor
+result.success       # True if no error
+```
+
+The router normalizes user data to common fields:
+- `platform_id` (replaces `rest_id` for Twitter, `did` for Bluesky)
+- `screen_name`, `name`, `description`
+- `followers_count`, `friends_count`, `statuses_count`
 
 ## Network Architecture
 

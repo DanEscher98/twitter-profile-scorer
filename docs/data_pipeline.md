@@ -46,12 +46,15 @@ erDiagram
     user_profiles ||--o| user_stats : has
     user_profiles ||--o{ user_keywords : has
     user_profiles ||--o| profiles_to_score : queued_in
-    xapi_usage_search ||--o{ user_keywords : generates
+    api_search_usage ||--o{ user_keywords : generates
+    keyword_stats ||--o{ keyword_status : has
 
     user_profiles {
-        varchar twitter_id PK
-        varchar username UK
-        varchar display_name
+        uuid id PK
+        varchar platform_id
+        enum platform
+        varchar handle UK
+        varchar name
         text bio
         varchar created_at
         integer follower_count
@@ -66,15 +69,16 @@ erDiagram
 
     profile_scores {
         uuid id PK
-        varchar twitter_id FK
-        numeric score
+        uuid user_id FK
+        boolean label
         text reason
         timestamp scored_at
         varchar scored_by
+        varchar audience
     }
 
     user_stats {
-        varchar twitter_id PK,FK
+        uuid user_id PK,FK
         integer followers
         integer following
         integer statuses
@@ -91,21 +95,20 @@ erDiagram
     }
 
     profiles_to_score {
-        uuid id PK
-        varchar twitter_id FK,UK
-        varchar username
+        uuid user_id PK,FK
+        varchar handle
         timestamp added_at
     }
 
     user_keywords {
         uuid id PK
-        varchar twitter_id FK
+        uuid user_id FK
         varchar keyword
         uuid search_id FK
         timestamp added_at
     }
 
-    xapi_usage_search {
+    api_search_usage {
         uuid id PK
         varchar ids_hash
         varchar keyword
@@ -115,6 +118,7 @@ erDiagram
         integer page
         integer new_profiles
         timestamp query_at
+        enum platform
     }
 
     keyword_stats {
@@ -122,30 +126,54 @@ erDiagram
         text[] semantic_tags
         integer profiles_found
         numeric avg_human_score
-        numeric avg_llm_score
-        boolean still_valid
-        integer pages_searched
+        numeric label_rate
         integer high_quality_count
         integer low_quality_count
         timestamp first_search_at
         timestamp last_search_at
         timestamp updated_at
     }
+
+    keyword_status {
+        uuid id PK
+        varchar keyword FK
+        enum platform
+        boolean still_valid
+        integer pages_searched
+        timestamp updated_at
+    }
 ```
+
+### Platform Support
+
+The database supports multiple social media platforms via the `platform` enum:
+
+```sql
+CREATE TYPE platform AS ENUM ('twitter', 'bluesky');
+```
+
+Key tables using platform:
+- `user_profiles.platform` - Which platform the profile is from
+- `api_search_usage.platform` - Which platform API was queried
+- `keyword_status.platform` - Platform-specific keyword pagination state
+
+The `keyword_status` table allows tracking different pagination states for the same keyword across platforms (e.g., "researcher" on Twitter vs Bluesky).
 
 ## Table Details
 
 ### `user_profiles`
 
-Primary storage for processed Twitter profiles.
+Primary storage for social media profiles across all platforms.
 
 | Column            | Type         | Description                                        |
 | ----------------- | ------------ | -------------------------------------------------- |
-| `twitter_id`      | VARCHAR(25)  | Primary key, Twitter's user ID                     |
-| `username`        | VARCHAR(255) | Twitter handle (unique)                            |
-| `display_name`    | VARCHAR(255) | Display name                                       |
+| `id`              | UUID         | Primary key                                        |
+| `platform_id`     | VARCHAR(25)  | Platform-specific user ID (e.g., Twitter rest_id)  |
+| `platform`        | ENUM         | Platform: twitter, bluesky                         |
+| `handle`          | VARCHAR(255) | Username/handle (unique per platform)              |
+| `name`            | VARCHAR(255) | Display name                                       |
 | `bio`             | TEXT         | Profile description                                |
-| `created_at`      | VARCHAR(100) | Account creation date (Twitter format)             |
+| `created_at`      | VARCHAR(100) | Account creation date (platform format)            |
 | `follower_count`  | INTEGER      | Number of followers                                |
 | `location`        | VARCHAR(255) | Self-reported location                             |
 | `updated_at`      | TIMESTAMP    | Last update in our system                          |
@@ -155,25 +183,27 @@ Primary storage for processed Twitter profiles.
 | `human_score`     | NUMERIC      | HAS score (0.0000 - 1.0000)                        |
 | `likely_is`       | ENUM         | Classification: Human, Creator, Entity, Bot, Other |
 
+**Unique Constraint:** `(platform, platform_id)` - one entry per user per platform
+
 ### `user_stats`
 
 Raw numeric fields for HAS validation and future ML training.
 
-| Column            | Type        | Description             |
-| ----------------- | ----------- | ----------------------- |
-| `twitter_id`      | VARCHAR(25) | FK to user_profiles     |
-| `followers`       | INTEGER     | followers_count         |
-| `following`       | INTEGER     | friends_count           |
-| `statuses`        | INTEGER     | Tweet count             |
-| `favorites`       | INTEGER     | Likes given             |
-| `listed`          | INTEGER     | Lists containing user   |
-| `media`           | INTEGER     | Media uploads           |
-| `verified`        | BOOLEAN     | Legacy verification     |
-| `blue_verified`   | BOOLEAN     | Twitter Blue            |
-| `default_profile` | BOOLEAN     | Using default theme     |
-| `default_image`   | BOOLEAN     | Using default avatar    |
-| `sensitive`       | BOOLEAN     | possibly_sensitive flag |
-| `can_dm`          | BOOLEAN     | DMs open                |
+| Column            | Type    | Description             |
+| ----------------- | ------- | ----------------------- |
+| `user_id`         | UUID    | PK, FK to user_profiles |
+| `followers`       | INTEGER | followers_count         |
+| `following`       | INTEGER | friends_count           |
+| `statuses`        | INTEGER | Post count              |
+| `favorites`       | INTEGER | Likes given             |
+| `listed`          | INTEGER | Lists containing user   |
+| `media`           | INTEGER | Media uploads           |
+| `verified`        | BOOLEAN | Legacy verification     |
+| `blue_verified`   | BOOLEAN | Platform verification   |
+| `default_profile` | BOOLEAN | Using default theme     |
+| `default_image`   | BOOLEAN | Using default avatar    |
+| `sensitive`       | BOOLEAN | possibly_sensitive flag |
+| `can_dm`          | BOOLEAN | DMs open                |
 
 **Purpose:** Preserve raw fields to:
 
@@ -185,40 +215,40 @@ Raw numeric fields for HAS validation and future ML training.
 
 FIFO queue for profiles awaiting LLM scoring.
 
-| Column       | Type         | Description                  |
-| ------------ | ------------ | ---------------------------- |
-| `id`         | UUID         | Primary key                  |
-| `twitter_id` | VARCHAR(25)  | FK to user_profiles (unique) |
-| `username`   | VARCHAR(255) | For quick reference          |
-| `added_at`   | TIMESTAMP    | Queue entry time (for FIFO)  |
+| Column    | Type         | Description                 |
+| --------- | ------------ | --------------------------- |
+| `user_id` | UUID         | PK, FK to user_profiles     |
+| `handle`  | VARCHAR(255) | For quick reference         |
+| `added_at`| TIMESTAMP    | Queue entry time (for FIFO) |
 
 **Index:** `idx_added_at` for FIFO ordering
 
 ### `profile_scores`
 
-LLM-generated scores, one per (profile, model) pair.
+LLM-generated labels, one per (profile, model) pair.
 
-| Column       | Type         | Description             |
-| ------------ | ------------ | ----------------------- |
-| `id`         | UUID         | Primary key             |
-| `twitter_id` | VARCHAR(25)  | FK to user_profiles     |
-| `score`      | NUMERIC(3,2) | LLM score (0.00 - 1.00) |
-| `reason`     | TEXT         | LLM's reasoning         |
-| `scored_at`  | TIMESTAMP    | When scored             |
-| `scored_by`  | VARCHAR(100) | Model identifier        |
+| Column      | Type         | Description                      |
+| ----------- | ------------ | -------------------------------- |
+| `id`        | UUID         | Primary key                      |
+| `user_id`   | UUID         | FK to user_profiles              |
+| `label`     | BOOLEAN      | Trivalent: true/false/null       |
+| `reason`    | TEXT         | LLM's reasoning                  |
+| `scored_at` | TIMESTAMP    | When scored                      |
+| `scored_by` | VARCHAR(100) | Model identifier                 |
+| `audience`  | VARCHAR(100) | Audience config version          |
 
-**Unique Constraint:** `(twitter_id, scored_by)` - one score per model
+**Unique Constraint:** `(user_id, scored_by)` - one score per model
 
 **Example `scored_by` values:**
 
 - `claude-haiku-4-5-20251001` (primary scorer)
 - `claude-sonnet-4-20250514` (premium scorer)
 - `gemini-2.0-flash` (free tier)
-- `mistral-7b-researcher-v1` (future custom model)
+- `meta-llama/llama-4-maverick-17b-128e-instruct` (Groq)
 
-### `xapi_usage_search`
+### `api_search_usage`
 
-API call tracking and pagination state.
+API call tracking and pagination state per platform.
 
 | Column         | Type         | Description                  |
 | -------------- | ------------ | ---------------------------- |
@@ -231,28 +261,25 @@ API call tracking and pagination state.
 | `page`         | INTEGER      | Page number                  |
 | `new_profiles` | INTEGER      | New profiles found           |
 | `query_at`     | TIMESTAMP    | Query timestamp              |
-
-**Unique Constraint:** `(keyword, items, next_page)` - prevent duplicate queries
+| `platform`     | ENUM         | Platform: twitter, bluesky   |
 
 **Usage:**
 
-1. Track keyword effectiveness: `AVG(new_profiles) GROUP BY keyword`
-2. Resume pagination: `SELECT next_page WHERE keyword = ? ORDER BY page DESC LIMIT 1`
-3. Monitor API quota: `COUNT(*) WHERE query_at > NOW() - INTERVAL '1 month'`
+1. Track keyword effectiveness: `AVG(new_profiles) GROUP BY keyword, platform`
+2. Resume pagination: `SELECT next_page WHERE keyword = ? AND platform = ? ORDER BY page DESC LIMIT 1`
+3. Monitor API quota: `COUNT(*) WHERE query_at > NOW() - INTERVAL '1 month' AND platform = ?`
 
 ### `keyword_stats`
 
-Keyword pool management with aggregated statistics. Updated daily by `keyword-stats-updater` lambda.
+Keyword pool management with aggregated statistics (platform-independent).
 
 | Column               | Type         | Description                                                 |
 | -------------------- | ------------ | ----------------------------------------------------------- |
 | `keyword`            | VARCHAR(255) | Primary key, the search keyword                             |
 | `semantic_tags`      | TEXT[]       | Semantic categorization tags (e.g., `#academia`, `#health`) |
-| `profiles_found`     | INTEGER      | Total profiles found with this keyword                      |
+| `profiles_found`     | INTEGER      | Total profiles found with this keyword (all platforms)      |
 | `avg_human_score`    | NUMERIC(4,3) | Average HAS score of profiles                               |
-| `avg_llm_score`      | NUMERIC(4,3) | Average LLM score of profiles                               |
-| `still_valid`        | BOOLEAN      | Whether keyword has more pagination pages                   |
-| `pages_searched`     | INTEGER      | Number of pages searched                                    |
+| `label_rate`         | NUMERIC(4,3) | Rate of positive labels from LLM scoring                    |
 | `high_quality_count` | INTEGER      | Profiles with HAS > 0.7                                     |
 | `low_quality_count`  | INTEGER      | Profiles with HAS < 0.4                                     |
 | `first_search_at`    | TIMESTAMP    | First search timestamp                                      |
@@ -270,25 +297,44 @@ Keyword pool management with aggregated statistics. Updated daily by `keyword-st
 - `#humanities` - Humanities and cultural studies
 - `#interdisciplinary` - Cross-disciplinary fields
 
+### `keyword_status`
+
+Platform-specific keyword pagination state.
+
+| Column          | Type         | Description                               |
+| --------------- | ------------ | ----------------------------------------- |
+| `id`            | UUID         | Primary key                               |
+| `keyword`       | VARCHAR(255) | FK to keyword_stats                       |
+| `platform`      | ENUM         | Platform: twitter, bluesky                |
+| `still_valid`   | BOOLEAN      | Whether keyword has more pagination pages |
+| `pages_searched`| INTEGER      | Number of pages searched on this platform |
+| `updated_at`    | TIMESTAMP    | Last update                               |
+
+**Unique Constraint:** `(keyword, platform)` - one status per keyword per platform
+
 **Usage:**
 
-1. `keyword-engine` fetches valid keywords: `SELECT * FROM keyword_stats WHERE still_valid = true`
-2. Daily stats update via `keyword-stats-updater` lambda (4 AM UTC)
-3. Add new keywords: `yarn add-keyword "new term" --tags=#academia,#research`
+1. `keyword_engine` fetches valid keywords per platform:
+   ```sql
+   SELECT ks.keyword FROM keyword_stats ks
+   JOIN keyword_status kst ON ks.keyword = kst.keyword
+   WHERE kst.platform = 'twitter' AND kst.still_valid = true
+   ```
+2. Daily stats update via `keyword_stats` DAG (2 AM UTC)
 
 ### `user_keywords`
 
 Many-to-many: profiles found by which keywords.
 
-| Column       | Type         | Description              |
-| ------------ | ------------ | ------------------------ |
-| `id`         | UUID         | Primary key              |
-| `twitter_id` | VARCHAR(25)  | FK to user_profiles      |
-| `keyword`    | VARCHAR(255) | Search keyword           |
-| `search_id`  | UUID         | FK to xapi_usage_search  |
-| `added_at`   | TIMESTAMP    | When association created |
+| Column    | Type         | Description              |
+| --------- | ------------ | ------------------------ |
+| `id`      | UUID         | Primary key              |
+| `user_id` | UUID         | FK to user_profiles      |
+| `keyword` | VARCHAR(255) | Search keyword           |
+| `search_id`| UUID        | FK to api_search_usage   |
+| `added_at`| TIMESTAMP    | When association created |
 
-**Unique Constraint:** `(twitter_id, keyword)` - one entry per pair
+**Unique Constraint:** `(user_id, keyword)` - one entry per pair
 
 ## API Functions
 
