@@ -8,6 +8,7 @@ in the Profile Scorer pipeline:
 - RDS PostgreSQL: Connections, CPU, storage, IOPS
 - SQS Queues: Messages visible, in-flight, age, DLQ depth
 - NAT Gateway: Bytes transferred, packets, errors
+- EC2 Airflow: CPU, network, disk (when configured)
 
 Dashboard Layout:
 -----------------
@@ -17,6 +18,7 @@ Row 3: Database Health (connections, CPU, storage)
 Row 4: Database I/O (read/write IOPS, latency)
 Row 5: Queue Metrics (messages, age, DLQ)
 Row 6: Network (NAT Gateway traffic)
+Row 7: EC2 Airflow (CPU, network, disk) - optional
 """
 
 import json
@@ -35,6 +37,7 @@ class SystemDashboard(pulumi.ComponentResource):
         queue_name: pulumi.Input[str],
         dlq_name: pulumi.Input[str],
         nat_gateway_id: pulumi.Input[str] = None,
+        ec2_instance_id: pulumi.Input[str] = None,
         region: str = "us-east-2",
         opts: pulumi.ResourceOptions = None,
     ):
@@ -48,6 +51,7 @@ class SystemDashboard(pulumi.ComponentResource):
             queue_name: Main SQS queue name
             dlq_name: Dead letter queue name
             nat_gateway_id: NAT Gateway ID (optional)
+            ec2_instance_id: EC2 Airflow instance ID (optional)
             region: AWS region
         """
         super().__init__("custom:cloudwatch:SystemDashboard", name, None, opts)
@@ -59,6 +63,7 @@ class SystemDashboard(pulumi.ComponentResource):
             queue=queue_name,
             dlq=dlq_name,
             nat_id=nat_gateway_id or "",
+            ec2_id=ec2_instance_id or "",
         ).apply(
             lambda args: self._build_dashboard(
                 lambda_names=args["lambda_names"],
@@ -66,6 +71,7 @@ class SystemDashboard(pulumi.ComponentResource):
                 queue_name=args["queue"],
                 dlq_name=args["dlq"],
                 nat_id=args["nat_id"],
+                ec2_id=args["ec2_id"],
                 region=region,
             )
         )
@@ -89,6 +95,7 @@ class SystemDashboard(pulumi.ComponentResource):
         queue_name: str,
         dlq_name: str,
         nat_id: str,
+        ec2_id: str,
         region: str,
     ) -> str:
         """Build complete dashboard JSON."""
@@ -445,6 +452,70 @@ class SystemDashboard(pulumi.ComponentResource):
                 "x": 0, "y": y, "width": 24, "height": 2,
                 "properties": {
                     "markdown": "### Network metrics: NAT Gateway ID not provided",
+                },
+            })
+        y += 6
+
+        # =================================================================
+        # ROW 7: EC2 Airflow Metrics (height=6) - Optional
+        # =================================================================
+        if ec2_id:
+            # EC2 CPU Utilization
+            widgets.append({
+                "type": "metric",
+                "x": 0, "y": y, "width": 8, "height": 6,
+                "properties": {
+                    "title": "Airflow EC2 CPU",
+                    "region": region,
+                    "metrics": [
+                        ["AWS/EC2", "CPUUtilization", "InstanceId", ec2_id,
+                         {"label": "CPU %", "color": "#ff7f0e"}],
+                    ],
+                    "view": "timeSeries",
+                    "period": 60,
+                    "stat": "Average",
+                    "yAxis": {"left": {"min": 0, "max": 100, "label": "%"}},
+                },
+            })
+
+            # EC2 Network
+            widgets.append({
+                "type": "metric",
+                "x": 8, "y": y, "width": 8, "height": 6,
+                "properties": {
+                    "title": "Airflow EC2 Network",
+                    "region": region,
+                    "metrics": [
+                        ["AWS/EC2", "NetworkIn", "InstanceId", ec2_id,
+                         {"label": "In", "color": "#1f77b4"}],
+                        ["AWS/EC2", "NetworkOut", "InstanceId", ec2_id,
+                         {"label": "Out", "color": "#ff7f0e"}],
+                    ],
+                    "view": "timeSeries",
+                    "period": 300,
+                    "stat": "Sum",
+                    "yAxis": {"left": {"label": "Bytes"}},
+                },
+            })
+
+            # EC2 Status Checks
+            widgets.append({
+                "type": "metric",
+                "x": 16, "y": y, "width": 8, "height": 6,
+                "properties": {
+                    "title": "Airflow EC2 Status",
+                    "region": region,
+                    "metrics": [
+                        ["AWS/EC2", "StatusCheckFailed", "InstanceId", ec2_id,
+                         {"label": "Failed Checks", "color": "#d62728"}],
+                        ["AWS/EC2", "StatusCheckFailed_Instance", "InstanceId", ec2_id,
+                         {"label": "Instance Failed", "color": "#ff7f0e"}],
+                        ["AWS/EC2", "StatusCheckFailed_System", "InstanceId", ec2_id,
+                         {"label": "System Failed", "color": "#9467bd"}],
+                    ],
+                    "view": "timeSeries",
+                    "period": 300,
+                    "stat": "Maximum",
                 },
             })
 

@@ -479,6 +479,7 @@ dashboard = SystemDashboard(
     queue_name=keywords_queue.queue.name,
     dlq_name=keywords_queue.dlq.name,
     nat_gateway_id=vpc.nat_gateway.id,
+    ec2_instance_id=airflow_instance.instance.id if airflow_instance else None,
     region="us-east-2",
 )
 
