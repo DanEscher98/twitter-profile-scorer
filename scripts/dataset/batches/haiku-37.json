@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "yogesh_kalkonde",
+    "label": null,
+    "reason": "Public health researcher on health equity - strong qualitative research indicators"
+  },
+  {
+    "handle": "CphpQmul",
+    "label": null,
+    "reason": "Centre for Public Health & Policy suggests academic health research, limited bio detail"
+  },
+  {
+    "handle": "Emily_Vogels",
+    "label": true,
+    "reason": "Psychology PhD, statistics interest - clear psychology researcher"
+  },
+  {
+    "handle": "TCSjournalSAGE",
+    "label": true,
+    "reason": "Theory/Culture/Society journal; high-signal for qualitative sociology research"
+  },
+  {
+    "handle": "CKrubiner",
+    "label": null,
+    "reason": "Bioethicist in global health policy, possible qualitative research but policy focus suggests mixed orientation."
+  },
+  {
+    "handle": "MENAResearcher",
+    "label": null,
+    "reason": "PhD with multiple degrees, education focus but bio vague"
+  },
+  {
+    "handle": "odonnellnic",
+    "label": null,
+    "reason": "Media psychology and public health researcher; psychology background may involve qualitative but not explicitly stated"
+  },
+  {
+    "handle": "HCI_researcher",
+    "label": null,
+    "reason": "Information technology focus; HCI can include qualitative but bio lacks methodology"
+  },
+  {
+    "handle": "KungfuPasmanda",
+    "label": null,
+    "reason": "Thematic analysis mentioned (qualitative method signal), AI in marketing at university but unclear research role"
+  },
+  {
+    "handle": "dpn_journal",
+    "label": true,
+    "reason": "Peer-reviewed journal on digital methodologies for psychiatry, quantitative methods focus"
+  },
+  {
+    "handle": "UCF_VAW",
+    "label": true,
+    "reason": "Violence Against Women cluster - high-signal topic for qualitative research"
+  },
+  {
+    "handle": "siobhanisa",
+    "label": null,
+    "reason": "Postdoc studying animal lives/welfare, qualitative ethnographic potential but non-human focus"
+  },
+  {
+    "handle": "liz_ackert",
+    "label": true,
+    "reason": "Social demographer on immigrant integration. Urban sociology suggests qualitative possibility."
+  },
+  {
+    "handle": "EngTchingPrCr",
+    "label": null,
+    "reason": "Journal on English literacy grounded in classrooms - qualitative-adjacent but publication/teaching focus"
+  },
+  {
+    "handle": "n_strole",
+    "label": null,
+    "reason": "University lecturer in postcolonial/migrant theatre research, qualitative humanities scholar"
+  },
+  {
+    "handle": "bingo_yu",
+    "label": null,
+    "reason": "UX researcher with PhD in HCI studying game communities - academic but UX/design rather than traditional qualitative research"
+  },
+  {
+    "handle": "ykucheva",
+    "label": null,
+    "reason": "Sociologist demographer studying housing, social focus suggests qualitative work"
+  },
+  {
+    "handle": "gradunav",
+    "label": true,
+    "reason": "Public discourse research project. Discourse analysis, pragmatics, narrative—qualitative research indicators present."
+  },
+  {
+    "handle": "MadinaGazieva",
+    "label": null,
+    "reason": "PhD researcher with political ecology focus on smallholders; likely qualitative but domain unclear"
+  },
+  {
+    "handle": "NVPoco",
+    "label": true,
+    "reason": "PGR-led postcolonial studies network, academic research network"
+  },
+  {
+    "handle": "BrendanKORourke",
+    "label": null,
+    "reason": "Academic with discourse analysis interest. Focus on business/economics rather than people-centered qualitative research."
+  },
+  {
+    "handle": "JuliaChenSankey",
+    "label": null,
+    "reason": "Public health assistant professor, health equity focus - health equity work often includes qualitative"
+  },
+  {
+    "handle": "GHSP_Tampere",
+    "label": null,
+    "reason": "Public health/policy focus with research community, but unclear if qualitative methodology"
+  },
+  {
+    "handle": "Kostic86",
+    "label": true,
+    "reason": "Ethnography-driven UX researcher; explicit qualitative methodology + human-centered design"
+  },
+  {
+    "handle": "Psy_Researcher",
+    "label": true,
+    "reason": "Psychology professor and researcher, likely conducts research but methodology unclear"
+  },
+  {
+    "handle": "JoshLTrigg",
+    "label": true,
+    "reason": "Behavioral scientist and public health researcher; behavioral science tradition includes qualitative methods"
+  },
+  {
+    "handle": "DrMayAlGhamdi1",
+    "label": null,
+    "reason": "Assistant Professor English Literature, postcolonial/medical humanities, qualitative literary research"
+  },
+  {
+    "handle": "LeeLee_Ellis",
+    "label": null,
+    "reason": "Health policy bioethicist, likely qualitative research methods"
+  },
+  {
+    "handle": "DHSRP_ANU",
+    "label": true,
+    "reason": "Health services research dept with focus on population health; likely mixed methods but leaning quantitative"
+  },
+  {
+    "handle": "HealthHistLiv",
+    "label": true,
+    "reason": "Academic project on health policymaking, likely involves qualitative historical research methods"
+  }
+]

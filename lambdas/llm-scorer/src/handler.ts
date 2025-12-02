@@ -48,7 +48,7 @@ interface LoadedAudienceConfig {
  * Load audience config from JSON file.
  * Returns both the config and the resolved config name (for DB storage).
  */
-function loadAudienceConfig(configName: string = "thelai_customers.v1"): LoadedAudienceConfig {
+function loadAudienceConfig(configName: string = "thelai_customers.v3"): LoadedAudienceConfig {
   // Try Lambda path first, then local path
   const paths = [
     join("/var/task", "audiences", `${configName}.json`),
@@ -84,7 +84,7 @@ function loadAudienceConfig(configName: string = "thelai_customers.v1"): LoadedA
  * This prevents duplicate labeling even if multiple Lambdas run simultaneously.
  */
 export const handler: Handler<LlmScorerEvent, LlmScorerResponse> = async (event) => {
-  const { model: modelAlias, batchSize = 25, audienceConfigPath = "thelai_customers.v1" } = event;
+  const { model: modelAlias, batchSize = 25, audienceConfigPath = "thelai_customers.v3" } = event;
 
   log.info("Starting labeling", { model: modelAlias, batchSize, audienceConfigPath });
 

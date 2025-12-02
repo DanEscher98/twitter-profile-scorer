@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "ADMBriggs",
+    "label": null,
+    "reason": "Public health policy focus; unclear if conducting qualitative human-subjects research vs policy work"
+  },
+  {
+    "handle": "admin_emeritus",
+    "label": false,
+    "reason": "Administrator/graduate student; no research affiliation or methodology indicated"
+  },
+  {
+    "handle": "AdnanNagrial",
+    "label": false,
+    "reason": "Clinical oncologist; clinical researcher focus, not qualitative human-subjects research"
+  },
+  {
+    "handle": "adomakoampofo",
+    "label": true,
+    "reason": "Professor African & Gender Studies; qualitative-aligned field with likely interview/ethnography work"
+  },
+  {
+    "handle": "adorasv",
+    "label": true,
+    "reason": "PhD candidate sociology & women/gender/sexuality studies; qualitative methodology field at Yale"
+  },
+  {
+    "handle": "AdrianaMorris90",
+    "label": false,
+    "reason": "Conference organizing company; not individual researcher, organizational account"
+  },
+  {
+    "handle": "adriankasito",
+    "label": false,
+    "reason": "Statistician/data scientist; quantitative focus, no qualitative human-subjects research"
+  },
+  {
+    "handle": "adriennedwoods",
+    "label": true,
+    "reason": "Senior education researcher @SRI; education research with disability focus suggests qualitative methods"
+  },
+  {
+    "handle": "AdrienneStrong",
+    "label": true,
+    "reason": "Medical anthropologist; maternal health ethnography explicitly mentioned; qualitative fieldwork"
+  },
+  {
+    "handle": "ADrugResearcher",
+    "label": null,
+    "reason": "Drug anthropology/history focus; unclear if conducting empirical qualitative research vs theory"
+  },
+  {
+    "handle": "advcardiohealth",
+    "label": false,
+    "reason": "Organization account; partnership focused on policy, not individual researcher"
+  },
+  {
+    "handle": "ADVENTURE_LCR",
+    "label": false,
+    "reason": "Business support organization; not individual researcher"
+  },
+  {
+    "handle": "advocatedeejay",
+    "label": true,
+    "reason": "Postdoc Centre for Gender and Africa Studies; likely qualitative human-subjects research"
+  },
+  {
+    "handle": "AdvScientists",
+    "label": false,
+    "reason": "Non-profit organization account; not individual researcher"
+  },
+  {
+    "handle": "AedesResearcher",
+    "label": false,
+    "reason": "Vector biology/microscopy technician; biomedical/quantitative focus, not qualitative"
+  },
+  {
+    "handle": "aejmc_ccs",
+    "label": false,
+    "reason": "Academic division/organizational account; not individual researcher"
+  },
+  {
+    "handle": "aejochim",
+    "label": null,
+    "reason": "Political scientist/education researcher; insufficient bio detail on methods or populations"
+  },
+  {
+    "handle": "aetiology",
+    "label": false,
+    "reason": "Infectious disease epidemiologist; quantitative epidemiology focus, not qualitative"
+  },
+  {
+    "handle": "AFAF_freespeech",
+    "label": false,
+    "reason": "Academic freedom advocacy organization; not individual researcher"
+  },
+  {
+    "handle": "AFAF_QMUL",
+    "label": false,
+    "reason": "University branch of advocacy group; organizational account, not individual"
+  },
+  {
+    "handle": "Affect_Finance",
+    "label": false,
+    "reason": "Committee within professional association; organizational account, not individual"
+  },
+  {
+    "handle": "Afghan_DNA",
+    "label": false,
+    "reason": "Ethnography/genetics project account; unclear if individual or organizational"
+  },
+  {
+    "handle": "Afghan_Policy",
+    "label": false,
+    "reason": "Crisis analyst; policy focus without indication of qualitative human-subjects research"
+  },
+  {
+    "handle": "AfHealth_Policy",
+    "label": false,
+    "reason": "Health policy platform; organizational account, not individual researcher"
+  },
+  {
+    "handle": "Afigdaniel",
+    "label": true,
+    "reason": "Research professor NIEER; early education/families research typically involves qualitative methods"
+  },
+  {
+    "handle": "aflyingpaloma",
+    "label": false,
+    "reason": "Vague bio; minimal information, unclear research focus or methods"
+  },
+  {
+    "handle": "afozsn",
+    "label": false,
+    "reason": "Data scientist; quantitative focus, no qualitative research indication"
+  },
+  {
+    "handle": "Africanpolitics",
+    "label": null,
+    "reason": "Political science professor; insufficient detail on research methods or human-subjects focus"
+  },
+  {
+    "handle": "afshinfarzan",
+    "label": false,
+    "reason": "Cardiologist/researcher; clinical/biomedical focus, not qualitative human-subjects research"
+  },
+  {
+    "handle": "aft1521",
+    "label": false,
+    "reason": "Faculty union/organization; not individual researcher"
+  }
+]

@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "grauk64",
+    "label": true,
+    "reason": "Publishing professional, HIV/AIDS history, postcolonial/queer theory; humanities-based qualitative interests"
+  },
+  {
+    "handle": "b_researcher",
+    "label": true,
+    "reason": "PhD holder with researcher designation, likely academic researcher"
+  },
+  {
+    "handle": "JakubZN",
+    "label": true,
+    "reason": "Bioethicist with academic/teaching role, ethics research often qualitative, medicine/psychiatry focus"
+  },
+  {
+    "handle": "ps_hepburn",
+    "label": true,
+    "reason": "Sociologist with eviction lab; housing/inequality research likely includes qualitative components"
+  },
+  {
+    "handle": "Kennethgyamera",
+    "label": true,
+    "reason": "Education policy & curriculum PhD with epistemic justice focus; likely qualitative education researcher"
+  },
+  {
+    "handle": "nomorelines24",
+    "label": true,
+    "reason": "Academic in postcolonial studies, teaches, biographical/labor research; qualitative focus evident"
+  },
+  {
+    "handle": "USJ_online",
+    "label": true,
+    "reason": "Publishing journal across social sciences, likely qualitative research venue"
+  },
+  {
+    "handle": "Innate_immuno",
+    "label": true,
+    "reason": "Immunologist with PhD from Cambridge, explicit research credentials and discipline"
+  },
+  {
+    "handle": "CaseyHumbyrd",
+    "label": false,
+    "reason": "Orthopedic surgeon/bioethicist; clinical role without research leadership"
+  },
+  {
+    "handle": "DrMattWhittle",
+    "label": null,
+    "reason": "Lecturer in postcolonial studies and environmental humanities; academic but role and methodology unclear"
+  },
+  {
+    "handle": "PsychRes",
+    "label": true,
+    "reason": "Amsterdam UMC psychiatry research department account"
+  },
+  {
+    "handle": "IHPO_Manchester",
+    "label": null,
+    "reason": "Health policy research institute, interdisciplinary, organization studies signal qualitative potential"
+  },
+  {
+    "handle": "ElinorRennie",
+    "label": true,
+    "reason": "Professor at RMIT, ethnography and tools builder, metagov project involvement"
+  },
+  {
+    "handle": "SuasionStudies",
+    "label": true,
+    "reason": "PhD professor studying persuasion, argumentation, culture - qualitative research signals"
+  },
+  {
+    "handle": "KavitaShahArora",
+    "label": true,
+    "reason": "Ob/gyn bioethicist researcher with women's health focus, research role with bioethics suggests qualitative"
+  },
+  {
+    "handle": "robert_fisher1",
+    "label": true,
+    "reason": "Harvard Education doctoral candidate - education field supports qualitative work"
+  },
+  {
+    "handle": "InSIS",
+    "label": true,
+    "reason": "Institute for anthropology & ethnography - institutional alignment but not individual researcher"
+  },
+  {
+    "handle": "profkrishni",
+    "label": null,
+    "reason": "Ph.D., mixed methods ethnography, antiracism work. Qualitative methodology explicit but unclear if academic vs. consulting."
+  },
+  {
+    "handle": "jessdkant",
+    "label": true,
+    "reason": "Researcher + therapist + public health focus suggests qualitative health research, likely clinical/social"
+  },
+  {
+    "handle": "pregnancyethics",
+    "label": null,
+    "reason": "Ethics guidance on clinical research in pregnancy; NIH/Wellcome funded but lacks explicit qualitative methodology signals"
+  },
+  {
+    "handle": "JanAhrend",
+    "label": null,
+    "reason": "UX researcher at YouTube, research focus but not academic/qualitative social research"
+  },
+  {
+    "handle": "TheBiosocialPod",
+    "label": true,
+    "reason": "UCL PhD student, biosocial topic bridges qualitative social research with biology"
+  },
+  {
+    "handle": "jenniferowrites",
+    "label": true,
+    "reason": "Education policy doctoral candidate, editor, writer - strong education research signals with publication role"
+  },
+  {
+    "handle": "CiaraPeeb",
+    "label": true,
+    "reason": "Criminology & inequalities doctoral candidate; qualitative-adjacent topics, sociology tradition"
+  },
+  {
+    "handle": "ProfPennyCook",
+    "label": null,
+    "reason": "Public health researcher, sexual health and alcohol research - research domains with qualitative traditions"
+  },
+  {
+    "handle": "BustingFree",
+    "label": null,
+    "reason": "Arts researcher using discourse analysis. Qualitative focus but discipline and research scope somewhat unclear."
+  },
+  {
+    "handle": "mitalad",
+    "label": true,
+    "reason": "Associate Lecturer Media Studies, race/ethnicity/postcolonial network chair, qualitative media researcher"
+  },
+  {
+    "handle": "paul_duffill",
+    "label": null,
+    "reason": "Communication and peace studies academic. Research-focused but methodology unclear."
+  },
+  {
+    "handle": "iShuklShambhavi",
+    "label": true,
+    "reason": "Media researcher and doctoral candidate, qualitative-friendly discipline with explicit researcher role"
+  },
+  {
+    "handle": "UKDRI_ECR",
+    "label": true,
+    "reason": "Early career researchers network, UK dementia research institute"
+  }
+]

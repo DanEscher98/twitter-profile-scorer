@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "at_psychologist",
+    "label": null,
+    "reason": "Developmental psychologist with neurodivergence focus; awareness/education emphasis unclear if conducting qualitative research"
+  },
+  {
+    "handle": "ATACCFaculty",
+    "label": false,
+    "reason": "Organization account (multidisciplinary faculty), not individual researcher"
+  },
+  {
+    "handle": "ATantBrownPhD",
+    "label": null,
+    "reason": "PhD candidate in terrorism/security; qualitative methods not explicitly stated"
+  },
+  {
+    "handle": "atata_atatatata",
+    "label": false,
+    "reason": "Medical oncologist focused on clinical care, not human-subjects qualitative research"
+  },
+  {
+    "handle": "atavist_13",
+    "label": null,
+    "reason": "PhD student in digital media/Indian politics; some qualitative potential but methods unclear"
+  },
+  {
+    "handle": "atiabu",
+    "label": null,
+    "reason": "Education researcher/demographer; demographics suggest quantitative but 'education' could include qualitative work"
+  },
+  {
+    "handle": "atlantlitwomen",
+    "label": false,
+    "reason": "Organization/cultural program account, not individual researcher"
+  },
+  {
+    "handle": "ATMediaMag",
+    "label": false,
+    "reason": "Publication/media account, not individual qualitative researcher"
+  },
+  {
+    "handle": "ATorkamani",
+    "label": false,
+    "reason": "Translational scientist/bioinformatician; quantitative genomics focus, no human-subjects qualitative component"
+  },
+  {
+    "handle": "atwater_brett",
+    "label": false,
+    "reason": "Clinical director/physician in electrophysiology; clinical role without qualitative research indication"
+  },
+  {
+    "handle": "AtypicalPsychol",
+    "label": null,
+    "reason": "Clinical psychologist with PTSD/telehealth focus; clinical practice vs research involvement unclear"
+  },
+  {
+    "handle": "AUAcadSupport",
+    "label": false,
+    "reason": "Institutional support service account, not individual researcher"
+  },
+  {
+    "handle": "aub_hes",
+    "label": false,
+    "reason": "Scholarship program account, not individual researcher"
+  },
+  {
+    "handle": "aub_wgs",
+    "label": false,
+    "reason": "Academic program account, not individual researcher"
+  },
+  {
+    "handle": "AubmcPsychiatry",
+    "label": false,
+    "reason": "Institutional psychiatry department account, not individual researcher"
+  },
+  {
+    "handle": "aubombarely",
+    "label": false,
+    "reason": "Genobotanist/bioinformatician; plant domestication study uses quantitative molecular methods, not qualitative"
+  },
+  {
+    "handle": "AubreyGabelCU",
+    "label": null,
+    "reason": "French professor in literature/gender studies; could involve qualitative textual analysis but role unclear"
+  },
+  {
+    "handle": "AUBSOAM",
+    "label": false,
+    "reason": "Departmental account, not individual researcher"
+  },
+  {
+    "handle": "AUCRGC",
+    "label": false,
+    "reason": "Institutional department account, not individual researcher"
+  },
+  {
+    "handle": "Audrey2110",
+    "label": false,
+    "reason": "Doctoral candidate in strategic leadership, retired; insufficient research info"
+  },
+  {
+    "handle": "AudreyDorelien",
+    "label": null,
+    "reason": "Demographer studying population/environment; epidemiology focus suggests quantitative methods but population focus mixed"
+  },
+  {
+    "handle": "AurelieOlivesi",
+    "label": true,
+    "reason": "Media discourse analysis + gender studies explicitly qualitative methodology in communication sciences"
+  },
+  {
+    "handle": "AurelNz",
+    "label": false,
+    "reason": "Senior data scientist; quantitative focus without human-subjects qualitative research indication"
+  },
+  {
+    "handle": "Auroraessayss",
+    "label": false,
+    "reason": "Essay/academic writing service business account, not individual researcher"
+  },
+  {
+    "handle": "AusJPolSci",
+    "label": false,
+    "reason": "Journal account, not individual researcher"
+  },
+  {
+    "handle": "AustinScholar",
+    "label": false,
+    "reason": "Education commentator/writer without academic affiliation or research indication; appears advocacy-focused"
+  },
+  {
+    "handle": "aut_psych",
+    "label": null,
+    "reason": "Autistic psychologist with therapy background; clinical focus vs qualitative research involvement unclear"
+  },
+  {
+    "handle": "AuthorTCManning",
+    "label": false,
+    "reason": "Military veteran/fiction author; not academic researcher"
+  },
+  {
+    "handle": "AuxaneBoch",
+    "label": null,
+    "reason": "Doctoral candidate in virtual reality, social robots, AI ethics; could involve qualitative but methods unclear"
+  },
+  {
+    "handle": "AverageCARef",
+    "label": false,
+    "reason": "Sports conference referee, not researcher"
+  }
+]

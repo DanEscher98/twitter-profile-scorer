@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "EthnoForumGSE",
+    "label": false,
+    "reason": "Organization/forum account, not individual researcher"
+  },
+  {
+    "handle": "Nisa00",
+    "label": null,
+    "reason": "STS scholar, PI status suggests research but STS is theory-focused; unclear if empirical fieldwork"
+  },
+  {
+    "handle": "LexPuliceFarrow",
+    "label": true,
+    "reason": "Gender & sexuality researcher, doctoral candidate; qualitative field with human-centered focus"
+  },
+  {
+    "handle": "DesRochersJake",
+    "label": true,
+    "reason": "PhD candidate in sex education/gender/sexuality; education research typically qualitative"
+  },
+  {
+    "handle": "Jen_Breck",
+    "label": true,
+    "reason": "Explicitly states 'grounded theory' and qualitative knowledge mobilisation; AHP research"
+  },
+  {
+    "handle": "Caitlin_Procter",
+    "label": true,
+    "reason": "Anthropologist with book on inclusive ethnography; explicit ethnographic methodology"
+  },
+  {
+    "handle": "Dra_Wallace",
+    "label": true,
+    "reason": "Health equity scholar at Duke; public health researcher studying populations/disparities"
+  },
+  {
+    "handle": "leclainchepiel",
+    "label": null,
+    "reason": "STS/sociology on body materials; primarily theoretical/conceptual rather than empirical fieldwork"
+  },
+  {
+    "handle": "PatchworkEthno",
+    "label": false,
+    "reason": "Project/collaborative account, not individual researcher"
+  },
+  {
+    "handle": "VeraTensTXL",
+    "label": true,
+    "reason": "Grounded theory methodologist (Charmaz); qualitative research focus explicit"
+  },
+  {
+    "handle": "rashmi_sings",
+    "label": true,
+    "reason": "Political ethnography researcher; assistant prof studying gender/politics qualitatively"
+  },
+  {
+    "handle": "geofffhughes",
+    "label": true,
+    "reason": "Teacher ethnographer; lecturer in anthropology with explicit ethnographic methodology"
+  },
+  {
+    "handle": "ShawntaeMitchum",
+    "label": true,
+    "reason": "Black sociologist, doctoral candidate; sociology with human-centered focus"
+  },
+  {
+    "handle": "Angela_SocSci",
+    "label": true,
+    "reason": "Global ethnography researcher; associate prof in sociology with qualitative focus"
+  },
+  {
+    "handle": "Ethnography911",
+    "label": true,
+    "reason": "Medical anthropologist; associate prof conducting ethnographic research on health/culture"
+  },
+  {
+    "handle": "MancEthnography",
+    "label": false,
+    "reason": "Network/working group account, not individual researcher"
+  },
+  {
+    "handle": "lynnsardinha",
+    "label": true,
+    "reason": "Feminist public health researcher on violence prevention; qualitative health research"
+  },
+  {
+    "handle": "juliaehbrown",
+    "label": true,
+    "reason": "Anthropologist & bioethicist at UCSF; anthropology implies qualitative fieldwork"
+  },
+  {
+    "handle": "DrHelenTracey",
+    "label": true,
+    "reason": "Explicitly states ethnography/sociology; researching lived experience qualitatively"
+  },
+  {
+    "handle": "KNakray",
+    "label": true,
+    "reason": "Gender comparative sociologist; social policy/public health research on populations"
+  },
+  {
+    "handle": "EstelaVasquezG",
+    "label": true,
+    "reason": "Medical sociologist; assistant prof in family medicine studying health/education qualitatively"
+  },
+  {
+    "handle": "ManxomeMia",
+    "label": true,
+    "reason": "Critical medical humanities researcher; STS with embodied health experience focus"
+  },
+  {
+    "handle": "DrLizAparicio",
+    "label": true,
+    "reason": "Associate prof @UMD studying child abuse/youth sexual health; qualitative social work/public health"
+  },
+  {
+    "handle": "EmmakJackson",
+    "label": true,
+    "reason": "Sociologist conducting ethnography on cities/belonging; explicit ethnographic methodology"
+  },
+  {
+    "handle": "LAethnography",
+    "label": false,
+    "reason": "Seminar/forum account, not individual researcher"
+  },
+  {
+    "handle": "prison_research",
+    "label": true,
+    "reason": "Senior research fellow studying prison populations; human-subjects research focus"
+  },
+  {
+    "handle": "JenjiraYahirun",
+    "label": true,
+    "reason": "Sociologist studying families/migration/health; qualitative focus on lived experience"
+  },
+  {
+    "handle": "joecropp",
+    "label": true,
+    "reason": "Ethnographer of humanitarianism & conflict; explicit ethnographic research methodology"
+  },
+  {
+    "handle": "hc_clancy",
+    "label": true,
+    "reason": "Doctoral candidate in social work; qualitative field with human-centered focus"
+  },
+  {
+    "handle": "solveigsuess",
+    "label": null,
+    "reason": "Filmmaker/researcher; political ecology/STS but unclear if conducting empirical qualitative research"
+  }
+]

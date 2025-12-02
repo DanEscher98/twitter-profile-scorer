@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "rolandjthorpe",
+    "label": null,
+    "reason": "Public health researcher - field often includes qualitative but no method specified"
+  },
+  {
+    "handle": "TheUnrlyScholar",
+    "label": null,
+    "reason": "Doctoral candidate at University of Michigan-Flint; potential researcher but no qualitative methodology signals"
+  },
+  {
+    "handle": "ZalNishat",
+    "label": false,
+    "reason": "Policy analyst and researcher, academic fellowship but policy-focused, unclear qualitative methods"
+  },
+  {
+    "handle": "DannyProl",
+    "label": false,
+    "reason": "CS education researcher; likely quantitative/technical focus rather than qualitative"
+  },
+  {
+    "handle": "EthicsdoctorP",
+    "label": null,
+    "reason": "Oncologist bioethicist researcher but clinical role primary, bioethics interest suggests some qualitative work"
+  },
+  {
+    "handle": "UWA_EMCRN",
+    "label": false,
+    "reason": "Institutional researcher development account; no specific qualitative indicators"
+  },
+  {
+    "handle": "Lady_L_James",
+    "label": null,
+    "reason": "DrPH with policy/health systems focus; practitioner-researcher suggests qualitative policy analysis likely"
+  },
+  {
+    "handle": "hedwig_lee",
+    "label": null,
+    "reason": "Sociologist-demographer, social inequality focus but quantitative research tradition in sociology/demography"
+  },
+  {
+    "handle": "HPRScholars",
+    "label": null,
+    "reason": "Doctoral training program in health policy research, variable methodologies"
+  },
+  {
+    "handle": "kbilimoria",
+    "label": null,
+    "reason": "MD, surgical education/QI researcher; clinical background, likely quantitative outcomes focus"
+  },
+  {
+    "handle": "CourtneySurveys",
+    "label": null,
+    "reason": "PhD holder at research orgs - some academic signals but UX focus is quantitative"
+  },
+  {
+    "handle": "draditipaul",
+    "label": null,
+    "reason": "Professor and researcher but bio focuses on immigration advising, research area unclear"
+  },
+  {
+    "handle": "sonaliwl",
+    "label": null,
+    "reason": "Public health researcher in infectious/maternal health. Bio lacks explicit qualitative markers."
+  },
+  {
+    "handle": "thatgirlevolved",
+    "label": null,
+    "reason": "PhD in Psychology with research background, freelance writing focus"
+  },
+  {
+    "handle": "GuidingVisions",
+    "label": null,
+    "reason": "Youth development doctoral candidate; social sciences context but role/methodology unclear"
+  },
+  {
+    "handle": "kunashni_psych",
+    "label": null,
+    "reason": "Sports psychologist with neuroscience scholar label; insufficient qualitative methodology signals despite psychology background."
+  },
+  {
+    "handle": "DPU_FSC",
+    "label": null,
+    "reason": "Multi-method cross-disciplinary research collaborative; suggests qualitative inclusion but unclear"
+  },
+  {
+    "handle": "KadrieNama",
+    "label": null,
+    "reason": "Doctoral candidate studying genocide/mass atrocity; likely historical/ethnographic methods but unclear"
+  },
+  {
+    "handle": "MaryAndreeAG",
+    "label": null,
+    "reason": "Public health researcher at NYU; insufficient detail on methodology; could be quantitative or mixed"
+  },
+  {
+    "handle": "zimmbodilion",
+    "label": null,
+    "reason": "HIV advocate, demographer. Evaluation work could be qualitative but unclear."
+  },
+  {
+    "handle": "PavvStar",
+    "label": null,
+    "reason": "DrPH candidate global TB research - public health but lacks qualitative methodology signals"
+  },
+  {
+    "handle": "DavidResnik1962",
+    "label": null,
+    "reason": "Bioethicist at NIEHS/NIH. Research-focused but bioethics is often not qualitative-dominant."
+  },
+  {
+    "handle": "Louisecombes",
+    "label": null,
+    "reason": "Dramatherapist + clinical researcher, possible qualitative methods"
+  },
+  {
+    "handle": "fcstorontomet",
+    "label": null,
+    "reason": "Faculty of Community Services - possible social research but unclear focus"
+  },
+  {
+    "handle": "awparocks",
+    "label": null,
+    "reason": "Academic women in public administration network; social science field with potential qualitative work"
+  },
+  {
+    "handle": "SarahLaditka",
+    "label": null,
+    "reason": "Gerontologist demographer, interdisciplinary but quantitative-leaning field"
+  },
+  {
+    "handle": "ShebaniMD",
+    "label": null,
+    "reason": "Psychiatry faculty clinical researcher on mental health; possible but lacks qualitative interview/ethnography signals"
+  },
+  {
+    "handle": "DrSalimKhan",
+    "label": null,
+    "reason": "Public health educator and bioethicist, possible qualitative research but clinical focus unclear"
+  },
+  {
+    "handle": "HealthPolicyOH",
+    "label": null,
+    "reason": "Policy institute providing analysis, research-adjacent but not academic"
+  },
+  {
+    "handle": "NanciGuestRDPhD",
+    "label": null,
+    "reason": "Sports nutrition scientist, quantitative/biomedical focus, not qualitative methodology"
+  }
+]

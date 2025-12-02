@@ -21,5 +21,6 @@
     "Organization/company account (not individual)",
     "No research connection whatsoever (sports, jorunalist, marketer, influencer, etc.)"
   ],
-  "domainContext": "Target profiles conduct human-subjects research requiring: participant recruitment and tracking, interview/focus group scheduling, transcription services (including multilingual), IRB/HIPPA compliance documentation, secure storage for sensitive qualitative data, and team collaboration on coding/analysis. They study populations and phenomena through direct human interaction - interviews, observations, focus groups - not purely through surveys, databases, or textual analysis."
+  "domainContext": "Target profiles conduct human-subjects research requiring: participant recruitment and tracking, interview/focus group scheduling, transcription services (including multilingual), IRB/HIPPA compliance documentation, secure storage for sensitive qualitative data, and team collaboration on coding/analysis. They study populations and phenomena through direct human interaction - interviews, observations, focus groups - not purely through surveys, databases, or textual analysis.",
+  "notes": "[Final System Prompt: 745 tokens]"
 }

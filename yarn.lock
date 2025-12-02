@@ -1669,6 +1669,7 @@ __metadata:
     "@profile-scorer/has-scorer": "workspace:*"
     "@profile-scorer/llm-scoring": "workspace:*"
     "@profile-scorer/twitterx-api": "workspace:*"
+    "@toon-format/toon": "npm:^2.0.1"
     "@types/blessed": "npm:^0.1.26"
     "@types/cli-progress": "npm:^3.11.6"
     "@types/node": "npm:^24.10.1"

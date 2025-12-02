@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "ContactDataAide",
+    "label": null,
+    "reason": "PhD in public/social policy, could involve qualitative methods"
+  },
+  {
+    "handle": "neurodana",
+    "label": null,
+    "reason": "Clinical neuropsychologist with brain injury rehabilitation research. Psychology field has qualitative traditions; clinical translation ambiguous."
+  },
+  {
+    "handle": "DocVatsa",
+    "label": null,
+    "reason": "MD PhD, sports medicine research, limited qualitative indicators"
+  },
+  {
+    "handle": "PASTALondon",
+    "label": null,
+    "reason": "Case study research with institutional affiliations (IC_CEP), but appears epidemiological/survey-based rather than qualitative"
+  },
+  {
+    "handle": "RPR_Agile",
+    "label": null,
+    "reason": "Faculty burnout researcher/developer - applied research but burnout/organizational focus unclear if qualitative"
+  },
+  {
+    "handle": "kirst_morehouse",
+    "label": null,
+    "reason": "Psychology PhD on bias; psychology can involve qualitative methods; human-focused research"
+  },
+  {
+    "handle": "camresearcher",
+    "label": null,
+    "reason": "Student-run blog about postgraduate life in humanities, not individual researcher"
+  },
+  {
+    "handle": "SASSAK12",
+    "label": null,
+    "reason": "Community-based education/research with diverse students, but K-12 focus limits signal"
+  },
+  {
+    "handle": "ClaireJStandley",
+    "label": null,
+    "reason": "Infectious disease/public health researcher, likely mixed methods but no explicit qualitative methodology stated."
+  },
+  {
+    "handle": "HigherEduExpert",
+    "label": null,
+    "reason": "Higher education researcher and policy expert. Policy work often qualitative but could be quantitative."
+  },
+  {
+    "handle": "RotemElinav",
+    "label": false,
+    "reason": "Positive Psychology research - somewhat aligned but emphasis on practice"
+  },
+  {
+    "handle": "CSHPEJournal",
+    "label": null,
+    "reason": "Scholarship journal in health/PE curriculum, research publication focus"
+  },
+  {
+    "handle": "Marcela_Ospina",
+    "label": null,
+    "reason": "Anthropologist and service designer; anthropology background suggests qualitative methods but industry focus"
+  },
+  {
+    "handle": "StudiesOpen",
+    "label": null,
+    "reason": "Open science focus, diverse research environments, but not explicitly qualitative"
+  },
+  {
+    "handle": "jptheberge",
+    "label": null,
+    "reason": "Social scientist and cultural expert, qualitative research indicators present"
+  },
+  {
+    "handle": "SannaOjanpera",
+    "label": null,
+    "reason": "Doctoral candidate researching future of work, some qualitative potential but discipline unclear"
+  },
+  {
+    "handle": "DeryaTR_",
+    "label": true,
+    "reason": "Professor in biomedical engineering with immunology focus, clear academic credentials"
+  },
+  {
+    "handle": "LivResearcher",
+    "label": null,
+    "reason": "Research development organization, supports PhD students/staff but not researcher"
+  },
+  {
+    "handle": "nschwalbe",
+    "label": null,
+    "reason": "Public health strategist/researcher, advocate role suggests qualitative work likely"
+  },
+  {
+    "handle": "leaneramsoomar",
+    "label": null,
+    "reason": "Public health researcher - general profile, likely qualitative work possible"
+  },
+  {
+    "handle": "DrDavidRabin",
+    "label": null,
+    "reason": "Clinical researcher with psychedelic focus, psychiatry background. Limited qualitative signals."
+  },
+  {
+    "handle": "IKTR_Network",
+    "label": null,
+    "reason": "Knowledge translation research; possible qualitative components in implementation science"
+  },
+  {
+    "handle": "Psych_Celeste",
+    "label": null,
+    "reason": "Clinical psychologist researching identity/tech/behavior intersection"
+  },
+  {
+    "handle": "BrigidforSJ",
+    "label": null,
+    "reason": "Department Chair/Professor; academic role clear; policy analyst background; possible qualitative focus on policy/advocacy areas"
+  },
+  {
+    "handle": "michelle_monje",
+    "label": false,
+    "reason": "Neuroscientist/neuro-oncologist at Stanford - likely quantitative biomedical research"
+  },
+  {
+    "handle": "FoodieScience",
+    "label": null,
+    "reason": "Science communicator and journalist with PhD, not traditional academic researcher."
+  },
+  {
+    "handle": "UCSF_CFAR",
+    "label": null,
+    "reason": "NIH-funded interdisciplinary research center, could include qualitative work"
+  },
+  {
+    "handle": "warwickrssp",
+    "label": null,
+    "reason": "Institutional researcher development account; supports research and career development"
+  },
+  {
+    "handle": "lmm_ueller",
+    "label": null,
+    "reason": "Science studies & history; individual researcher but science studies typically quantitative-leaning"
+  },
+  {
+    "handle": "badacademic",
+    "label": null,
+    "reason": "Writer on drugs/harm reduction; qualitative topics (lived experience, narrative) but not explicit academic research role"
+  }
+]

@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "20b_sai",
+    "label": null,
+    "reason": "Builder/researcher title vague; no qualitative methodology or population research signals"
+  },
+  {
+    "handle": "21st_Psychiatry",
+    "label": false,
+    "reason": "Clinical psychiatrist; no academic research affiliation or qualitative methodology"
+  },
+  {
+    "handle": "2HighCoverage",
+    "label": false,
+    "reason": "Data scientist/sports analyst; quantitative focus, no qualitative research"
+  },
+  {
+    "handle": "305Rafi",
+    "label": true,
+    "reason": "Assistant Professor Film & Media Studies; nonfiction filmmaking implies qualitative human-centered research"
+  },
+  {
+    "handle": "314UXHolly",
+    "label": false,
+    "reason": "UX researcher in industry/design; not academic qualitative researcher"
+  },
+  {
+    "handle": "324_B21",
+    "label": false,
+    "reason": "Biologist/bioethicist/virologist; no clear qualitative methodology or population research"
+  },
+  {
+    "handle": "3DiMMUNE",
+    "label": false,
+    "reason": "Biotech co-founder; industry focus, no academic qualitative research"
+  },
+  {
+    "handle": "3DRimmaMZ",
+    "label": false,
+    "reason": "MD clinical researcher; medical/clinical role without qualitative methodology emphasis"
+  },
+  {
+    "handle": "3rdWavePsych",
+    "label": true,
+    "reason": "Clinical psychologist community psychology social justice; likely qualitative research focus"
+  },
+  {
+    "handle": "3rdyeartutor",
+    "label": false,
+    "reason": "Radiography lecturer; technical healthcare education, not qualitative research"
+  },
+  {
+    "handle": "4ChemEvolution",
+    "label": false,
+    "reason": "Organization account; not individual researcher"
+  },
+  {
+    "handle": "4chProject",
+    "label": false,
+    "reason": "Project organization account; not individual researcher"
+  },
+  {
+    "handle": "4lexzee",
+    "label": false,
+    "reason": "Product/UX designer; not academic qualitative researcher"
+  },
+  {
+    "handle": "50MajorEconmsts",
+    "label": false,
+    "reason": "Organization/publication account; not individual"
+  },
+  {
+    "handle": "510nm",
+    "label": null,
+    "reason": "Bio too vague; 'científica' mentioned but no clear research affiliation"
+  },
+  {
+    "handle": "666SpookyScary",
+    "label": false,
+    "reason": "Personal fan account; no research connection"
+  },
+  {
+    "handle": "79ka2011",
+    "label": false,
+    "reason": "Endocrinologist intensivist; clinical role without qualitative research focus"
+  },
+  {
+    "handle": "7inSatanic",
+    "label": false,
+    "reason": "Parody/roleplay account; not researcher"
+  },
+  {
+    "handle": "8Joan_O",
+    "label": false,
+    "reason": "Prospect research/fundraising; not academic qualitative researcher"
+  },
+  {
+    "handle": "903124S",
+    "label": false,
+    "reason": "Data scientist; quantitative focus, no qualitative research"
+  },
+  {
+    "handle": "9LdROhjZE56jSh9",
+    "label": false,
+    "reason": "Postdoc/PhD candidate AI embodied agents; computational/quantitative, not qualitative"
+  },
+  {
+    "handle": "a_blasimme",
+    "label": false,
+    "reason": "Bioethicist; theoretical scholar without empirical fieldwork signal"
+  },
+  {
+    "handle": "a_konstorum",
+    "label": false,
+    "reason": "Applied mathematician/data scientist/bioinformatician; quantitative focus"
+  },
+  {
+    "handle": "A_Man_of_Dust",
+    "label": true,
+    "reason": "PhD communication & international criminal law; communication studies fits qualitative research"
+  },
+  {
+    "handle": "a_nunyola",
+    "label": true,
+    "reason": "PhD Sociology/Gender Studies; research on racism; qualitative fieldwork foundation"
+  },
+  {
+    "handle": "a9dph",
+    "label": false,
+    "reason": "Haematologist immunologist; clinical/technical role without qualitative research"
+  },
+  {
+    "handle": "AAALHG_Studies",
+    "label": false,
+    "reason": "Educational program/organization; not individual researcher"
+  },
+  {
+    "handle": "AAD_Edmonton",
+    "label": false,
+    "reason": "School program account; not individual researcher"
+  },
+  {
+    "handle": "aahci",
+    "label": false,
+    "reason": "Organization account; not individual researcher"
+  },
+  {
+    "handle": "aaishadadipatel",
+    "label": null,
+    "reason": "Media studies lecturer/writer/journalist; unclear if conducting academic qualitative research"
+  }
+]

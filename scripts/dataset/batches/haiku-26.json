@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "PolEthnography",
+    "label": true,
+    "reason": "Centre for Political Ethnography; university-based research institution; explicit focus on ethnographic methodology and qualitative research"
+  },
+  {
+    "handle": "DanielZBuchman",
+    "label": false,
+    "reason": "Bioethicist with academic affiliation; ethics may involve qualitative work but unclear"
+  },
+  {
+    "handle": "jvandernaald",
+    "label": true,
+    "reason": "Sociology doctoral candidate - sociology is qualitative-heavy field with strong signals"
+  },
+  {
+    "handle": "SaraAnnWylie",
+    "label": true,
+    "reason": "Associate Professor STS co-founder PublicLab; qualitative environmental research"
+  },
+  {
+    "handle": "ve_journal",
+    "label": true,
+    "reason": "Visual ethnography journal, core qualitative/ethnographic research"
+  },
+  {
+    "handle": "oxford_anthro",
+    "label": true,
+    "reason": "Oxford anthropology department; ethnography and research at elite institution"
+  },
+  {
+    "handle": "EmilyMThomson",
+    "label": true,
+    "reason": "PhD researcher, supported self-management study suggests qualitative health research, mental health lecturer"
+  },
+  {
+    "handle": "cm_ulrich",
+    "label": true,
+    "reason": "Nursing bioethics professor; nursing science with ethics focus, strong qualitative research alignment"
+  },
+  {
+    "handle": "weilanch",
+    "label": true,
+    "reason": "Professor, early education researcher, policy focus, co-director of research center"
+  },
+  {
+    "handle": "fe_researcher",
+    "label": true,
+    "reason": "PhD researcher in inclusive/participatory research design. Clear qualitative methodology and community focus."
+  },
+  {
+    "handle": "GTinAsia",
+    "label": true,
+    "reason": "Grounded Theory network - explicit qualitative methodology focus, academic coordination"
+  },
+  {
+    "handle": "m_waligora",
+    "label": true,
+    "reason": "Bioethicist professor with research ethics focus, Harvard affiliation, strong qualitative signals"
+  },
+  {
+    "handle": "ptindana",
+    "label": null,
+    "reason": "Global health bioethicist focused on research ethics; global health context suggests possible qualitative work with vulnerable populations but no explicit methodology."
+  },
+  {
+    "handle": "michelelobo29",
+    "label": true,
+    "reason": "Geographer studying postcolonial studies, race, climate - clear qualitative research"
+  },
+  {
+    "handle": "UJEspinoza",
+    "label": true,
+    "reason": "Assistant Professor anthropologist, bioethics research"
+  },
+  {
+    "handle": "UofT_FIFSW",
+    "label": true,
+    "reason": "Social work faculty; high-signal domain for qualitative research with populations"
+  },
+  {
+    "handle": "javeedsukhera",
+    "label": true,
+    "reason": "Psychiatrist, physician, and social scientist. Medical educator with humanistic/social science orientation. Likely conducts qualitative research."
+  },
+  {
+    "handle": "Wilkinson2S",
+    "label": true,
+    "reason": "Bioethicist PI with reproductive research focus; ethics research often involves qualitative methods and participant engagement."
+  },
+  {
+    "handle": "lisa_k_wright",
+    "label": true,
+    "reason": "Legal studies doctoral candidate studying harm reduction practices; qualitative policy/practice research focus"
+  },
+  {
+    "handle": "MarceMontanaro",
+    "label": true,
+    "reason": "PhD student in human rights, decolonial/postcolonial studies, feminist; qualitative legal/humanities research"
+  },
+  {
+    "handle": "morgancarpenter",
+    "label": true,
+    "reason": "Bioethicist professor; human rights defender and interaction organization leadership suggest qualitative focus"
+  },
+  {
+    "handle": "UANativeStudies",
+    "label": true,
+    "reason": "Indigenous studies with community engagement & teaching research focus; qualitative-heavy"
+  },
+  {
+    "handle": "PCOS_Researcher",
+    "label": true,
+    "reason": "PhD in health economics, health policy research, clear academic credentials"
+  },
+  {
+    "handle": "YNPierce",
+    "label": true,
+    "reason": "Professor, theologian, Black Church historian - likely qualitative researcher in humanities."
+  },
+  {
+    "handle": "transcultpsych",
+    "label": true,
+    "reason": "Peer-reviewed scientific journal in cultural psychiatry, explicit research publication"
+  },
+  {
+    "handle": "ContinuumJMCS",
+    "label": true,
+    "reason": "Peer-reviewed journal in media & cultural studies; cultural studies discipline favors qualitative work"
+  },
+  {
+    "handle": "MichiganCEAL",
+    "label": true,
+    "reason": "Community-based participatory research with underserved populations; CBPR is qualitative-adjacent"
+  },
+  {
+    "handle": "lawrencepatihis",
+    "label": true,
+    "reason": "Psychological scientist at UC Irvine with memory research expertise and publications"
+  },
+  {
+    "handle": "TheBusyOwl",
+    "label": true,
+    "reason": "Philosopher of science/mind/psychiatry with bioethics, qualitative research oriented"
+  },
+  {
+    "handle": "ResearcherKev",
+    "label": true,
+    "reason": "Social psychology PhD studying race/SES biases. Likely qualitative research on healthcare and policing."
+  }
+]

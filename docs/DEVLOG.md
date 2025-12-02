@@ -210,12 +210,12 @@ const ScoreItemSchema = z.object({
 });
 ```
 
-- Original approach: treat this as a ranking problem—first gather profiles,
+- Original approach: "Treat this as a ranking problem—first gather profiles,
 then cheaply filter junk with HAS, then apply an initial LLM-based label. Keep
 numerical data (e.g., followers) out of the LLM prompt to avoid skewing its
 output. Provide the LLM with batches of 25 TOON profiles to limit drift.
 Combine LLM scores (text-based) with HAS (numeric/structural) for a more stable
-final score. That was the initial design hypothesis.
+final score." That was the initial design hypothesis.
 
 
 ## What was done then

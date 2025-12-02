@@ -16,6 +16,7 @@
     "@profile-scorer/has-scorer": "workspace:*",
     "@profile-scorer/llm-scoring": "workspace:*",
     "@profile-scorer/twitterx-api": "workspace:*",
+    "@toon-format/toon": "^2.0.1",
     "@types/blessed": "^0.1.26",
     "@types/cli-progress": "^3.11.6",
     "blessed": "^0.1.81",

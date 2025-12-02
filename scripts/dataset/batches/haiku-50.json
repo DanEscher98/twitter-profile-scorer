@@ -1,0 +1,72 @@
+[
+  {
+    "handle": "VanKB42",
+    "label": false,
+    "reason": "Market researcher at commercial firm; no academic qualitative research signals"
+  },
+  {
+    "handle": "EERN_ECR",
+    "label": null,
+    "reason": "Engineering education research network; quantitative-leaning field"
+  },
+  {
+    "handle": "sc_salisbury",
+    "label": false,
+    "reason": "Social researcher in charity communication/behavior change. Possible qualitative but not academic context."
+  },
+  {
+    "handle": "KentUniPoCo",
+    "label": false,
+    "reason": "Institutional account for postcolonial studies centre; not an individual researcher profile"
+  },
+  {
+    "handle": "WellnessPolicy",
+    "label": null,
+    "reason": "Associate prof public health/nutrition - could involve qualitative but emphasis unclear"
+  },
+  {
+    "handle": "joynekesa53",
+    "label": null,
+    "reason": "Psychologist, public health specialist, M&E analyst - mixed methods possible"
+  },
+  {
+    "handle": "Neuro_Skeptic",
+    "label": null,
+    "reason": "Neuroscience/psychology/psychiatry critical analysis, creator role; some qualitative sensibility but primarily commentary"
+  },
+  {
+    "handle": "paulalantz",
+    "label": null,
+    "reason": "Policy researcher on health inequities - policy work can be mixed methods but unclear if qualitative"
+  },
+  {
+    "handle": "mqdicer",
+    "label": true,
+    "reason": "PhD Harvard, neurosurgery research background"
+  },
+  {
+    "handle": "Jamie_Lecturer",
+    "label": null,
+    "reason": "Senior Lecturer in Education, community-focused but no explicit qualitative methodology"
+  },
+  {
+    "handle": "CompAnimalPsych",
+    "label": false,
+    "reason": "Applied psychology/animal behavior; author focus suggests popularization over research"
+  },
+  {
+    "handle": "LaslettAM",
+    "label": null,
+    "reason": "Public health researcher on alcohol harm; public health often uses qualitative methods but epidemiology-leaning."
+  },
+  {
+    "handle": "_visualsbyjoe",
+    "label": true,
+    "reason": "PhD candidate in chemistry with systems immunology specialization"
+  },
+  {
+    "handle": "AyList",
+    "label": null,
+    "reason": "Cultural anthropologist with UX research - anthropology signals qualitative tradition but UX emphasis unclear academic focus"
+  }
+]

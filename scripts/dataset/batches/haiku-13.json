@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "AmandaNizamMD",
+    "label": false,
+    "reason": "Clinical oncologist focused on patient care, no research methodology or human-subjects study mention"
+  },
+  {
+    "handle": "AmAnthroJournal",
+    "label": false,
+    "reason": "Journal account, not an individual researcher"
+  },
+  {
+    "handle": "amarendrasahu",
+    "label": false,
+    "reason": "Doctoral candidate in engineering/startup building, no qualitative research indication"
+  },
+  {
+    "handle": "AmazingVirus",
+    "label": null,
+    "reason": "Primate behavior/ecology research but unclear if qualitative methods or human-subjects work"
+  },
+  {
+    "handle": "AmbokoJH",
+    "label": false,
+    "reason": "Research fellow in tax studies, policy/business focus, not qualitative human-subjects research"
+  },
+  {
+    "handle": "AmbreenS_poet",
+    "label": null,
+    "reason": "Gender studies PhD with poetry research; unclear if conducting empirical qualitative research vs literary theory"
+  },
+  {
+    "handle": "AmCollPress",
+    "label": false,
+    "reason": "Publisher/press organization, not individual researcher"
+  },
+  {
+    "handle": "ameliaprobst",
+    "label": false,
+    "reason": "Data scientist, quantitative focus, no qualitative or human-subjects research"
+  },
+  {
+    "handle": "Ameliarator",
+    "label": false,
+    "reason": "Librarian with gender/disability studies interests, no indication of conducting qualitative research"
+  },
+  {
+    "handle": "AMEWSofficial",
+    "label": false,
+    "reason": "Organization account for scholarly association, not individual"
+  },
+  {
+    "handle": "amian74",
+    "label": null,
+    "reason": "Clinical researcher and pediatric physician; clinical focus unclear if qualitative or human-subjects research"
+  },
+  {
+    "handle": "AmidstScience",
+    "label": false,
+    "reason": "Data scientist with quantitative/statistical focus, no qualitative research indication"
+  },
+  {
+    "handle": "Amina_Mwaikambo",
+    "label": true,
+    "reason": "PhD candidate psychologist focusing on mental health and human rights; qualitative-aligned population research"
+  },
+  {
+    "handle": "AminNassarMD",
+    "label": false,
+    "reason": "Oncology fellow and physician, clinical translational focus, no qualitative research"
+  },
+  {
+    "handle": "AminuGuga",
+    "label": false,
+    "reason": "Geographer/surveyor/humanitarian with vague bio, no qualitative research methodology"
+  },
+  {
+    "handle": "AmitabhCPandey",
+    "label": false,
+    "reason": "Cardiologist with translational/clinical research, no qualitative or human-subjects methodology"
+  },
+  {
+    "handle": "amitpalcsingh",
+    "label": false,
+    "reason": "Law doctoral candidate, legal philosophy focus, not qualitative human-subjects research"
+  },
+  {
+    "handle": "AmitVohra_CEO",
+    "label": false,
+    "reason": "Entrepreneur and health policy commentator, no academic research affiliation"
+  },
+  {
+    "handle": "AmjadPeshawar",
+    "label": null,
+    "reason": "Postcolonial studies affiliation; unclear if conducting empirical qualitative research vs theory"
+  },
+  {
+    "handle": "AmJNurs",
+    "label": false,
+    "reason": "Journal account, not individual researcher"
+  },
+  {
+    "handle": "amnadler",
+    "label": null,
+    "reason": "Media studies associate professor; unclear if conducting qualitative empirical research or theory/criticism"
+  },
+  {
+    "handle": "AmNairobian",
+    "label": false,
+    "reason": "Vague bio with no research indication"
+  },
+  {
+    "handle": "Amolpatel_dr",
+    "label": false,
+    "reason": "Medical oncologist, clinical focus, no qualitative research"
+  },
+  {
+    "handle": "AmosKipronohC",
+    "label": false,
+    "reason": "Economist and development expert, quantitative/policy focus, not qualitative research"
+  },
+  {
+    "handle": "amrcampop",
+    "label": false,
+    "reason": "Historical demographer, quantitative/computational methods focus, not qualitative research"
+  },
+  {
+    "handle": "amurphykarabell",
+    "label": true,
+    "reason": "Special education PhD student and researcher; qualitative-aligned education research on reading/special populations"
+  },
+  {
+    "handle": "amy_carleton",
+    "label": false,
+    "reason": "Comparative media studies instructor, writer; no indication of conducting qualitative human-subjects research"
+  },
+  {
+    "handle": "Amy_L_Haywood",
+    "label": null,
+    "reason": "Education researcher/former teacher; unclear if conducting qualitative research or policy analysis"
+  },
+  {
+    "handle": "AmyClarke92",
+    "label": null,
+    "reason": "Historian researching gender/transgressive topics; unclear if conducting qualitative empirical work vs historical scholarship"
+  },
+  {
+    "handle": "AmyHeger",
+    "label": null,
+    "reason": "UX researcher with social psychology background; human-centered but unclear if academic qualitative research"
+  }
+]

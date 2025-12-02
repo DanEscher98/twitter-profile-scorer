@@ -1,0 +1,151 @@
+[
+  {
+    "handle": "teresaburke",
+    "label": null,
+    "reason": "Bioethicist and philosophy professor; theoretical focus unclear if conducting empirical qualitative research with human subjects"
+  },
+  {
+    "handle": "NFBrenman",
+    "label": true,
+    "reason": "Social researcher in anthropology-sociology with STS background; studying remote care technologies in fieldwork setting"
+  },
+  {
+    "handle": "DoctaValle",
+    "label": true,
+    "reason": "Sociology professor explicitly mentions ethnography; race/justice/urban studies with qualitative fieldwork focus"
+  },
+  {
+    "handle": "TheoBeltranepi",
+    "label": true,
+    "reason": "Public health doctoral candidate studying health inequities; pharmacoepidemiology and trans health research typically involves qualitative human-subjects work"
+  },
+  {
+    "handle": "LilyHindy",
+    "label": null,
+    "reason": "History doctoral candidate studying Kurdish movement; ambiguous if conducting interviews/ethnography vs archival/historical analysis"
+  },
+  {
+    "handle": "idery38",
+    "label": true,
+    "reason": "Gender Studies researcher interested in violence and masculinities in Africa; suggests qualitative human-centered research"
+  },
+  {
+    "handle": "BrunoV_Africa",
+    "label": null,
+    "reason": "Migration and gender researcher; insufficient detail on methodology or whether conducting empirical qualitative work"
+  },
+  {
+    "handle": "hei_anni",
+    "label": false,
+    "reason": "Guest professor in discourse and corpus linguistics; text-based analysis rather than human-subjects qualitative research"
+  },
+  {
+    "handle": "ChangeMary",
+    "label": true,
+    "reason": "Social worker and doctoral candidate; advocacy for teens and women suggests qualitative human-centered research with populations"
+  },
+  {
+    "handle": "sandeepbak",
+    "label": null,
+    "reason": "Postcolonial Queer Studies academic; theoretical orientation but unclear if conducting empirical fieldwork/interviews"
+  },
+  {
+    "handle": "DrIreneZempi",
+    "label": true,
+    "reason": "Criminology Associate Professor explicitly mentions ethnography; hate crime and intersectionality research requires qualitative human-subjects work"
+  },
+  {
+    "handle": "HannahCEM",
+    "label": true,
+    "reason": "Public health lecturer studying health inequalities and LGBTQ+ health; researcher role suggests qualitative human-subjects engagement"
+  },
+  {
+    "handle": "RachelleVessey",
+    "label": null,
+    "reason": "Linguist focused on corpus/discourse analysis and media studies; text-based research rather than human-subjects qualitative methods"
+  },
+  {
+    "handle": "MinerSkye",
+    "label": true,
+    "reason": "Bioethicist and sociologist studying reproductive health and healthcare access; sociologist role with health equity suggests qualitative research"
+  },
+  {
+    "handle": "IEN_UK_IRE",
+    "label": false,
+    "reason": "Institutional organization/network, not an individual researcher"
+  },
+  {
+    "handle": "ChloeBirdPhD",
+    "label": true,
+    "reason": "Director of health equity center; sociologist studying health disparities at academic institution; qualitative health research implied"
+  },
+  {
+    "handle": "me_meier",
+    "label": true,
+    "reason": "Arts education professor explicitly mentions narrative inquiry; arts-based research requires participant engagement and qualitative methods"
+  },
+  {
+    "handle": "VWongsomboon",
+    "label": true,
+    "reason": "Assistant Professor studying stigma, health, and sexuality; human-centered research on lived experience suggests qualitative methods"
+  },
+  {
+    "handle": "kirby_benjamin",
+    "label": true,
+    "reason": "Assistant Professor explicitly mentions ethnography and immersion study; religious politics and urban life research conducted in field setting"
+  },
+  {
+    "handle": "RhondaBalzarini",
+    "label": true,
+    "reason": "Sexuality and relationship researcher; social psychologist studying human sexuality/relationships; human-subjects empirical research"
+  },
+  {
+    "handle": "adiahafraz",
+    "label": true,
+    "reason": "Doctoral student explicitly mentions narrative inquiry; researching loneliness in learning contexts through qualitative methodology"
+  },
+  {
+    "handle": "IDPCornell",
+    "label": false,
+    "reason": "Academic initiative/program, not an individual researcher"
+  },
+  {
+    "handle": "JamesFor",
+    "label": true,
+    "reason": "Constructivist grounded theory researcher; explicitly names qualitative methodology for studying management/business"
+  },
+  {
+    "handle": "_marycollier",
+    "label": true,
+    "reason": "Sociology assistant professor; aid and development research typically requires qualitative human-centered fieldwork"
+  },
+  {
+    "handle": "ki_barnett",
+    "label": true,
+    "reason": "Research scientist studying health equity and racism; health disparities research typically involves qualitative community-engaged work"
+  },
+  {
+    "handle": "jacasiegel",
+    "label": true,
+    "reason": "Clinical research specialist studying eating disorders, body image, and sexuality; human-subjects research requiring participant interviews/engagement"
+  },
+  {
+    "handle": "DrBrianNSmith",
+    "label": true,
+    "reason": "PI studying trauma and psychosocial factors; VA research center suggests qualitative work with patient populations"
+  },
+  {
+    "handle": "JSchleiderPhD",
+    "label": true,
+    "reason": "Associate Professor directing mental health lab; scalable interventions research with human subjects; qualitative development implied"
+  },
+  {
+    "handle": "EricSchrimshaw",
+    "label": true,
+    "reason": "Public psychologist and researching AIDS on specific minorities; highly likely qualitative methods"  },
+  {
+    "handle": "ProfAbigailYork",
+    "label": false,
+    "reason": "Says professor, vague bio, no research signals"
+  }
+]

@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "academickeys",
+    "label": false,
+    "reason": "Job board and recruitment service, not individual researcher"
+  },
+  {
+    "handle": "AcademicMinute",
+    "label": false,
+    "reason": "Radio program/media organization, not individual researcher"
+  },
+  {
+    "handle": "AcademicParents",
+    "label": false,
+    "reason": "Advocacy/support organization, not individual researcher"
+  },
+  {
+    "handle": "AcademicproWri1",
+    "label": false,
+    "reason": "Essay mill/ghostwriting service, not academic researcher"
+  },
+  {
+    "handle": "AcademicRenewal",
+    "label": false,
+    "reason": "Think tank/policy organization, not individual researcher"
+  },
+  {
+    "handle": "AcademicRevolt",
+    "label": false,
+    "reason": "Vague activism account, no research affiliation evident"
+  },
+  {
+    "handle": "AcademicRugby",
+    "label": false,
+    "reason": "School institutional account, not individual researcher"
+  },
+  {
+    "handle": "AcademicSport",
+    "label": false,
+    "reason": "Educational institution program, not individual researcher"
+  },
+  {
+    "handle": "AcademicToolkit",
+    "label": null,
+    "reason": "Unclear if conducting qualitative research or just offering research design services"
+  },
+  {
+    "handle": "AcademicTravel",
+    "label": false,
+    "reason": "Travel/tourism company, not research organization"
+  },
+  {
+    "handle": "academicvenues",
+    "label": false,
+    "reason": "Conference venue service provider, not researcher"
+  },
+  {
+    "handle": "AcadiaFaculty",
+    "label": false,
+    "reason": "Union/faculty association, not individual researcher"
+  },
+  {
+    "handle": "AcadPubNews",
+    "label": false,
+    "reason": "News/media organization about publishing, not individual researcher"
+  },
+  {
+    "handle": "AcadSkillsMelb",
+    "label": false,
+    "reason": "University writing support service, not individual researcher"
+  },
+  {
+    "handle": "acadswithmair",
+    "label": false,
+    "reason": "Ghostwriting/academic paper mill service, not legitimate researcher"
+  },
+  {
+    "handle": "acagamic",
+    "label": null,
+    "reason": "Tenured professor sharing research takes but no specific qualitative research indicators"
+  },
+  {
+    "handle": "acaprecariat",
+    "label": false,
+    "reason": "Labor advocacy/union organization, not individual researcher"
+  },
+  {
+    "handle": "ACASecretariat",
+    "label": false,
+    "reason": "Research organization/think tank, not individual researcher"
+  },
+  {
+    "handle": "ACEAPAmbassador",
+    "label": false,
+    "reason": "Astronomy education program, not individual qualitative researcher"
+  },
+  {
+    "handle": "AcebaldAnne",
+    "label": true,
+    "reason": "Physician-public health researcher studying health of justice-involved persons; qualitative focus on populations"
+  },
+  {
+    "handle": "ACeHP1",
+    "label": false,
+    "reason": "Health policy think tank, not individual researcher"
+  },
+  {
+    "handle": "ACEJointHealth",
+    "label": false,
+    "reason": "Science communication/health info service, not primary research organization"
+  },
+  {
+    "handle": "acflewis",
+    "label": null,
+    "reason": "Bioethicist at Harvard but focus on ethical/legal/social issues may be theoretical rather than empirical"
+  },
+  {
+    "handle": "ACHE_EDU",
+    "label": false,
+    "reason": "Government education agency, not individual researcher"
+  },
+  {
+    "handle": "achillebro",
+    "label": false,
+    "reason": "CNRS immunologist researcher; focus is quantitative biomedical science, not qualitative human-subjects research"
+  },
+  {
+    "handle": "acitygh",
+    "label": false,
+    "reason": "University institution, not individual researcher"
+  },
+  {
+    "handle": "ACKeshishian",
+    "label": null,
+    "reason": "Clinical psychology doctoral candidate; could conduct qualitative research but no specific indicators in bio"
+  },
+  {
+    "handle": "acloudofsaints",
+    "label": false,
+    "reason": "Monk/religious figure, no research affiliation mentioned"
+  },
+  {
+    "handle": "ACOREdu",
+    "label": false,
+    "reason": "Online radiology education program/organization, not qualitative researcher"
+  },
+  {
+    "handle": "Acosta_Kike_",
+    "label": null,
+    "reason": "Demographer/sociologist studying mortality trends; may use qualitative methods but primarily quantitative field"
+  }
+]

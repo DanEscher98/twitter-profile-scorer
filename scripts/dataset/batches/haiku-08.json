@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "AFTHigherEd",
+    "label": false,
+    "reason": "Organization account representing faculty/staff union, not individual researcher"
+  },
+  {
+    "handle": "AgAID_Institute",
+    "label": false,
+    "reason": "Organization/institute account focused on AI in agriculture, not individual"
+  },
+  {
+    "handle": "agaraad",
+    "label": null,
+    "reason": "Researcher on state-building and security; qualitative methods unclear, may be policy/theoretical"
+  },
+  {
+    "handle": "AgEconomist",
+    "label": false,
+    "reason": "Applied economist focused on quantitative economics, not qualitative human-subjects research"
+  },
+  {
+    "handle": "AgedMatters",
+    "label": null,
+    "reason": "Public health researcher with equity focus; qualitative methods not explicitly stated"
+  },
+  {
+    "handle": "AGHuff",
+    "label": false,
+    "reason": "Self-described author/scientist/AI specialist; no clear qualitative research focus or academic affiliation"
+  },
+  {
+    "handle": "agilis",
+    "label": true,
+    "reason": "Nurse scientist studying delirium; clinical researcher with expertise in human health outcomes"
+  },
+  {
+    "handle": "AgingBio",
+    "label": false,
+    "reason": "Bioinformatician/geneticist focused on quantitative biology, not qualitative human-subjects research"
+  },
+  {
+    "handle": "agingdoc1",
+    "label": false,
+    "reason": "Longevity medicine clinician; no qualitative research methods or human-subjects study focus mentioned"
+  },
+  {
+    "handle": "AgingJrnl",
+    "label": false,
+    "reason": "Journal account, not individual researcher"
+  },
+  {
+    "handle": "Aglaiet",
+    "label": false,
+    "reason": "Self-identified 16-year-old, appears to be non-academic informal berry research"
+  },
+  {
+    "handle": "AGORAsocjust",
+    "label": false,
+    "reason": "Research center/organization account, not individual researcher"
+  },
+  {
+    "handle": "AgostinhoP_2021",
+    "label": null,
+    "reason": "Caribbean/dance studies scholar; could involve qualitative methods but focus unclear"
+  },
+  {
+    "handle": "Agri_Researcher",
+    "label": false,
+    "reason": "Agri-environmental economist; quantitative focus, not qualitative human-subjects research"
+  },
+  {
+    "handle": "AGSCareersandHE",
+    "label": false,
+    "reason": "Secondary school careers office account, not individual researcher"
+  },
+  {
+    "handle": "agstockpicks",
+    "label": false,
+    "reason": "Market researcher/investor focused on securities, not academic qualitative research"
+  },
+  {
+    "handle": "agunn",
+    "label": false,
+    "reason": "Vague personal account with no research affiliation or context"
+  },
+  {
+    "handle": "ahajaricase",
+    "label": null,
+    "reason": "Physician-clinical researcher in ILD; likely quantitative clinical focus but unclear"
+  },
+  {
+    "handle": "AHALibCam",
+    "label": false,
+    "reason": "University library account, not individual researcher"
+  },
+  {
+    "handle": "AHERI_HigherEdu",
+    "label": false,
+    "reason": "Research institute organization account, not individual"
+  },
+  {
+    "handle": "AhlamMuhtaseb",
+    "label": true,
+    "reason": "Media studies professor studying Palestinian human rights; likely qualitative scholar-activist"
+  },
+  {
+    "handle": "Ahmed_Makki_ali",
+    "label": null,
+    "reason": "Medical epidemiologist/PhD candidate; quantitative epidemiology focus likely but not explicit"
+  },
+  {
+    "handle": "AhneeMarek",
+    "label": null,
+    "reason": "Doctoral candidate in history/cultural studies; may involve qualitative work but unclear"
+  },
+  {
+    "handle": "AI_Desorders",
+    "label": false,
+    "reason": "Psychotherapist/AI researcher; no academic affiliation or qualitative human-subjects research mention"
+  },
+  {
+    "handle": "Ai_Immunologist",
+    "label": false,
+    "reason": "Computational immunology researcher; quantitative/computational methods, not qualitative"
+  },
+  {
+    "handle": "AIHPolicy",
+    "label": false,
+    "reason": "Organization/institute account focused on health policy data, not individual researcher"
+  },
+  {
+    "handle": "AIIHPC_ECRF",
+    "label": false,
+    "reason": "Early career forum/group account, not individual researcher"
+  },
+  {
+    "handle": "Aimee_McAffee",
+    "label": true,
+    "reason": "Graduate student in media studies studying representations; qualitative communication research"
+  },
+  {
+    "handle": "AimeeGthePHD",
+    "label": null,
+    "reason": "I-O psychologist and simulation education researcher; methods unclear, possibly mixed"
+  },
+  {
+    "handle": "aisantos",
+    "label": null,
+    "reason": "Education researcher on MOOCs/edtech; qualitative methods possible but not explicitly stated"
+  }
+]

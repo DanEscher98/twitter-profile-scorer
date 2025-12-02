@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "albertina_sesay",
+    "label": null,
+    "reason": "Public health researcher/PhD candidate but bio lacks qualitative methodology indicators; epidemiology typically quantitative-primary"
+  },
+  {
+    "handle": "albertoMCFS",
+    "label": null,
+    "reason": "Higher education policy researcher; unclear if empirical fieldwork or qualitative methods involved"
+  },
+  {
+    "handle": "Albertop_p",
+    "label": null,
+    "reason": "Academic in gender/queer studies but primarily literature/theory focus; no empirical research indicator"
+  },
+  {
+    "handle": "alchemeos",
+    "label": false,
+    "reason": "Doctoral candidate in web3/psychoanalysis; insufficient academic affiliation clarity; not target population research"
+  },
+  {
+    "handle": "AleDemogr",
+    "label": false,
+    "reason": "Demographer/data visualization; quantitative-primary field without human-subjects qualitative focus"
+  },
+  {
+    "handle": "aleenachia",
+    "label": null,
+    "reason": "Lecturer in media studies/digital labor; potential qualitative research but bio lacks explicit methodology/empirical fieldwork indicators"
+  },
+  {
+    "handle": "ALefstein",
+    "label": true,
+    "reason": "Linguistic ethnography explicitly mentioned; classroom interaction research fits qualitative methodology profile"
+  },
+  {
+    "handle": "alekskaminska",
+    "label": null,
+    "reason": "Media/material culture scholar; likely qualitative but bio lacks explicit research methodology or human-subjects focus"
+  },
+  {
+    "handle": "alenkeric",
+    "label": null,
+    "reason": "Gender studies student; insufficient info on whether conducting empirical qualitative research vs theoretical work"
+  },
+  {
+    "handle": "AleseTobi",
+    "label": false,
+    "reason": "Epidemiologist; quantitative-primary field without qualitative methodology indicators"
+  },
+  {
+    "handle": "aleszubajak",
+    "label": false,
+    "reason": "Data scientist/journalist; quantitative data visualization focus; not qualitative researcher"
+  },
+  {
+    "handle": "alethia_reguera",
+    "label": null,
+    "reason": "Border criminology/gender studies at Oxford Law; likely qualitative but insufficient detail on research methods"
+  },
+  {
+    "handle": "alevelmedia",
+    "label": false,
+    "reason": "Organization/educational resource site, not individual researcher"
+  },
+  {
+    "handle": "Alex_Glade",
+    "label": false,
+    "reason": "Curriculum facilitator/educator; no research affiliation or qualitative research indicators"
+  },
+  {
+    "handle": "alex_gunsberg",
+    "label": false,
+    "reason": "Finance PhD/data scientist; quantitative-primary field without human-subjects qualitative research"
+  },
+  {
+    "handle": "alex_lercher",
+    "label": false,
+    "reason": "Immunologist; biomedical/quantitative research; not qualitative human-subjects researcher"
+  },
+  {
+    "handle": "Alex_Ruani",
+    "label": null,
+    "reason": "Doctoral researcher in diet-health misinformation; could involve qualitative analysis but methodology unclear"
+  },
+  {
+    "handle": "alexander_borsa",
+    "label": true,
+    "reason": "Sexual health researcher, PhD candidate, public health sociology/feminist STS; explicit qualitative indicators with sensitive population focus"
+  },
+  {
+    "handle": "AlexandraLong",
+    "label": true,
+    "reason": "Clinical psychology PhD; intimate relationships/LGBTQ+ health research fits qualitative human-subjects profile"
+  },
+  {
+    "handle": "AlexandraOanca",
+    "label": true,
+    "reason": "Critical urban studies/anthropology researcher at KU Leuven; anthropology explicitly indicates qualitative fieldwork methods"
+  },
+  {
+    "handle": "Alexandre_Erler",
+    "label": false,
+    "reason": "Bioethicist/philosopher; theoretical work without empirical qualitative research or human-subjects component"
+  },
+  {
+    "handle": "alexandrianaima",
+    "label": null,
+    "reason": "Gender studies PhD; reading/language focus suggests literary/theoretical analysis but qualitative research intent unclear"
+  },
+  {
+    "handle": "alexcho47",
+    "label": true,
+    "reason": "Assistant professor in Asian American studies; race/gender/sexuality studies with social media focus indicates qualitative research"
+  },
+  {
+    "handle": "alexdao",
+    "label": false,
+    "reason": "UX researcher in tech; industry role without academic affiliation or human-subjects research focus"
+  },
+  {
+    "handle": "Alexey_Raksha",
+    "label": false,
+    "reason": "Demographer/economist; quantitative statistics specialist; not qualitative researcher"
+  },
+  {
+    "handle": "AlexisLBeatty",
+    "label": null,
+    "reason": "Clinical researcher/cardiologist; digital health implementation focus unclear if qualitative methods involved"
+  },
+  {
+    "handle": "alexkyllo",
+    "label": false,
+    "reason": "Data scientist; quantitative field without human-subjects qualitative research"
+  },
+  {
+    "handle": "alexleavitt",
+    "label": true,
+    "reason": "Trust & safety researcher, visiting fellow at research institute; social/behavioral research on digital platforms suggests qualitative methods"
+  },
+  {
+    "handle": "AlexMWailan",
+    "label": false,
+    "reason": "Bioinformatician in pathogen surveillance; computational/quantitative field; not qualitative researcher"
+  },
+  {
+    "handle": "AlexNowrasteh",
+    "label": false,
+    "reason": "Policy analyst/think tank VP; policy work without academic research"
+  }
+]

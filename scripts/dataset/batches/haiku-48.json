@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "GillianRudd",
+    "label": null,
+    "reason": "Speech therapist & doctoral candidate; clinical practice-focused rather than research-focused qualitative work"
+  },
+  {
+    "handle": "yunjulietzhou",
+    "label": null,
+    "reason": "Social demographer, assistant prof but gender/population focus suggests quantitative demographic analysis"
+  },
+  {
+    "handle": "DrJordanJWhite",
+    "label": null,
+    "reason": "Generic public health researcher title; insufficient information for qualitative assessment"
+  },
+  {
+    "handle": "mfh",
+    "label": null,
+    "reason": "CS education researcher. Computing field often quantitative but education focus opens qualitative possibility."
+  },
+  {
+    "handle": "faaizenam",
+    "label": true,
+    "reason": "PhD fellow in neuro-oncology, research background"
+  },
+  {
+    "handle": "parikabhatli",
+    "label": null,
+    "reason": "Sociologist with trauma/mental health focus; peer mentor role suggests qualitative community-based work"
+  },
+  {
+    "handle": "CMSImpact",
+    "label": null,
+    "reason": "Academic research center for media/social change, qualitative media research focus, but institutional account"
+  },
+  {
+    "handle": "InstBioPsych",
+    "label": true,
+    "reason": "Biomedical psychiatric research institute"
+  },
+  {
+    "handle": "cummingsamyr",
+    "label": false,
+    "reason": "UX researcher at Meta; corporate, no qualitative social research context"
+  },
+  {
+    "handle": "iapasfs",
+    "label": true,
+    "reason": "Academy for political/administrative sciences and future studies, likely qualitative research"
+  },
+  {
+    "handle": "genderzukunftMR",
+    "label": null,
+    "reason": "Gender studies center; likely qualitative research but appears to be institutional account not individual researcher"
+  },
+  {
+    "handle": "MadhurimaNundy",
+    "label": null,
+    "reason": "Public health researcher. Minimal bio; insufficient indicators for high qualitative likelihood."
+  },
+  {
+    "handle": "sarahkzalwango",
+    "label": null,
+    "reason": "Medical doctor and researcher in public health, could include qualitative work"
+  },
+  {
+    "handle": "HPP_LSHTM",
+    "label": null,
+    "reason": "Health policy and systems research journal - systems focus but health policy can include qualitative"
+  },
+  {
+    "handle": "Futbalista",
+    "label": null,
+    "reason": "Psychology background with doctoral candidacy; potential qualitative researcher"
+  },
+  {
+    "handle": "uvmchildpsych",
+    "label": true,
+    "reason": "Academic department focused on child psychiatry and family-based interventions, likely conducts research"
+  },
+  {
+    "handle": "uvicpraxis",
+    "label": null,
+    "reason": "University-affiliated media studies lab; potential qualitative research but unclear participant-facing work"
+  },
+  {
+    "handle": "UMMCPsychiatry",
+    "label": true,
+    "reason": "Academic department with education and research mandate"
+  },
+  {
+    "handle": "kento_nishi",
+    "label": null,
+    "reason": "AI researcher at Harvard but young, focus likely quantitative"
+  },
+  {
+    "handle": "MooreRNPolicy",
+    "label": null,
+    "reason": "PhD student in health equity, nursing background, but policy focus unclear if qualitative"
+  },
+  {
+    "handle": "MaureenAFitzge1",
+    "label": null,
+    "reason": "Retired historian emeritus in religious studies - possible but inactive"
+  },
+  {
+    "handle": "DrMichelleSmith",
+    "label": false,
+    "reason": "Literary studies professor, but focus on Victorian and children's literature suggests textual analysis rather than qualitative research methodology."
+  },
+  {
+    "handle": "irfanquraishi85",
+    "label": null,
+    "reason": "PhD scholar in media studies but primarily journalist with quantitative focus on security"
+  },
+  {
+    "handle": "PICKeducation",
+    "label": null,
+    "reason": "Education organization; participant/collaborative language but unclear research role"
+  },
+  {
+    "handle": "DrCarlErik",
+    "label": null,
+    "reason": "Psychiatrist and bioethicist. Clinical focus with bioethics angle but no clear qualitative research indicators."
+  },
+  {
+    "handle": "PCP_Journal",
+    "label": false,
+    "reason": "Journal account; publishes research but is not a researcher"
+  },
+  {
+    "handle": "fitterhappierAJ",
+    "label": null,
+    "reason": "Physician-Scientist with PhD, possible but no clear qualitative indicator"
+  },
+  {
+    "handle": "uOPsychiatry",
+    "label": null,
+    "reason": "University psychiatry department with research potential but limited bio information"
+  },
+  {
+    "handle": "keds_economist",
+    "label": null,
+    "reason": "Academic economist at UT Austin; possible qualitative work but field typically quantitative"
+  },
+  {
+    "handle": "RCarhartHarris",
+    "label": false,
+    "reason": "Neuroscientist and psychologist; psychedelic research but neuroscience/quantitative focus primary"
+  }
+]

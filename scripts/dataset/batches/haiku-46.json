@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "SandraHamilton",
+    "label": null,
+    "reason": "PhD researcher at research institute studying markets/procurement, possible qualitative focus but unclear"
+  },
+  {
+    "handle": "HuffmanJeannine",
+    "label": null,
+    "reason": "Doctoral candidate researching pedagogy (kids learning robotics); education field but limited qualitative indicators"
+  },
+  {
+    "handle": "glass_prof",
+    "label": true,
+    "reason": "Nursing professor at JHU; public health researcher role suggests qualitative health services research"
+  },
+  {
+    "handle": "mathchole",
+    "label": false,
+    "reason": "Mathematician and education researcher; quantitative-primary field despite education focus"
+  },
+  {
+    "handle": "brooke_ammerman",
+    "label": null,
+    "reason": "Suicide/self-harm researcher - mental health domain with qualitative potential"
+  },
+  {
+    "handle": "MarkGoulston",
+    "label": null,
+    "reason": "Psychiatry professor, listening/communication focus - possible qualitative interests but clinical/author-focused"
+  },
+  {
+    "handle": "BatResearch",
+    "label": true,
+    "reason": "Associate Professor with clear biological research focus and institutional affiliation"
+  },
+  {
+    "handle": "DrDeJarnett",
+    "label": null,
+    "reason": "Environmental health researcher on climate & social justice - social justice focus suggests qualitative"
+  },
+  {
+    "handle": "DrKPsychologist",
+    "label": null,
+    "reason": "Georgetown professor, psychologist; academic affiliation and potential for qualitative research but limited methodology signals."
+  },
+  {
+    "handle": "DebHarkness",
+    "label": null,
+    "reason": "PhD Professor and Novelist, likely humanities research but unclear"
+  },
+  {
+    "handle": "DrChloe_",
+    "label": null,
+    "reason": "Clinical psychologist with mental health focus. Possible qualitative work but primary role appears clinical/media rather than research."
+  },
+  {
+    "handle": "MartinCKent",
+    "label": null,
+    "reason": "Labour market and organisational researcher with consultant role, some academic signals"
+  },
+  {
+    "handle": "ChemicalReader",
+    "label": null,
+    "reason": "STS background with history of science; unclear if primarily qualitative researcher"
+  },
+  {
+    "handle": "GazalaAnver",
+    "label": null,
+    "reason": "Postcolonial studies at university; writing fiction suggests literary focus rather than qualitative research"
+  },
+  {
+    "handle": "GayatriGalloway",
+    "label": null,
+    "reason": "Self-identified artful anthropologist, likely academic researcher"
+  },
+  {
+    "handle": "SussexDocSchool",
+    "label": null,
+    "reason": "University doctoral research organization, institutional account"
+  },
+  {
+    "handle": "G_Owen_Schaefer",
+    "label": null,
+    "reason": "Bioethicist and philosopher at NUS, but no explicit qualitative research or participant-focused methodology."
+  },
+  {
+    "handle": "TheGreatGattis",
+    "label": null,
+    "reason": "Doctoral candidate studying climate communication; communication field aligns with qualitative methods"
+  },
+  {
+    "handle": "ufpsych",
+    "label": null,
+    "reason": "University psychiatry department, conducts clinical and research activities"
+  },
+  {
+    "handle": "sarahlisker",
+    "label": null,
+    "reason": "Public health researcher at UCSF; insufficient detail on methods but affiliation and role suggest possible qualitative work"
+  },
+  {
+    "handle": "megscl",
+    "label": false,
+    "reason": "Public health researcher at institute; no explicit qualitative methodology mentioned"
+  },
+  {
+    "handle": "Sachipaudel",
+    "label": null,
+    "reason": "Public health researcher, but vague bio. No explicit qualitative methodology indicators."
+  },
+  {
+    "handle": "vanessaolim",
+    "label": null,
+    "reason": "Literary scholar and intellectual historian, humanities but limited signals for active qualitative research"
+  },
+  {
+    "handle": "IAET_SBRAS__NAP",
+    "label": null,
+    "reason": "Archaeology & ethnography research institute; institutional account but qualitative-aligned fields"
+  },
+  {
+    "handle": "Peymane_Adab",
+    "label": null,
+    "reason": "Epidemiologist and public health professor; chronic disease research may include qualitative components."
+  },
+  {
+    "handle": "KatrinaQWang2",
+    "label": null,
+    "reason": "PhD student in sociology; organizational demographer; academic research context; some qualitative potential but demography often quantitative"
+  },
+  {
+    "handle": "TommiJohnsen",
+    "label": true,
+    "reason": "PhD in finance, director position, explicit research mention"
+  },
+  {
+    "handle": "ResearchCorner",
+    "label": false,
+    "reason": "UX researcher at tech company; industry-focused, not academic qualitative research"
+  },
+  {
+    "handle": "UCDCApsychiatry",
+    "label": null,
+    "reason": "Child psychiatry department, research and policy focus but unclear if qualitative"
+  },
+  {
+    "handle": "MRadford_HEECN",
+    "label": null,
+    "reason": "Nursing professor, health systems leadership; nursing has qualitative tradition but role seems administrative"
+  }
+]

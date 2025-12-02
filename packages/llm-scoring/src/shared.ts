@@ -43,8 +43,8 @@ export interface AudienceConfig {
 }
 
 /**
- * Generate a system prompt based on audience configuration.
- * Uses trivalent labeling: true (match), false (no match), null (uncertain).
+ * Generate a system prompt based on audience configuration
+ * Uses trivalent labeling: true (match), false (no match), null (uncertain)
  *
  * @param config - Audience configuration with target profile and signals
  * @returns System prompt string for LLM
@@ -70,15 +70,15 @@ For each profile:
 IMPORTANT: When in doubt, use null. False positives are worse than uncertain labels.
 
 ## Label Definitions
-- true: Individual person who clearly matches ${config.targetProfile}
-- false: Organization/brand account, bot, or individual clearly outside target criteria
-- null: Individual but insufficient signal to determine match (empty/vague bio)
+- true: Individual who clearly matches ${config.targetProfile} criteria
+- false: Organization/brand/bot, empty/vague bio, or individual clearly outside target
+- null: Individual with some signals but ambiguous fit or just adjacent field
 
 ## Output Interface
 Respond with a JSON array. Each object must have:
 - handle: string (profile's handle)
 - label: boolean|null (is a "${config.targetProfile}"?)
-- reason: string (brief explanation, max 100 chars)
+- reason: string (brief explanation, max 15 words)
 
 IMPORTANT: Return ONLY the JSON array. No markdown formatting, no code blocks.
 Return: [{ "handle": string, "label": boolean|null, "reason": string }]`;

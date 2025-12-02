@@ -1,0 +1,152 @@
+[
+  {
+    "handle": "apolloacadcomms",
+    "label": false,
+    "reason": "Freelance ghostwriter/academic communications, not a qualitative researcher"
+  },
+  {
+    "handle": "ApolloSurveys",
+    "label": false,
+    "reason": "Organization account aggregating expert views, not individual researcher"
+  },
+  {
+    "handle": "apolo_andrea",
+    "label": false,
+    "reason": "Medical oncologist, clinical role focused on patient care, no research methodology mentioned"
+  },
+  {
+    "handle": "apowell01",
+    "label": false,
+    "reason": "Musical engineer/teacher, not a qualitative researcher"
+  },
+  {
+    "handle": "AppAnthro",
+    "label": false,
+    "reason": "Organization/network account, not individual researcher"
+  },
+  {
+    "handle": "AppliedPolicy",
+    "label": false,
+    "reason": "Policy consulting firm, not individual academic qualitative researcher"
+  },
+  {
+    "handle": "AppStudiesASU",
+    "label": false,
+    "reason": "Center/organization account, not individual researcher"
+  },
+  {
+    "handle": "apratimbh",
+    "label": false,
+    "reason": "ML/computational researcher, quantitative focus without human-subjects component"
+  },
+  {
+    "handle": "apribula",
+    "label": false,
+    "reason": "Data scientist, quantitative focus, no qualitative research indicators"
+  },
+  {
+    "handle": "aprilwahlin",
+    "label": false,
+    "reason": "Author/screenwriter/actor, not an academic researcher"
+  },
+  {
+    "handle": "APSCUFGR",
+    "label": false,
+    "reason": "Organization/government relations account, not individual researcher"
+  },
+  {
+    "handle": "apsedp",
+    "label": false,
+    "reason": "Journal account (multiple tweet authors), not individual qualitative researcher"
+  },
+  {
+    "handle": "AQorah",
+    "label": true,
+    "reason": "Peace/conflict specialist conducting research with adjunct academic role; qualitative methodology implied"
+  },
+  {
+    "handle": "ara_anderson",
+    "label": false,
+    "reason": "Mathematical oncologist, quantitative computational focus, not qualitative researcher"
+  },
+  {
+    "handle": "Arab_Oncologist",
+    "label": false,
+    "reason": "Medical informatics director, clinical focus, no qualitative research indicators"
+  },
+  {
+    "handle": "arachno_joe",
+    "label": false,
+    "reason": "Arachnologist doctoral candidate, quantitative phylogenomics/taxonomy focus, not qualitative"
+  },
+  {
+    "handle": "AradhiyaKhan4",
+    "label": false,
+    "reason": "Trans rights activist/media studies student, activism-focused without clear research affiliation"
+  },
+  {
+    "handle": "Arash",
+    "label": false,
+    "reason": "Deputy mayor/publisher with law PhD, policy/publishing focus, not empirical qualitative researcher"
+  },
+  {
+    "handle": "ArastooFazeli",
+    "label": false,
+    "reason": "Data scientist/quant trader, quantitative focus without human-subjects research"
+  },
+  {
+    "handle": "arathimy",
+    "label": false,
+    "reason": "Market researcher/engineer, no academic affiliation or qualitative methodology indicators"
+  },
+  {
+    "handle": "ArchaeoAshleigh",
+    "label": null,
+    "reason": "Archaeology researcher at Cambridge, possibly qualitative fieldwork but methodology unclear"
+  },
+  {
+    "handle": "archsci2020",
+    "label": false,
+    "reason": "EU training network/organization account, not individual researcher"
+  },
+  {
+    "handle": "ArdiFindyartini",
+    "label": true,
+    "reason": "Medical education researcher with explicit qualitative fieldwork characteristics in education research"
+  },
+  {
+    "handle": "areeba_kara",
+    "label": null,
+    "reason": "IM hospitalist clinical researcher, ambiguous research type and methods"
+  },
+  {
+    "handle": "arevuo_m",
+    "label": false,
+    "reason": "Political economy PhD, theoretical focus, no human-subjects qualitative research mentioned"
+  },
+  {
+    "handle": "arghavan_salles",
+    "label": true,
+    "reason": "DEI researcher/consultant with academic affiliation, health equity focus implies qualitative work"
+  },
+  {
+    "handle": "arianneteherani",
+    "label": true,
+    "reason": "Education researcher/evaluator at UCSF, equity focus, evaluation methodology aligns with qualitative"
+  },
+  {
+    "handle": "arieltypes",
+    "label": false,
+    "reason": "Survivor advocate/nonprofits professional, advocacy-focused without clear research affiliation"
+  },
+  {
+    "handle": "arijitpinnacle",
+    "label": false,
+    "reason": "Radiation oncologist, clinical role, no research methodology mentioned"
+  },
+  {
+    "handle": "ArinaGrossu",
+    "label": null,
+    "reason": "Bioethicist/podcast host, unclear if conducting empirical human-subjects qualitative research"
+  }
+]
