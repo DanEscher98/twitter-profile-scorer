@@ -1,36 +1,31 @@
 """
 VPC Component - Network Foundation
 
-This module creates a VPC with three subnet tiers for security isolation:
+This module creates a VPC with three subnet tiers:
 
 Subnet Tiers:
 -------------
 1. Public Subnets (10.0.1.0/24, 10.0.2.0/24)
    - Direct internet access via Internet Gateway
-   - Used for: NAT Gateway, RDS (dev only)
+   - Used for: EC2 Airflow, RDS (dev only)
    - map_public_ip_on_launch=True for direct connectivity
 
 2. Private Subnets (10.0.10.0/24, 10.0.11.0/24)
-   - Internet access via NAT Gateway (outbound only)
-   - Used for: Lambdas that call external APIs (RapidAPI, Claude)
-   - No inbound internet access = reduced attack surface
+   - No internet access (NAT Gateway removed for cost savings)
+   - Currently unused - kept for potential future use
 
 3. Isolated Subnets (10.0.20.0/24, 10.0.21.0/24)
-   - NO internet access at all
-   - Used for: Lambdas that only need DB access (keyword-engine)
-   - Maximum security - no network path to/from internet
+   - No internet access
+   - Currently unused - kept for potential future use
 
-Why Three Tiers?
-----------------
-- Defense in depth: Compromised Lambda can't reach internet
-- Cost optimization: Only pay for NAT traffic when needed
-- Compliance: PCI/HIPAA often require isolated database subnets
+Note: NAT Gateway was removed when Lambda functions were migrated to Airflow.
+This saves ~$32/month in costs. Private and isolated subnets are kept in case
+they are needed for future Lambda functions or other resources.
 
 Multi-AZ Design:
 ----------------
 - Two subnets per tier across different Availability Zones
 - Required for RDS high availability (subnet group needs 2+ AZs)
-- NAT Gateway is single-AZ for cost (add second for production HA)
 """
 
 import pulumi
@@ -145,29 +140,10 @@ class Vpc(pulumi.ComponentResource):
         )
 
         # =====================================================================
-        # NAT Gateway - Outbound internet for private subnets
-        # =====================================================================
-        # Elastic IP is required for NAT Gateway (static outbound IP)
-        self.nat_eip = aws.ec2.Eip(
-            f"{name}-nat-eip",
-            domain="vpc",
-            tags={"Name": f"{name}-nat-eip"},
-            opts=pulumi.ResourceOptions(parent=self),
-        )
-
-        # NAT Gateway must be in public subnet (needs internet access itself)
-        # Single NAT for cost savings - add second in public-2 for production HA
-        self.nat_gateway = aws.ec2.NatGateway(
-            f"{name}-nat",
-            allocation_id=self.nat_eip.id,
-            subnet_id=self.public_subnet_1.id,
-            tags={"Name": f"{name}-nat"},
-            opts=pulumi.ResourceOptions(parent=self),
-        )
-
-        # =====================================================================
         # Route Tables - Traffic routing rules
         # =====================================================================
+        # NOTE: NAT Gateway has been removed to save costs (~$32/month)
+        # Private subnets now have no internet access (same as isolated)
 
         # Public route table: 0.0.0.0/0 → Internet Gateway
         self.public_rt = aws.ec2.RouteTable(
@@ -183,16 +159,11 @@ class Vpc(pulumi.ComponentResource):
             opts=pulumi.ResourceOptions(parent=self),
         )
 
-        # Private route table: 0.0.0.0/0 → NAT Gateway
+        # Private route table: No internet route (NAT Gateway removed)
         self.private_rt = aws.ec2.RouteTable(
             f"{name}-private-rt",
             vpc_id=self.vpc.id,
-            routes=[
-                aws.ec2.RouteTableRouteArgs(
-                    cidr_block="0.0.0.0/0",
-                    nat_gateway_id=self.nat_gateway.id,  # Via NAT
-                )
-            ],
+            # No routes = VPC-local only (same as isolated now)
             tags={"Name": f"{name}-private-rt"},
             opts=pulumi.ResourceOptions(parent=self),
         )

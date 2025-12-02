@@ -11,14 +11,16 @@ A lookalike audience builder for Twitter ad targeting. Given a curated set of se
 | **AWS Budgets**            | [profile-scorer-monthly](https://us-east-1.console.aws.amazon.com/billing/home#/budgets)                                   |
 | **Cost Explorer**          | [By Service](https://us-east-1.console.aws.amazon.com/cost-management/home#/cost-explorer)                                 |
 | **Cost Anomaly Detection** | [Monitors](https://us-east-1.console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors)                      |
+| **Airflow UI**             | [profile-scorer.admin.ateliertech.xyz](https://profile-scorer.admin.ateliertech.xyz)                                       |
 
 ## Table of Contents
 
-1. [Architecture](./architecture.md) - System design, Lambda pipeline, AWS resources
+1. [Architecture](./architecture.md) - System design, Airflow DAGs, AWS resources
 2. [Human Authenticity Score](./heuristic_has.md) - Heuristic scoring methodology
 3. [Data Pipeline](./data_pipeline.md) - Data flow, tables, API usage
 4. [LLM Scoring](./llm_scoring.md) - Model-based scoring and final score computation
-5. [Training Pipeline](./training_pipeline.md) - Custom model fine-tuning (Phase 2)
+5. [Airflow Deployment](./airflow-deployment.md) - EC2 setup and deployment workflow
+6. [Training Pipeline](./training_pipeline.md) - Custom model fine-tuning (Phase 2)
 
 ## Project Goal
 
@@ -35,18 +37,21 @@ A lookalike audience builder for Twitter ad targeting. Given a curated set of se
 │                           PROFILE SCORER PIPELINE                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  PHASE 1: Collection                                                        │
+│  Apache Airflow 3.x on EC2 (t3.small)                                       │
+│  ─────────────────────────────────────                                      │
+│                                                                             │
+│  PHASE 1: Collection (profile_search DAG - every 15 min)                    │
 │  ────────────────────                                                       │
-│  orchestrator → keyword-engine → query-twitter-api (×N parallel)            │
+│  platforms → keyword_engine (×N platforms) → query_profiles (×M keywords)   │
 │                                                                             │
 │  PHASE 2: Heuristic Filtering                                               │
 │  ───────────────────────────────                                            │
 │  Raw profiles → HAS (Human Authenticity Score) → filter bots/orgs           │
 │  HAS > 0.65 → profiles_to_score queue                                       │
 │                                                                             │
-│  PHASE 3: LLM Scoring                                                       │
+│  PHASE 3: LLM Scoring (llm_scoring DAG - every 15 min)                      │
 │  ─────────────────────                                                      │
-│  Batch 25 profiles → TOON format → Claude/Gemini → ScoredUser               │
+│  Batch 25 profiles → TOON format → Claude/Gemini/Groq → ScoredUser          │
 │  Final Score = f(HAS, LLM_score)                                            │
 │                                                                             │
 │  PHASE 4: Custom Model (Future)                                             │
@@ -60,11 +65,12 @@ A lookalike audience builder for Twitter ad targeting. Given a curated set of se
 
 ### Resource Constraints
 
-| Resource                 | Limit                    | Strategy                    |
-| ------------------------ | ------------------------ | --------------------------- |
-| RapidAPI TwitterX        | 500K req/month, 10 req/s | SQS concurrency control (3) |
-| Anthropic (Claude Haiku) | $9.90 balance            | Small batches, TOON format  |
-| Gemini Flash             | Free tier                | Parallel scoring            |
+| Resource                 | Limit                    | Strategy                          |
+| ------------------------ | ------------------------ | --------------------------------- |
+| RapidAPI TwitterX        | 500K req/month, 10 req/s | Airflow task concurrency control  |
+| Anthropic (Claude Haiku) | $9.90 balance            | Small batches, TOON format        |
+| Gemini Flash             | Free tier                | Parallel scoring                  |
+| Groq (Llama)             | Free tier                | High probability, fast inference  |
 
 ### Key Thresholds
 
@@ -82,46 +88,10 @@ A lookalike audience builder for Twitter ad targeting. Given a curated set of se
 | `user_stats`        | Raw numeric fields for HAS validation  |
 | `profiles_to_score` | Queue for LLM scoring                  |
 | `profile_scores`    | LLM scores per model                   |
-| `xapi_usage_search` | API usage tracking + pagination cursor |
+| `api_search_usage`  | API usage tracking + pagination cursor |
 | `user_keywords`     | Profile-keyword associations           |
 | `keyword_stats`     | Keyword pool with semantic tags        |
-
-## Utility Scripts
-
-Scripts for data analysis and profile management in `scripts/`:
-
-### TypeScript Scripts (`scripts/js_src/`)
-
-```bash
-# Upload curated usernames for scoring
-yarn workspace @profile-scorer/scripts run tsx js_src/upload_curated_users.ts data/curated_usernames.txt
-
-# Export high-scoring profiles to CSV (TUI interface)
-LOG_LEVEL=silent yarn workspace @profile-scorer/scripts run tsx js_src/export-high-scores.ts
-
-# Score all pending profiles with TUI progress
-yarn workspace @profile-scorer/scripts run tsx js_src/score-all-pending.ts
-
-# Add new keyword to the pool
-yarn workspace @profile-scorer/scripts run tsx js_src/add-keyword.ts "new keyword" --tags=#academia,#research
-```
-
-### Python Scripts (`scripts/py_src/`)
-
-```bash
-cd scripts
-
-# Analyze scores across all models (generates visualization)
-uv run py_src/analyze_profile_scores.py
-
-# Analyze scores for a specific model
-uv run py_src/analyze_model_scores.py claude-haiku-4-5-20251001
-
-# Plot HAS score distribution
-uv run py_src/plot_has_distribution.py
-```
-
-Output files are saved to `scripts/output/` with unix timestamps.
+| `keyword_status`    | Platform-specific keyword pagination   |
 
 ## Monitoring & Cost Management
 
@@ -129,10 +99,8 @@ Output files are saved to `scripts/output/` with unix timestamps.
 
 The [profile-scorer dashboard](https://us-east-2.console.aws.amazon.com/cloudwatch/home?region=us-east-2#dashboards:name=profile-scorer) shows:
 
-- **Lambda metrics**: Invocations, errors, duration (p95), concurrent executions
+- **EC2 metrics**: CPU utilization, network I/O, status checks
 - **RDS metrics**: Connections, CPU utilization, storage, IOPS
-- **SQS metrics**: Queue depth, message age, DLQ depth
-- **NAT Gateway**: Traffic in/out, connection counts
 
 ### Cost Tracking
 
@@ -142,6 +110,14 @@ The [profile-scorer dashboard](https://us-east-2.console.aws.amazon.com/cloudwat
 | Cost Explorer          | Service breakdown, tag filtering      |
 | Cost Anomaly Detection | ML-based unusual spending alerts      |
 
+**Estimated Monthly Cost (after Lambda removal):**
+
+| Service    | Cost   | Notes                   |
+| ---------- | ------ | ----------------------- |
+| EC2        | ~$8.50 | t3.small (Airflow host) |
+| RDS        | ~$0.24 | PostgreSQL db.t4g.micro |
+| CloudWatch | $0.00  | Basic metrics           |
+
 **To enable tag-based cost filtering:**
 
 1. Go to AWS Console → Billing → Cost allocation tags
@@ -150,17 +126,15 @@ The [profile-scorer dashboard](https://us-east-2.console.aws.amazon.com/cloudwat
 
 ## Current Status
 
-- [x] Infrastructure (VPC, RDS, Lambda functions)
-- [x] Database schema (Drizzle ORM)
-- [x] HAS heuristic implementation (`@profile-scorer/has-scorer`)
-- [x] `keyword-engine` Lambda
-- [x] `query-twitter-api` Lambda with HAS scoring
-- [x] `orchestrator` Lambda (15-min schedule)
-- [x] `llm-scorer` Lambda (multi-model: Haiku, Sonnet, Gemini)
+- [x] Infrastructure (VPC, RDS, EC2)
+- [x] Database schema (Drizzle ORM + Alembic migrations)
+- [x] HAS heuristic implementation (`airflow/packages/scoring`)
+- [x] `profile_search` DAG with multi-platform support
+- [x] `llm_scoring` DAG (multi-model: Haiku, Gemini, Groq)
+- [x] `keyword_stats` DAG
 - [x] CloudWatch Dashboard
 - [x] AWS Budget and cost monitoring
-- [x] E2E test suite (14 tests)
-- [x] Standardized API error handling (`TwitterXApiError`)
-- [x] Utility scripts for analysis and export
+- [x] GitHub Actions CI/CD for Airflow
+- [x] GitHub Actions CI/CD for Infrastructure
 - [ ] Seed profile validation
 - [ ] Training pipeline (Phase 2)

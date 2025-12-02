@@ -1,0 +1,267 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/**'
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  REMOTE_USER: ec2-user
+  REMOTE_DIR: /opt/airflow
+  AWS_REGION: us-east-2
+  PULUMI_STACK: dev
+
+jobs:
+  deploy-infra:
+    name: Deploy Pulumi Infrastructure
+    runs-on: ubuntu-latest
+    outputs:
+      ec2_ip: ${{ steps.pulumi.outputs.airflow_public_ip }}
+      ec2_changed: ${{ steps.check.outputs.ec2_changed }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install Pulumi dependencies
+        working-directory: infra
+        run: uv sync
+
+      - name: Get current EC2 instance ID
+        id: before
+        working-directory: infra
+        run: |
+          INSTANCE_ID=$(uv run pulumi stack output airflow_instance_id --stack ${{ env.PULUMI_STACK }} 2>/dev/null || echo "none")
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+
+      - name: Run Pulumi up
+        id: pulumi
+        working-directory: infra
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          TWITTERX_APIKEY: ${{ secrets.TWITTERX_APIKEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          AIRFLOW_SSH_KEY_NAME: ${{ secrets.AIRFLOW_SSH_KEY_NAME }}
+        run: |
+          uv run pulumi up --yes --stack ${{ env.PULUMI_STACK }}
+
+          # Get outputs
+          IP=$(uv run pulumi stack output airflow_public_ip --stack ${{ env.PULUMI_STACK }})
+          INSTANCE_ID=$(uv run pulumi stack output airflow_instance_id --stack ${{ env.PULUMI_STACK }})
+
+          echo "airflow_public_ip=$IP" >> $GITHUB_OUTPUT
+          echo "airflow_instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+
+      - name: Check if EC2 was recreated
+        id: check
+        run: |
+          if [ "${{ steps.before.outputs.instance_id }}" != "${{ steps.pulumi.outputs.airflow_instance_id }}" ]; then
+            echo "EC2 instance was recreated (old: ${{ steps.before.outputs.instance_id }}, new: ${{ steps.pulumi.outputs.airflow_instance_id }})"
+            echo "ec2_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "EC2 instance unchanged"
+            echo "ec2_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+  bootstrap-ec2:
+    name: Bootstrap EC2 (if recreated)
+    needs: deploy-infra
+    if: needs.deploy-infra.outputs.ec2_changed == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Wait for EC2 to be ready
+        run: |
+          echo "Waiting 60s for EC2 cloud-init to complete..."
+          sleep 60
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/airflow.pem
+          chmod 600 ~/.ssh/airflow.pem
+          # Fresh EC2, need to accept new host key
+          ssh-keyscan -H ${{ needs.deploy-infra.outputs.ec2_ip }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Wait for cloud-init
+        run: |
+          echo "Waiting for cloud-init to complete on EC2..."
+          ssh -i ~/.ssh/airflow.pem -o StrictHostKeyChecking=no \
+            ${{ env.REMOTE_USER }}@${{ needs.deploy-infra.outputs.ec2_ip }} \
+            "cloud-init status --wait || sleep 30"
+
+      - name: Deploy application files
+        run: |
+          rsync -avz --progress \
+            -e "ssh -i ~/.ssh/airflow.pem -o StrictHostKeyChecking=no" \
+            --exclude '.venv' \
+            --exclude '__pycache__' \
+            --exclude '.pytest_cache' \
+            --exclude '*.pyc' \
+            --exclude '.git' \
+            --exclude 'tests' \
+            --exclude 'logs' \
+            --exclude '.env' \
+            airflow/ ${{ env.REMOTE_USER }}@${{ needs.deploy-infra.outputs.ec2_ip }}:${{ env.REMOTE_DIR }}/
+
+      - name: Create .env file
+        env:
+          AIRFLOW_ADMIN_USER: ${{ secrets.AIRFLOW_ADMIN_USER }}
+          AIRFLOW_ADMIN_PASSWORD: ${{ secrets.AIRFLOW_ADMIN_PASSWORD }}
+          AIRFLOW_ADMIN_EMAIL: ${{ secrets.AIRFLOW_ADMIN_EMAIL }}
+          AIRFLOW_SECRET_KEY: ${{ secrets.AIRFLOW_SECRET_KEY }}
+          AIRFLOW_DOMAIN: ${{ secrets.AIRFLOW_DOMAIN }}
+          CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TWITTERX_APIKEY: ${{ secrets.TWITTERX_APIKEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          cat > /tmp/.env << EOF
+          # Generated by GitHub Actions - $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          AIRFLOW_ADMIN_USER=${AIRFLOW_ADMIN_USER}
+          AIRFLOW_ADMIN_PASSWORD=${AIRFLOW_ADMIN_PASSWORD}
+          AIRFLOW_ADMIN_EMAIL=${AIRFLOW_ADMIN_EMAIL}
+          AIRFLOW_SECRET_KEY=${AIRFLOW_SECRET_KEY}
+          AIRFLOW_DOMAIN=${AIRFLOW_DOMAIN}
+          CERTBOT_EMAIL=${CERTBOT_EMAIL}
+          DATABASE_URL=${DATABASE_URL}
+          APP_MODE=production
+          LOG_LEVEL=INFO
+          TWITTERX_APIKEY=${TWITTERX_APIKEY}
+          ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+          GEMINI_API_KEY=${GEMINI_API_KEY}
+          GROQ_API_KEY=${GROQ_API_KEY}
+          AIRFLOW_UID=50000
+          EOF
+
+          scp -i ~/.ssh/airflow.pem -o StrictHostKeyChecking=no \
+            /tmp/.env ${{ env.REMOTE_USER }}@${{ needs.deploy-infra.outputs.ec2_ip }}:${{ env.REMOTE_DIR }}/.env
+
+          ssh -i ~/.ssh/airflow.pem -o StrictHostKeyChecking=no \
+            ${{ env.REMOTE_USER }}@${{ needs.deploy-infra.outputs.ec2_ip }} "chmod 600 /opt/airflow/.env"
+
+          rm /tmp/.env
+
+      - name: Configure nginx and SSL
+        env:
+          AIRFLOW_DOMAIN: ${{ secrets.AIRFLOW_DOMAIN }}
+          CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
+        run: |
+          ssh -i ~/.ssh/airflow.pem -o StrictHostKeyChecking=no \
+            ${{ env.REMOTE_USER }}@${{ needs.deploy-infra.outputs.ec2_ip }} << ENDSSH
+          set -e
+          cd /opt/airflow
+          source .env
+
+          # Generate nginx config
+          export AIRFLOW_DOMAIN
+          envsubst '\$AIRFLOW_DOMAIN' < nginx/airflow.conf.template > /tmp/airflow.conf
+          sudo mv /tmp/airflow.conf /etc/nginx/conf.d/airflow.conf
+
+          # Check if SSL cert exists
+          if [ ! -f "/etc/letsencrypt/live/\${AIRFLOW_DOMAIN}/fullchain.pem" ]; then
+            echo "Obtaining SSL certificate..."
+
+            # Temporary HTTP config for certbot
+            cat > /tmp/airflow-http.conf << 'EOF'
+          server {
+              listen 80;
+              server_name \${AIRFLOW_DOMAIN};
+              location /.well-known/acme-challenge/ { root /var/www/certbot; }
+              location / { return 503 "SSL being configured..."; }
+          }
+          EOF
+            envsubst '\$AIRFLOW_DOMAIN' < /tmp/airflow-http.conf > /tmp/airflow-http-final.conf
+            sudo mv /tmp/airflow-http-final.conf /etc/nginx/conf.d/airflow.conf
+
+            sudo nginx -t && sudo systemctl restart nginx
+
+            sudo certbot certonly --webroot \
+              -w /var/www/certbot \
+              -d \${AIRFLOW_DOMAIN} \
+              --email \${CERTBOT_EMAIL} \
+              --agree-tos \
+              --non-interactive
+
+            # Restore HTTPS config
+            envsubst '\$AIRFLOW_DOMAIN' < nginx/airflow.conf.template > /tmp/airflow.conf
+            sudo mv /tmp/airflow.conf /etc/nginx/conf.d/airflow.conf
+          fi
+
+          sudo nginx -t && sudo systemctl restart nginx
+          echo "Nginx configured!"
+          ENDSSH
+
+      - name: Build and start Airflow
+        run: |
+          ssh -i ~/.ssh/airflow.pem -o StrictHostKeyChecking=no \
+            ${{ env.REMOTE_USER }}@${{ needs.deploy-infra.outputs.ec2_ip }} << 'ENDSSH'
+          set -e
+          cd /opt/airflow
+          source .env
+          export AIRFLOW_UID=$(id -u)
+
+          # Build image
+          docker-compose build
+
+          # Initialize Airflow (creates admin user)
+          docker-compose up airflow-init
+
+          # Start services
+          docker-compose up -d airflow-webserver airflow-scheduler
+
+          sleep 30
+          docker-compose ps
+
+          # Setup certbot auto-renewal
+          if ! sudo crontab -l 2>/dev/null | grep -q certbot; then
+            (sudo crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet --post-hook 'systemctl reload nginx'") | sudo crontab -
+          fi
+
+          echo "Bootstrap complete!"
+          ENDSSH
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/airflow.pem
+
+  update-ec2-host:
+    name: Update EC2_HOST secret (if IP changed)
+    needs: deploy-infra
+    if: needs.deploy-infra.outputs.ec2_changed == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Note about EC2_HOST
+        run: |
+          echo "::warning::EC2 was recreated. The Elastic IP should remain the same (${{ needs.deploy-infra.outputs.ec2_ip }}), but verify EC2_HOST secret matches."
+          echo ""
+          echo "If the IP changed, update the EC2_HOST secret in GitHub repository settings to: ${{ needs.deploy-infra.outputs.ec2_ip }}"

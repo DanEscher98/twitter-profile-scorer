@@ -2,60 +2,15 @@
 
 ## Overview
 
-The system supports two deployment modes during the Lambda → Airflow migration:
-
-### Current: Lambda Pipeline (Legacy)
-
-```mermaid
-graph TB
-    subgraph Region["AWS us-east-2"]
-        subgraph Compute
-            OR[orchestrator]
-            KE[keyword-engine]
-            QT[query-twitter-api]
-            LS[llm-scorer]
-            KSU[keyword-stats-updater]
-        end
-
-        subgraph Storage
-            RDS[(RDS PostgreSQL)]
-        end
-
-        subgraph Messaging
-            EB[EventBridge]
-            SQS_K[SQS: keywords]
-        end
-    end
-
-    subgraph External
-        RapidAPI[RapidAPI TwitterX]
-        Claude[Claude API]
-        Gemini[Gemini API]
-    end
-
-    EB -->|every 15 min| OR
-    OR -->|invoke| KE
-    OR -->|send| SQS_K
-    OR -->|invoke| LS
-    SQS_K -->|trigger| QT
-    QT --> RapidAPI
-    QT --> RDS
-    LS --> Claude
-    LS --> Gemini
-    LS --> RDS
-    KE --> RDS
-    KSU --> RDS
-    EB -->|daily 4 AM UTC| KSU
-```
-
-### Migration Target: Airflow Pipeline
+Profile Scorer uses Apache Airflow on EC2 to orchestrate a multi-platform social media profile search and scoring pipeline.
 
 ```mermaid
 graph TB
     subgraph Region["AWS us-east-2"]
         subgraph "EC2 t3.small"
             AF[Apache Airflow 3.x]
-            PS_DAG[profile_scoring DAG]
+            PS_DAG[profile_search DAG]
+            LLM_DAG[llm_scoring DAG]
             KS_DAG[keyword_stats DAG]
         end
 
@@ -72,12 +27,14 @@ graph TB
     end
 
     AF -->|every 15 min| PS_DAG
+    AF -->|every 15 min| LLM_DAG
     AF -->|daily 2 AM| KS_DAG
     PS_DAG --> RapidAPI
-    PS_DAG --> Claude
-    PS_DAG --> Gemini
-    PS_DAG --> Groq
     PS_DAG --> RDS
+    LLM_DAG --> Claude
+    LLM_DAG --> Gemini
+    LLM_DAG --> Groq
+    LLM_DAG --> RDS
     KS_DAG --> RDS
 ```
 
@@ -95,112 +52,30 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant EB as EventBridge
-    participant OR as orchestrator
-    participant KE as keyword-engine
-    participant SQS as SQS: keywords
-    participant QT as query-twitter-api
-    participant LS as llm-scorer
+    participant AF as Airflow Scheduler
+    participant PS as profile_search DAG
+    participant LLM as llm_scoring DAG
+    participant API as RapidAPI TwitterX
     participant DB as PostgreSQL
 
-    EB->>OR: Trigger (every 15 min)
-    OR->>KE: Get keyword sample
-    KE->>DB: Analyze xapi_usage_search
-    KE-->>OR: [researcher, phd, pharma, ...]
+    AF->>PS: Trigger (every 15 min)
+    PS->>DB: Get valid keywords per platform
+    PS->>API: Query profiles per keyword
+    API-->>PS: User profiles
+    PS->>DB: Store profiles + HAS scores
+    PS->>DB: Queue high-HAS profiles (>0.65)
 
-    loop Each keyword
-        OR->>SQS: Enqueue keyword
-    end
-
-    SQS->>QT: Trigger lambda
-    QT->>DB: Store profiles + HAS scores
-
-    OR->>DB: COUNT profiles_to_score
-    alt pendingCount > 0
-        OR->>LS: Invoke with model param
-        LS->>DB: Fetch batch, store scores
-    end
+    AF->>LLM: Trigger (every 15 min)
+    LLM->>DB: Fetch from profiles_to_score
+    LLM->>Claude/Gemini/Groq: Score batch
+    LLM->>DB: Store profile_scores
 ```
 
-## Lambda Functions
-
-| Lambda                | Memory | Timeout | Subnet   | Trigger                      |
-| --------------------- | ------ | ------- | -------- | ---------------------------- |
-| orchestrator          | 256MB  | 30s     | Private  | EventBridge (15 min)         |
-| keyword-engine        | 256MB  | 30s     | Isolated | Direct invocation            |
-| query-twitter-api     | 256MB  | 60s     | Private  | SQS keywords-queue           |
-| llm-scorer            | 512MB  | 120s    | Private  | Direct invocation            |
-| keyword-stats-updater | 256MB  | 120s    | Isolated | EventBridge (daily 4 AM UTC) |
-
-### 1. Orchestrator
-
-**Location:** `lambdas/orchestrator/`
-
-Pipeline heartbeat that coordinates all other lambdas:
-
-- Invokes `keyword-engine` to get keyword list
-- Sends keywords to SQS queue
-- Invokes `llm-scorer` directly when profiles need scoring
-
-### 2. Keyword Engine
-
-**Location:** `lambdas/keyword-engine/`
-
-Selects keywords for Twitter search from the `keyword_stats` database table:
-
-- Fetches valid keywords (still have pagination available)
-- Randomly samples from pool for diversity
-- Filters by pagination status using `xapi_usage_search`
-- Returns array of keywords with yield statistics
-
-### 3. Query Twitter API
-
-**Location:** `lambdas/query-twitter-api/`
-
-Fetches and processes Twitter profiles:
-
-- Calls RapidAPI TwitterX
-- Computes HAS (Human Authenticity Score)
-- Stores to `user_profiles`, `user_stats`, `user_keywords`
-- Queues high-HAS profiles (>0.65) to `profiles_to_score`
-
-```mermaid
-flowchart LR
-    SQS[SQS: keywords] --> QT[query-twitter-api]
-    QT --> API[RapidAPI TwitterX]
-    API --> QT
-    QT --> HAS{HAS > 0.65?}
-    HAS -->|Yes| PTS[(profiles_to_score)]
-    HAS -->|No| Skip[Skip]
-    QT --> DB[(user_profiles)]
-```
-
-### 4. LLM Scorer
-
-**Location:** `lambdas/llm-scorer/`
-
-Evaluates profiles with LLMs:
-
-- Fetches batch from `profiles_to_score` using `FOR UPDATE SKIP LOCKED`
-- Sends to Claude or Gemini (model specified at invocation)
-- Stores scores in `profile_scores`
-
-### 5. Keyword Stats Updater
-
-**Location:** `lambdas/keyword-stats-updater/`
-
-Daily maintenance lambda that recalculates keyword statistics:
-
-- Aggregates profile counts and average scores per keyword
-- Updates `still_valid` flag based on pagination exhaustion
-- Tracks quality metrics (high/low quality counts)
-- Runs at 4 AM UTC via EventBridge schedule
-
-## Airflow DAGs (Migration Target)
+## Airflow DAGs
 
 **Location:** `airflow/dags/`
 
-The Airflow implementation uses Python with strict Pydantic typing and supports multi-platform search.
+The Airflow implementation uses Python with `@task.virtualenv` for SQLAlchemy 2.0+ isolation from Airflow's environment.
 
 ### profile_search DAG
 
@@ -247,7 +122,7 @@ Tasks:
 2. `calculate_keyword_stats` - Aggregate profiles, HAS scores, label rates per platform
 3. `upsert_keyword_stats` - Update `keyword_stats` and `keyword_status` tables
 
-### Airflow Packages
+## Airflow Packages
 
 **Location:** `airflow/packages/`
 
@@ -288,62 +163,52 @@ The router normalizes user data to common fields:
 graph TB
     subgraph VPC["VPC (10.0.0.0/16)"]
         subgraph Public["Public Subnets (10.0.1.0/24, 10.0.2.0/24)"]
-            NAT[NAT Gateway]
+            EC2[EC2 Airflow]
             RDS[(RDS PostgreSQL)]
-        end
-
-        subgraph Private["Private Subnets (10.0.10.0/24, 10.0.11.0/24)"]
-            QT[query-twitter-api]
-            LS[llm-scorer]
-            OR[orchestrator]
-        end
-
-        subgraph Isolated["Isolated Subnets (10.0.20.0/24, 10.0.21.0/24)"]
-            KE[keyword-engine]
-            KSU[keyword-stats-updater]
         end
     end
 
-    Internet((Internet)) --> NAT
-    NAT --> QT
-    NAT --> LS
-    NAT --> OR
+    Internet((Internet)) --> EC2
+    EC2 --> RDS
+    EC2 --> APIs[External APIs]
 ```
 
-| Subnet Type | CIDR            | Internet Access | Purpose                       |
-| ----------- | --------------- | --------------- | ----------------------------- |
-| Public      | 10.0.1-2.0/24   | Direct (IGW)    | NAT Gateway, RDS (dev)        |
-| Private     | 10.0.10-11.0/24 | Via NAT         | Lambdas needing external APIs |
-| Isolated    | 10.0.20-21.0/24 | None            | DB-only lambdas               |
+| Subnet Type | CIDR          | Internet Access | Purpose                |
+| ----------- | ------------- | --------------- | ---------------------- |
+| Public      | 10.0.1-2.0/24 | Direct (IGW)    | EC2 Airflow, RDS (dev) |
 
-**Note:** RDS is in public subnets for dev access. Move to isolated subnets for production.
+**Note:** RDS is in public subnets for dev access. Move to private subnets for production.
 
-## Message Queues
+**Cost Optimization:** NAT Gateway was removed (saves ~$32/month). EC2 in public subnet accesses internet directly.
 
-```mermaid
-graph LR
-    OR[orchestrator] --> KQ[keywords-queue]
-    KQ --> QT[query-twitter-api]
-    KQ -.->|after 3 failures| DLQ[keywords-dlq]
-```
+## LLM Scoring System
 
-| Queue          | Visibility Timeout | Max Retries | DLQ Retention |
-| -------------- | ------------------ | ----------- | ------------- |
-| keywords-queue | 60s                | 3           | 7 days        |
+The Airflow DAGs support multiple LLM models with probability-based invocation.
 
-**Note:** The scoring queue was removed. The `llm-scorer` is now invoked directly by the orchestrator. The `profiles_to_score` table serves as a persistent queue with atomic claims via `FOR UPDATE SKIP LOCKED`.
+| Alias              | Full Name                                    | Probability | Batch Size |
+| ------------------ | -------------------------------------------- | ----------- | ---------- |
+| `meta-maverick-17b`  | `meta-llama/llama-4-maverick-17b-128e-instruct` | 0.7 (70%)   | 25         |
+| `claude-haiku-4.5`   | `claude-haiku-4-5-20251001`                    | 0.6 (60%)   | 25         |
+| `gemini-flash-2.0`   | `gemini-2.0-flash`                             | 0.4 (40%)   | 15         |
+
+**Scoring Flow:**
+1. Profiles serialized in TOON format
+2. Sent to LLM with audience config
+3. Output: JSON array validated with Zod schema `{ handle, label, reason }[]`
+4. Trivalent labeling: `true` (match), `false` (no match), `null` (uncertain)
 
 ## Rate Limiting
 
 ### RapidAPI TwitterX
 
 - **Limit:** 10 req/s, 500K req/month
-- **Strategy:** SQS concurrency = 3 (~3 req/s effective)
+- **Strategy:** Airflow dynamic task mapping controls concurrency
 
 ### LLM APIs
 
 - **Claude Haiku:** $0.25/1M input, $1.25/1M output
 - **Gemini Flash:** Free tier
+- **Groq (Llama):** Free tier with rate limits
 - **Batch size:** 25 profiles per request
 
 ## Monitoring & Observability
@@ -354,15 +219,11 @@ graph LR
 
 The dashboard provides a unified view of all system components:
 
-| Row                    | Metrics                                               |
-| ---------------------- | ----------------------------------------------------- |
-| **Pipeline Health**    | Lambda invocations (stacked), errors, SQS queue depth |
-| **Lambda Performance** | Duration p95, concurrent executions, throttles        |
-| **Database Health**    | RDS connections, CPU utilization, free storage        |
-| **Database I/O**       | Read/write IOPS, read/write latency                   |
-| **Queue Metrics**      | Message age, sent/received/deleted, empty receives    |
-| **Network**            | NAT Gateway traffic in/out, connection counts         |
-| **EC2 Airflow**        | CPU utilization, network I/O, status checks           |
+| Row                 | Metrics                                      |
+| ------------------- | -------------------------------------------- |
+| **EC2 Health**      | CPU utilization, network I/O, status checks  |
+| **Database Health** | RDS connections, CPU utilization, free storage |
+| **Database I/O**    | Read/write IOPS, read/write latency          |
 
 ### Cost Management
 
@@ -372,14 +233,13 @@ The dashboard provides a unified view of all system components:
 | **Cost Explorer**     | [By Service](https://us-east-1.console.aws.amazon.com/cost-management/home#/cost-explorer)                            |
 | **Anomaly Detection** | [Default-Services-Monitor](https://us-east-1.console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors) |
 
-**Current Cost Breakdown (November 2025):**
+**Current Cost Breakdown (December 2025):**
 
-| Service                 | Cost   | Notes                      |
-| ----------------------- | ------ | -------------------------- |
-| EC2 - Other             | ~$0.59 | NAT Gateway (largest cost) |
-| RDS                     | ~$0.24 | PostgreSQL db.t4g.micro    |
-| VPC                     | ~$0.12 | VPC resources              |
-| Lambda, SQS, CloudWatch | $0.00  | Free tier                  |
+| Service    | Cost   | Notes                   |
+| ---------- | ------ | ----------------------- |
+| EC2        | ~$8.50 | t3.small (Airflow host) |
+| RDS        | ~$0.24 | PostgreSQL db.t4g.micro |
+| CloudWatch | $0.00  | Basic metrics           |
 
 **To enable tag-based filtering:**
 
@@ -387,38 +247,18 @@ The dashboard provides a unified view of all system components:
 2. Activate `Project` tag
 3. Wait 24 hours
 
-**To add email alerts** to the budget, edit `infra/__main__.py`:
-
-```python
-budget = ProjectBudget(
-    "profile-scorer",
-    monthly_limit_usd=10.0,
-    notification_emails=["your@email.com"],
-)
-```
-
 ## Pulumi Stack Outputs
 
 ```bash
+cd infra
+
 # Database
 uv run pulumi stack output db_connection_string --show-secrets
 
-# Lambda ARNs
-uv run pulumi stack output orchestrator_arn
-uv run pulumi stack output keyword_engine_arn
-uv run pulumi stack output query_twitter_arn
-uv run pulumi stack output llm_scorer_arn
-
-# Lambda names (for invocation)
-uv run pulumi stack output orchestrator_name
-uv run pulumi stack output keyword_engine_name
-uv run pulumi stack output query_twitter_name
-uv run pulumi stack output llm_scorer_name
-uv run pulumi stack output keyword_stats_updater_name
-
-# Queues
-uv run pulumi stack output keywords_queue_url
-uv run pulumi stack output keywords_dlq_url
+# EC2 Airflow
+uv run pulumi stack output airflow_public_ip
+uv run pulumi stack output airflow_ssh_command
+uv run pulumi stack output airflow_url
 
 # Monitoring
 uv run pulumi stack output dashboard_url
@@ -426,25 +266,50 @@ uv run pulumi stack output budget_name
 
 # Resource Group
 uv run pulumi stack output resource_group_arn
-
-# EC2 Airflow (if deployed)
-uv run pulumi stack output airflow_public_ip
-uv run pulumi stack output airflow_ssh_command
-uv run pulumi stack output airflow_url
 ```
 
-## Testing
+## Deployment
+
+### Airflow Code Changes (Frequent)
+
+Push to the `profile-scorer.airflow` repository triggers GitHub Actions:
 
 ```bash
-# Invoke orchestrator
-aws lambda invoke --function-name $(uv run pulumi stack output orchestrator_name) \
-  --payload '{}' /tmp/out.json && cat /tmp/out.json
+cd airflow
+git add . && git commit -m "Update DAG"
+git push origin main  # Triggers deploy.yml workflow
+```
 
-# Check queue depth
-aws sqs get-queue-attributes \
-  --queue-url $(uv run pulumi stack output keywords_queue_url) \
-  --attribute-names ApproximateNumberOfMessages
+The workflow:
+1. rsync files to EC2
+2. Rebuilds Docker images
+3. Restarts Airflow containers
+4. Reserializes DAGs
+
+### Infrastructure Changes (Rare)
+
+Push to `infra/**` in parent repo triggers Pulumi deployment:
+
+```bash
+cd infra
+uv run pulumi up --yes
+```
+
+If EC2 is recreated, run the bootstrap script:
+
+```bash
+./deploy.sh <new-ip> airflow
+```
+
+## SSH Access
+
+```bash
+# Get SSH command from Pulumi
+cd infra && uv run pulumi stack output airflow_ssh_command
+
+# Or manually
+ssh -i ~/.ssh/airflow.pem ec2-user@<ip>
 
 # View logs
-aws logs tail /aws/lambda/$(uv run pulumi stack output orchestrator_name) --since 5m
+cd /opt/airflow && docker-compose logs -f airflow-scheduler
 ```

@@ -8,232 +8,175 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 1. **Documentation updates**: After any major fix or addition, update the relevant docs in `docs/`, then commit the changes together.
 
-2. **CloudWatch dashboard**: When a Pulumi component is added or removed, update the CloudWatch dashboard in `infra/components/dashboard.py` to include/remove its metrics.
+2. **CloudWatch dashboard**: When a Pulumi component is added or removed, update the CloudWatch dashboard in `infra/components/simple_dashboard.py` to include/remove its metrics.
 
 3. **Prefer Justfile commands**: For common tasks, use the battle-tested Justfile commands instead of raw commands. This reduces errors and token usage:
    - `just deploy` - Build + Pulumi up
-   - `just test` - Run E2E tests
-   - `just test-debug` - Run E2E tests with DEBUG logging
    - `just db-push` - Push schema with SSL cert
    - `just update-env` - Update .env with DATABASE_URL from Pulumi
 
 ## Project Overview
 
-Profile Scorer is an AWS-based Twitter profile analysis pipeline. It uses Pulumi (Python) for infrastructure, with two execution modes:
+Profile Scorer is an AWS-based Twitter/X profile analysis pipeline. It uses:
+- **Pulumi (Python)** for infrastructure
+- **Apache Airflow 3.x** on EC2 for pipeline orchestration
+- **RDS PostgreSQL** for data storage
 
-1. **Lambda Pipeline (Legacy)**: Node.js Lambda functions triggered by EventBridge/SQS
-2. **Airflow Pipeline (Migration Target)**: Python DAGs on EC2 with Apache Airflow 3.x
-
-The codebase is a monorepo managed by Yarn workspaces for TypeScript and uv workspaces for Python.
+The `airflow/` directory is a **git submodule** pointing to a separate repository (`profile-scorer.airflow`) that can be developed and deployed independently.
 
 ## Architecture
 
 ```
 VPC (10.0.0.0/16)
-├── Public Subnets → NAT Gateway → Internet
-├── Private Subnets → Lambda: orchestrator, query-twitter-api, llm-scorer (internet via NAT)
-└── Isolated Subnets → RDS PostgreSQL + Lambda: keyword-engine (DB-only)
+├── Public Subnets (10.0.1-2.0/24)
+│   ├── EC2 (t3.small) - Apache Airflow 3.x with Docker
+│   └── RDS PostgreSQL (dev access)
+├── Private Subnets (10.0.10-11.0/24) - unused (NAT removed)
+└── Isolated Subnets (10.0.20-21.0/24) - unused
 ```
 
-**Key components (Lambda):**
+**Cost Optimization:** NAT Gateway removed (~$32/month savings). All workloads run on EC2 with direct internet access.
 
-- `packages/db/` - Shared database layer (Drizzle ORM, TypeScript)
-- `packages/twitterx-api/` - Twitter API wrapper with HAS scoring (RapidAPI client, Winston logging)
-- `lambdas/orchestrator/` - Pipeline coordinator (EventBridge triggered every 15 min)
-- `lambdas/keyword-engine/` - Keyword selection lambda (isolated subnet, ~80 academic research keywords)
-- `lambdas/query-twitter-api/` - Profile fetching lambda (private subnet with NAT)
-- `lambdas/llm-scorer/` - Multi-model LLM scoring lambda (private subnet with NAT)
-- `infra/` - Pulumi infrastructure (Python, uv package manager)
+## Repository Structure
 
-**Key components (Airflow):**
+```
+profile-scorer/                    # Parent repo (infrastructure)
+├── infra/                         # Pulumi infrastructure (Python)
+│   ├── __main__.py               # Main Pulumi program
+│   └── components/               # Reusable Pulumi components
+├── airflow/                       # Git submodule → profile-scorer.airflow repo
+│   ├── dags/                     # Airflow DAGs
+│   ├── packages/                 # Python packages (db, scoring, search_profiles)
+│   └── .github/workflows/        # Airflow-specific CI/CD
+├── packages/                      # Legacy TypeScript packages (deprecated)
+├── lambdas/                       # Legacy Lambda functions (deprecated)
+└── .github/workflows/            # Infrastructure CI/CD
+```
 
-- `airflow/dags/` - Airflow DAGs (profile_scoring, keyword_stats)
-- `airflow/packages/scorer_db/` - SQLModel database layer
-- `airflow/packages/scorer_twitter/` - Twitter API client (httpx + Pydantic)
-- `airflow/packages/scorer_llm/` - LangChain LLM scoring with model registry
-- `airflow/packages/scorer_has/` - Human Authenticity Score algorithm
-- `airflow/packages/scorer_utils/` - Logging, settings, base models
-- `airflow/alembic/` - Database migrations (synced with Drizzle)
+## Airflow Components
 
-## Build Commands
+**Location:** `airflow/` (separate repo: `profile-scorer.airflow`)
+
+| Package           | Description                                           |
+| ----------------- | ----------------------------------------------------- |
+| `db`              | SQLModel models, session management                   |
+| `search_profiles` | Multi-platform search router (Twitter, Bluesky)       |
+| `scoring`         | HAS algorithm + LangChain multi-provider LLM scoring  |
+| `utils`           | Logging, settings, base models                        |
+
+**DAGs:**
+- `profile_search` - Multi-platform profile search (every 15 min)
+- `llm_scoring` - LLM evaluation of high-HAS profiles (every 15 min)
+- `keyword_stats` - Daily keyword statistics update (2 AM UTC)
+
+## Quick Start for New Developers
+
+### 1. Airflow Development (Most Common)
 
 ```bash
-# Install dependencies
-yarn install                    # Node.js packages
-cd infra && uv sync            # Python/Pulumi packages
-cd airflow && uv sync          # Python/Airflow packages
+# Clone the airflow repo directly
+git clone https://github.com/DanEscher98/profile-scorer.airflow.git
+cd profile-scorer.airflow
 
-# Build (Lambda)
-yarn build                      # Build all packages and lambdas
-yarn build:lambdas             # Build only lambda functions
+# Setup local environment
+cp .env.example .env
+# Edit .env with your credentials
 
-# Database
-yarn generate                   # Generate Drizzle migrations
-yarn push                       # Apply schema to RDS (requires DATABASE_URL)
+# Run locally with Docker
+docker-compose up -d
 
-# Infrastructure
-yarn deploy                     # Deploy with pulumi up --yes
-cd infra && uv run pulumi up   # Interactive deploy
+# Push changes → Auto-deploys to EC2 via GitHub Actions
+git add . && git commit -m "Your changes" && git push
+```
 
-# Testing
-just test                       # Run E2E tests
-just test-debug                 # Run E2E tests with DEBUG logging
+### 2. Infrastructure Changes (Rare)
 
-# Airflow (lint/format)
-cd airflow && uv run ruff check --fix
-cd airflow && uv run ruff format
+```bash
+# Clone parent repo with submodule
+git clone --recurse-submodules https://github.com/DanEscher98/twitter-profile-scorer.git
+cd twitter-profile-scorer
+
+# Setup infrastructure secrets
+cp infra/.env.example infra/.env
+# Edit infra/.env with AWS credentials and API keys
+
+# Deploy infrastructure
+cd infra && uv sync && uv run pulumi up
+
+# If EC2 was recreated, run initial setup
+cd ../airflow
+./deploy.sh $(cd ../infra && uv run pulumi stack output airflow_public_ip) airflow
 ```
 
 ## Environment Variables
 
-**Infrastructure secrets** are loaded from `infra/.env` (never committed to git):
-
-```bash
-# Copy the template and fill in your values
-cp infra/.env.example infra/.env
-```
-
-Required variables in `infra/.env`:
-
+**Infrastructure (`infra/.env`):**
 - `DB_PASSWORD` - PostgreSQL password
 - `TWITTERX_APIKEY` - RapidAPI key for TwitterX
-- `ANTHROPIC_API_KEY` - Claude API key for LLM scoring
-- `GEMINI_API_KEY` - Google AI API key for Gemini scoring
-- `GROQ_API_KEY` - Groq API key for Meta/Llama models
+- `ANTHROPIC_API_KEY` - Claude API key
+- `GEMINI_API_KEY` - Google AI API key
+- `GROQ_API_KEY` - Groq API key
+- `AIRFLOW_SSH_KEY_NAME` - EC2 key pair name
 
-**Database operations** require DATABASE_URL:
+**Airflow (`airflow/.env`):**
+- `DATABASE_URL` - PostgreSQL connection string
+- `AIRFLOW_ADMIN_USER/PASSWORD` - Airflow web UI credentials
+- `AIRFLOW_SECRET_KEY` - Flask secret key
+- `AIRFLOW_DOMAIN` - Domain for SSL certificate
+- API keys (same as above)
 
-```bash
-export DATABASE_URL=$(cd infra && uv run pulumi stack output db_connection_string --show-secrets)
-```
+## CI/CD Workflows
 
-## Tech Stack
-
-- **Node.js**: Yarn 4.12.0, TypeScript 5.x, esbuild for bundling
-- **Python**: uv package manager, Pulumi 3.x/4.x
-- **Database**: PostgreSQL 16.3, Drizzle ORM
-- **Lambda Runtime**: Node.js 20.x, 256MB memory, 30s timeout
-- **LLM SDKs**: LangChain providers (@langchain/anthropic, @langchain/google-genai, @langchain/groq)
-- **Validation**: Zod for LLM response validation
-- **Serialization**: TOON format for LLM input
+| Repo | Workflow | Trigger | Action |
+|------|----------|---------|--------|
+| `profile-scorer.airflow` | `deploy.yml` | Push to `main` | rsync to EC2, restart containers |
+| `twitter-profile-scorer` | `infra-deploy.yml` | Push to `infra/**` | Pulumi up, bootstrap if EC2 recreated |
 
 ## Database Schema
 
-Tables defined in `packages/db/src/schema.ts` (TypeScript) and `airflow/packages/scorer_db/src/scorer_db/models.py` (Python):
+Tables in `airflow/packages/db/src/db/models.py`:
 
-- `user_profiles` - Core Twitter user data with HAS (Human Authenticity Score), includes `platform` column (twitter/bluesky)
-- `profile_scores` - LLM scoring records (unique per twitter_id + scored_by model, includes `audience` version)
+- `user_profiles` - Core Twitter user data with HAS score, `platform` column
+- `profile_scores` - LLM scoring records (unique per twitter_id + scored_by)
 - `user_stats` - Raw numeric fields for ML training
-- `api_search_usage` - API call tracking and pagination state (renamed from `xapi_usage_search`)
-- `profiles_to_score` - Queue of profiles pending LLM evaluation (HAS > 0.65)
+- `api_search_usage` - API call tracking and pagination state
+- `profiles_to_score` - Queue of profiles pending LLM evaluation
 - `user_keywords` - Many-to-many linking profiles to search keywords
 - `keyword_stats` - Keyword pool with semantic tags and quality metrics
+- `keyword_status` - Per-platform keyword pagination state
 
-**Database Migrations:**
-- TypeScript: Drizzle ORM (`yarn push`)
-- Python: Alembic (`cd airflow && uv run alembic upgrade head`)
+**Migrations:** Alembic (`cd airflow && uv run alembic upgrade head`)
 
 ## LLM Scoring System
 
-The `llm-scorer` lambda supports multiple models with probability-based invocation. Models use simplified aliases for logging, with full names stored in DB.
+Models with probability-based invocation:
 
-| Alias              | Full Name                                    | Probability | Batch Size |
-| ------------------ | -------------------------------------------- | ----------- | ---------- |
-| `meta-maverick-17b`  | `meta-llama/llama-4-maverick-17b-128e-instruct` | 0.7 (70%)   | 25         |
-| `claude-haiku-4.5`   | `claude-haiku-4-5-20251001`                    | 0.6 (60%)   | 25         |
-| `gemini-flash-2.0`   | `gemini-2.0-flash`                             | 0.4 (40%)   | 15         |
+| Alias              | Full Name                                    | Probability |
+| ------------------ | -------------------------------------------- | ----------- |
+| `meta-maverick-17b`  | `meta-llama/llama-4-maverick-17b-128e-instruct` | 70%         |
+| `claude-haiku-4.5`   | `claude-haiku-4-5-20251001`                    | 60%         |
+| `gemini-flash-2.0`   | `gemini-2.0-flash`                             | 40%         |
 
-**Additional models available:**
-- `claude-sonnet-4.5` → `claude-sonnet-4-20250514`
-- `claude-opus-4.5` → `claude-opus-4-5-20251101`
-- `gemini-flash-1.5` → `gemini-1.5-flash`
+**Audience configs:** `airflow/dags/audiences/thelai_customers.v*.json`
 
-**Architecture:**
-
-- Orchestrator invokes llm-scorer with model alias (e.g., `claude-haiku-4.5`)
-- `packages/llm-scoring` resolves alias to full model name via `MODEL_REGISTRY`
-- DB `scored_by` column stores full model name for precise tracking
-- DB `audience` column stores audience config version (e.g., `thelai_customers.v1`)
-- Unique constraint on `(twitter_id, scored_by)` prevents duplicate scoring
-- Each model scores independently - profiles accumulate labels from multiple models
-
-**Audience Configs:**
-
-Audience configurations define the target profile for scoring. Located in `lambdas/llm-scorer/src/audiences/`:
-- `thelai_customers.v1.json` - Current version for TheLai customers
-- Default: `thelai_customers.v1` (passed via `audienceConfigPath` parameter)
-
-**Input/Output:**
-
-- Input: Profiles serialized in TOON format
-- Output: JSON array validated with Zod schema `{ handle, label, reason }[]`
-- Trivalent labeling: `true` (match), `false` (no match), `null` (uncertain)
-
-**Error Handling:**
-
-- Quota/rate limit errors logged with `action: "PURCHASE_TOKENS_OR_WAIT"`
-- Returns empty array on error (allows other models to continue)
-- Invalid model aliases rejected with available models list
-
-## Deployment Workflow
+## Useful Commands
 
 ```bash
-yarn build                                          # 1. Build packages (includes RDS CA cert copy)
+# SSH to EC2
+ssh -i ~/.ssh/airflow.pem ec2-user@$(cd infra && uv run pulumi stack output airflow_public_ip)
+
+# View Airflow logs
+ssh -i ~/.ssh/airflow.pem ec2-user@<ip> 'cd /opt/airflow && docker-compose logs -f'
+
+# Database connection
 export DATABASE_URL=$(cd infra && uv run pulumi stack output db_connection_string --show-secrets)
-yarn push                                           # 2. Push schema
-cd infra && uv run pulumi up --yes                 # 3. Deploy infra
+
+# Trigger DAG manually
+ssh -i ~/.ssh/airflow.pem ec2-user@<ip> 'cd /opt/airflow && docker-compose exec airflow-scheduler airflow dags trigger profile_search'
 ```
 
-Or use the Justfile:
+## Monitoring
 
-```bash
-just deploy                                         # Build + Pulumi up
-just db-push                                        # Push schema with SSL cert
-```
-
-## SSL/TLS Configuration
-
-AWS RDS requires SSL for connections. The `packages/db/` client automatically loads the RDS CA certificate bundle:
-
-- Certificate location: `certs/aws-rds-global-bundle.pem`
-- Each Lambda bundles this cert in its dist folder (via esbuild config)
-- The client searches `/var/task/` at runtime (Lambda extraction path)
-
-## Pipeline Flow
-
-```
-EventBridge (15 min) → orchestrator
-                           │
-                           ├─→ keyword-engine (get randomized keywords)
-                           │         │
-                           │         ↓
-                           │   SQS:keywords-queue → query-twitter-api
-                           │                              │
-                           │                              ↓
-                           │                    DB: user_profiles, user_stats, user_keywords
-                           │                              │
-                           │                              ↓
-                           │                    profiles_to_score (HAS > 0.65)
-                           │
-                           └─→ llm-scorer (per model, probability-based)
-                                     │
-                                     ↓
-                               DB: profile_scores
-```
-
-## Testing
-
-E2E tests located in `infra/tests/e2e/`:
-
-```bash
-just test                    # Run all tests
-just test-debug              # Run with DEBUG logging
-```
-
-Test coverage:
-
-- `test_keyword_engine.py` - Keyword retrieval and randomization
-- `test_query_twitter_api.py` - Profile fetching and HAS scoring
-- `test_orchestrator.py` - Pipeline coordination
-- `test_llm_scorer.py` - LLM scoring with multiple models
-- `test_database.py` - Data integrity and FK constraints
+- **Airflow UI:** https://profile-scorer.admin.ateliertech.xyz
+- **CloudWatch Dashboard:** [profile-scorer](https://us-east-2.console.aws.amazon.com/cloudwatch/home?region=us-east-2#dashboards:name=profile-scorer)
+- **AWS Budget:** $10/month limit with alerts at 50%, 80%, 100%
