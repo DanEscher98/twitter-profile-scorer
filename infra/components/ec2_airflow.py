@@ -212,8 +212,8 @@ systemctl enable nginx
 # Install certbot for Let's Encrypt
 dnf install -y certbot python3-certbot-nginx
 
-# Install envsubst (for nginx template processing)
-dnf install -y gettext
+# Install envsubst (for nginx template processing) and rsync (for deployments)
+dnf install -y gettext rsync
 
 # Create Airflow directory structure
 mkdir -p /opt/airflow/{dags,tasks,packages,logs,certs,audiences,nginx}
