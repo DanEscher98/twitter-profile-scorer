@@ -230,6 +230,137 @@ sudo tail -f /var/log/nginx/access.log
    - DAGs: `/opt/airflow/dags/`
    - Configs: `/opt/airflow/.env`
 
+## DAG Development Patterns
+
+### Dynamic Task Mapping with Virtualenv Tasks
+
+When using `@task.virtualenv` with dynamic task mapping (`.expand()`), you **must** use a bridge task to materialize the lazy proxy. The `.expand()` method returns a `LazySelectSequence` that cannot be pickled/dill'd for virtualenv subprocess.
+
+**Pattern:**
+```python
+from airflow.sdk import dag, task
+
+@dag
+def my_dag():
+    @task.virtualenv(requirements=["sqlalchemy>=2.0.0"])
+    def fetch_items() -> list[dict]:
+        # Returns list of items
+        return [{"id": 1}, {"id": 2}]
+
+    @task.virtualenv(requirements=["sqlalchemy>=2.0.0"])
+    def process_item(item: dict) -> dict:
+        # Process single item
+        return {"id": item["id"], "processed": True}
+
+    @task
+    def collect_results(results: list[dict]) -> list[dict]:
+        """Bridge task: materialize lazy proxy to plain list."""
+        return list(results)  # <-- This is the key!
+
+    @task.virtualenv(requirements=["sqlalchemy>=2.0.0"])
+    def aggregate(results: list[dict]) -> dict:
+        # Process aggregated results
+        return {"count": len(results)}
+
+    # Flow with bridge task
+    items = fetch_items()
+    processed = process_item.expand(item=items)  # Returns LazySelectSequence
+    collected = collect_results(processed)        # Materializes to plain list
+    aggregate(collected)                          # Now works with virtualenv
+```
+
+**Why this is needed:**
+- `.expand()` returns a `LazySelectSequence` proxy that lazily fetches XCom values
+- This proxy contains references to Airflow internals (including structlog)
+- `@task.virtualenv` pickles/dills arguments to pass to the subprocess
+- The proxy cannot be serialized, causing `PicklingError`
+- A regular `@task` can receive the proxy (runs in main process) and materialize it to a plain list
+- The plain list can then be serialized for the virtualenv task
+
+### Task Definition Location
+
+Tasks must be defined **inside** the `@dag` decorated function to avoid pickling issues:
+
+```python
+# CORRECT: Tasks inside DAG function
+@dag
+def my_dag():
+    @task
+    def my_task():
+        pass
+    my_task()
+
+# WRONG: Tasks at module level (causes pickling issues)
+@task
+def my_task():
+    pass
+
+@dag
+def my_dag():
+    my_task()
+```
+
+### Alembic Migrations
+
+Database migrations are managed with Alembic. After modifying SQLModel models:
+
+```bash
+cd airflow
+
+# Generate migration
+uv run alembic revision --autogenerate -m "description"
+
+# Apply migrations
+uv run alembic upgrade head
+
+# Rollback
+uv run alembic downgrade -1
+```
+
+**Important:** Keep Drizzle (TypeScript) and Alembic (Python) schemas in sync. The canonical schema is defined in `packages/db/src/schema.ts` - Alembic migrations should match.
+
+### PostgreSQL Enums with SQLModel
+
+When using Python `StrEnum` with SQLModel for existing PostgreSQL enums, SQLAlchemy defaults to using enum **names** (e.g., `CREATOR`) instead of **values** (e.g., `"Creator"`). This causes errors like:
+
+```
+'Creator' is not among the defined enum values. Enum name: twitterusertype. Possible values: HUMAN, CREATOR, ...
+```
+
+**Fix:** Use `sa_column` with `values_callable` to map enum values correctly:
+
+```python
+from enum import StrEnum
+from sqlalchemy import Column, Enum as SAEnum
+from sqlmodel import Field, SQLModel
+
+class TwitterUserType(StrEnum):
+    HUMAN = "Human"      # name=HUMAN, value="Human"
+    CREATOR = "Creator"  # name=CREATOR, value="Creator"
+    BOT = "Bot"
+
+class UserProfile(SQLModel, table=True):
+    likely_is: TwitterUserType | None = Field(
+        default=None,
+        sa_column=Column(
+            SAEnum(
+                TwitterUserType,
+                name="twitter_user_type",  # PostgreSQL enum type name
+                create_constraint=False,   # Don't create new enum
+                native_enum=True,          # Use existing PG enum
+                values_callable=lambda x: [e.value for e in x],  # Use values!
+            ),
+            nullable=True,
+        ),
+    )
+```
+
+**Key parameters:**
+- `name`: Must match the PostgreSQL enum type name exactly
+- `create_constraint=False`: Prevents SQLAlchemy from trying to create a new enum
+- `native_enum=True`: Uses PostgreSQL's native enum type
+- `values_callable`: Maps Python enum to PostgreSQL using `.value` (e.g., "Creator") instead of `.name` (e.g., "CREATOR")
+
 ## Migration Checklist
 
 After deploying Airflow and verifying DAGs work correctly:
