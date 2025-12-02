@@ -7,24 +7,26 @@ This module creates an EC2 instance for running Apache Airflow with:
 - Security group allowing SSH, HTTP, HTTPS
 - IAM role for CloudWatch logging
 
-Deployment Notes:
------------------
-1. The instance uses Amazon Linux 2023 AMI
-2. User data script installs Docker and docker-compose
-3. Airflow is deployed via docker-compose (LocalExecutor mode)
-4. HTTPS is handled by nginx + certbot (see setup scripts)
+Deployment Workflow:
+--------------------
+1. `pulumi up` - Creates EC2 with Docker, nginx, certbot installed
+2. `./deploy.sh <elastic-ip> <ssh-key>` - Deploys application code and starts Airflow
+
+This two-step approach allows:
+- Credential rotation without Pulumi changes
+- Domain configuration flexibility (set in .env, not Pulumi)
+- Secure credential management (not stored in Pulumi state)
 
 SSH Access:
 -----------
 Use the SSH key specified in ssh_key_name parameter:
   ssh -i ~/.ssh/<key>.pem ec2-user@<elastic-ip>
 
-Post-Deployment:
-----------------
-1. SSH into instance
-2. Run /opt/airflow/setup.sh to initialize Airflow
-3. Configure nginx and certbot for HTTPS
-4. Access Airflow at https://profile-scorer.admin.ateliertech.xyz
+Prerequisites before deploy.sh:
+-------------------------------
+1. Configure DNS A record pointing to the Elastic IP
+2. Copy .env.example to .env and configure all values
+3. Generate secure AIRFLOW_SECRET_KEY and AIRFLOW_ADMIN_PASSWORD
 """
 
 import pulumi
@@ -172,22 +174,29 @@ class Ec2Airflow(pulumi.ComponentResource):
         )
 
         # =====================================================================
-        # User Data Script - Instance Initialization
+        # User Data Script - Instance Initialization (Prerequisites Only)
         # =====================================================================
-        user_data = pulumi.Output.all(
-            database_url,
-            twitterx_apikey,
-            anthropic_api_key,
-            gemini_api_key,
-            groq_api_key,
-        ).apply(lambda args: f"""#!/bin/bash
+        # Note: This only installs prerequisites. Application deployment is done
+        # via deploy.sh which syncs code, configures nginx/certbot, and starts
+        # Airflow with proper credentials.
+        #
+        # Deployment workflow:
+        #   1. pulumi up           -> Creates EC2 with Docker/nginx/certbot
+        #   2. ./deploy.sh <ip> <key> -> Deploys application code and starts Airflow
+        #
+        # The secrets are NOT written to the instance here - they are synced
+        # by deploy.sh from the local .env file, which allows:
+        #   - Credential rotation without Pulumi changes
+        #   - Domain configuration flexibility
+        #   - Secure credential management (not in Pulumi state)
+        user_data = """#!/bin/bash
 set -e
 
 # Update system
-yum update -y
+dnf update -y
 
 # Install Docker
-yum install -y docker
+dnf install -y docker
 systemctl enable docker
 systemctl start docker
 usermod -aG docker ec2-user
@@ -197,163 +206,25 @@ curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-comp
 chmod +x /usr/local/bin/docker-compose
 
 # Install nginx (for reverse proxy)
-yum install -y nginx
+dnf install -y nginx
 systemctl enable nginx
 
 # Install certbot for Let's Encrypt
-yum install -y certbot python3-certbot-nginx
+dnf install -y certbot python3-certbot-nginx
+
+# Install envsubst (for nginx template processing)
+dnf install -y gettext
 
 # Create Airflow directory structure
-mkdir -p /opt/airflow/{{dags,logs,config,certs,audiences}}
-chown -R ec2-user:ec2-user /opt/airflow
+mkdir -p /opt/airflow/{dags,tasks,packages,logs,certs,audiences,nginx}
+mkdir -p /var/www/certbot
+chown -R ec2-user:ec2-user /opt/airflow /var/www/certbot
 
-# Write environment file (secrets)
-cat > /opt/airflow/.env << 'ENVEOF'
-DATABASE_URL={args[0]}
-TWITTERX_APIKEY={args[1]}
-ANTHROPIC_API_KEY={args[2]}
-GEMINI_API_KEY={args[3]}
-GROQ_API_KEY={args[4]}
-AIRFLOW_UID=1000
-ENVEOF
-chmod 600 /opt/airflow/.env
-
-# Create docker-compose.yaml for Airflow
-cat > /opt/airflow/docker-compose.yaml << 'COMPOSEEOF'
-version: '3.8'
-
-x-airflow-common:
-  &airflow-common
-  image: apache/airflow:3.0.0-python3.12
-  environment:
-    &airflow-common-env
-    AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
-    AIRFLOW__CORE__FERNET_KEY: ''
-    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
-    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    AIRFLOW__WEBSERVER__SECRET_KEY: 'your-secret-key-change-me'
-    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'false'
-    # Application secrets (passed from host .env)
-    DATABASE_URL: ${{DATABASE_URL}}
-    TWITTERX_APIKEY: ${{TWITTERX_APIKEY}}
-    ANTHROPIC_API_KEY: ${{ANTHROPIC_API_KEY}}
-    GEMINI_API_KEY: ${{GEMINI_API_KEY}}
-    GROQ_API_KEY: ${{GROQ_API_KEY}}
-  volumes:
-    - /opt/airflow/dags:/opt/airflow/dags
-    - /opt/airflow/logs:/opt/airflow/logs
-    - /opt/airflow/config:/opt/airflow/config
-    - /opt/airflow/certs:/opt/airflow/certs
-    - /opt/airflow/audiences:/opt/airflow/audiences
-  user: "${{AIRFLOW_UID:-1000}}:0"
-
-services:
-  airflow-init:
-    <<: *airflow-common
-    command: >
-      bash -c "
-        airflow db init &&
-        airflow users create
-          --username admin
-          --password admin
-          --firstname Admin
-          --lastname User
-          --role Admin
-          --email admin@example.com
-      "
-    restart: "no"
-
-  airflow-webserver:
-    <<: *airflow-common
-    command: webserver
-    ports:
-      - "8080:8080"
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    restart: always
-
-  airflow-scheduler:
-    <<: *airflow-common
-    command: scheduler
-    healthcheck:
-      test: ["CMD", "airflow", "jobs", "check", "--job-type", "SchedulerJob", "--hostname", "${{HOSTNAME}}"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    restart: always
-COMPOSEEOF
-
-# Create setup script
-cat > /opt/airflow/setup.sh << 'SETUPEOF'
-#!/bin/bash
-set -e
-cd /opt/airflow
-
-echo "Starting Airflow initialization..."
-docker-compose up airflow-init
-
-echo "Starting Airflow services..."
-docker-compose up -d airflow-webserver airflow-scheduler
-
-echo "Airflow is starting. Access at http://localhost:8080"
-echo "Default credentials: admin / admin"
-echo ""
-echo "Next steps:"
-echo "1. Configure nginx reverse proxy: /etc/nginx/conf.d/airflow.conf"
-echo "2. Run certbot: sudo certbot --nginx -d profile-scorer.admin.ateliertech.xyz"
-SETUPEOF
-chmod +x /opt/airflow/setup.sh
-
-# Create nginx config template
-cat > /etc/nginx/conf.d/airflow.conf << 'NGINXEOF'
-server {{
-    listen 80;
-    server_name profile-scorer.admin.ateliertech.xyz;
-
-    location / {{
-        return 301 https://$host$request_uri;
-    }}
-
-    location /.well-known/acme-challenge/ {{
-        root /var/www/html;
-    }}
-}}
-
-server {{
-    listen 443 ssl http2;
-    server_name profile-scorer.admin.ateliertech.xyz;
-
-    # SSL certificates (will be managed by certbot)
-    ssl_certificate /etc/letsencrypt/live/profile-scorer.admin.ateliertech.xyz/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/profile-scorer.admin.ateliertech.xyz/privkey.pem;
-
-    # Strong SSL settings
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers on;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
-
-    # Proxy to Airflow webserver
-    location / {{
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support for Airflow UI
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }}
-}}
-NGINXEOF
-
-echo "EC2 initialization complete. Run /opt/airflow/setup.sh after DNS is configured."
-""")
+echo "EC2 initialization complete."
+echo "Deploy application with: ./deploy.sh <elastic-ip> <ssh-key-name>"
+"""
+        # Note: We no longer use pulumi.Output.all() since we don't need secrets
+        # in user_data. Secrets are synced via deploy.sh from local .env file.
 
         # =====================================================================
         # AMI - Amazon Linux 2023

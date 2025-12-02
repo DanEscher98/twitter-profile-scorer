@@ -531,7 +531,7 @@ ssh_key_name = os.environ.get("AIRFLOW_SSH_KEY_NAME")
 airflow_instance = None
 if ssh_key_name:
     airflow_instance = Ec2Airflow(
-        "profile-scorer-airflow",
+        "airflow",
         vpc_id=vpc.vpc.id,
         subnet_id=vpc.public_subnet_1.id,  # Public subnet for direct access
         db_security_group_id=db.security_group.id,
