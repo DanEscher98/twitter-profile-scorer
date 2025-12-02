@@ -21,3 +21,10 @@ infra/.env
 
 # OS
 .DS_Store
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.cer
+certs/
