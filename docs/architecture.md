@@ -21,9 +21,7 @@ graph TB
 
     subgraph External
         RapidAPI[RapidAPI TwitterX]
-        Claude[Claude API]
-        Gemini[Gemini API]
-        Groq[Groq API]
+        LLM[LLM API]
     end
 
     AF -->|every 15 min| PS_DAG
@@ -31,9 +29,7 @@ graph TB
     AF -->|daily 2 AM| KS_DAG
     PS_DAG --> RapidAPI
     PS_DAG --> RDS
-    LLM_DAG --> Claude
-    LLM_DAG --> Gemini
-    LLM_DAG --> Groq
+    LLM_DAG --> LLM
     LLM_DAG --> RDS
     KS_DAG --> RDS
 ```
