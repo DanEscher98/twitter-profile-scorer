@@ -257,7 +257,7 @@ echo "Deploy application with: ./deploy.sh <elastic-ip> <ssh-key-name>"
             iam_instance_profile=self.instance_profile.name,
             user_data=user_data,
             root_block_device=aws.ec2.InstanceRootBlockDeviceArgs(
-                volume_size=20,  # 20 GB for Airflow + Docker images
+                volume_size=30,  # 30 GB for Airflow + Docker images (AMI minimum)
                 volume_type="gp3",
                 delete_on_termination=True,
             ),

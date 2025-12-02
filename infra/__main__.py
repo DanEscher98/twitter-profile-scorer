@@ -456,6 +456,43 @@ resource_group = aws.resourcegroups.Group(
 )
 
 # =============================================================================
+# EC2 Airflow Instance (Migration Target)
+# =============================================================================
+# This EC2 instance runs Apache Airflow to replace the Lambda-based orchestration.
+# During migration, both systems run in parallel:
+# - Lambda pipeline: EventBridge → orchestrator → keyword-engine → query-twitter → llm-scorer
+# - Airflow pipeline: DAGs on EC2 (profile_scoring, keyword_stats)
+#
+# Post-migration steps:
+# 1. Disable EventBridge schedule for orchestrator
+# 2. Enable Airflow DAGs
+# 3. Monitor for stability
+# 4. Remove Lambda resources (optional, keep for rollback)
+#
+# SSH key: Must exist in AWS EC2 console. Create via:
+#   aws ec2 create-key-pair --key-name airflow --query 'KeyMaterial' --output text > ~/.ssh/airflow.pem
+#   chmod 600 ~/.ssh/airflow.pem
+
+# Optional: Only create EC2 if SSH key is configured
+ssh_key_name = os.environ.get("AIRFLOW_SSH_KEY_NAME")
+
+airflow_instance = None
+if ssh_key_name:
+    airflow_instance = Ec2Airflow(
+        "airflow",
+        vpc_id=vpc.vpc.id,
+        subnet_id=vpc.public_subnet_1.id,  # Public subnet for direct access
+        db_security_group_id=db.security_group.id,
+        ssh_key_name=ssh_key_name,
+        database_url=db.connection_string,
+        twitterx_apikey=twitterx_apikey,
+        anthropic_api_key=anthropic_apikey,
+        gemini_api_key=pulumi.Output.secret(require_env("GEMINI_API_KEY")),
+        groq_api_key=pulumi.Output.secret(require_env("GROQ_API_KEY")),
+        instance_type="t3.small",  # 2 vCPU, 2GB RAM
+    )
+
+# =============================================================================
 # CloudWatch Dashboard - System Overview
 # =============================================================================
 # Comprehensive dashboard showing metrics for all components:
@@ -506,43 +543,6 @@ budget = ProjectBudget(
 # Note: Cost Anomaly Detection monitor already exists in the account
 # (Default-Services-Monitor). View at:
 # https://console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors
-
-# =============================================================================
-# EC2 Airflow Instance (Migration Target)
-# =============================================================================
-# This EC2 instance runs Apache Airflow to replace the Lambda-based orchestration.
-# During migration, both systems run in parallel:
-# - Lambda pipeline: EventBridge → orchestrator → keyword-engine → query-twitter → llm-scorer
-# - Airflow pipeline: DAGs on EC2 (profile_scoring, keyword_stats)
-#
-# Post-migration steps:
-# 1. Disable EventBridge schedule for orchestrator
-# 2. Enable Airflow DAGs
-# 3. Monitor for stability
-# 4. Remove Lambda resources (optional, keep for rollback)
-#
-# SSH key: Must exist in AWS EC2 console. Create via:
-#   aws ec2 create-key-pair --key-name profile-scorer-airflow --query 'KeyMaterial' --output text > ~/.ssh/profile-scorer-airflow.pem
-#   chmod 600 ~/.ssh/profile-scorer-airflow.pem
-
-# Optional: Only create EC2 if SSH key is configured
-ssh_key_name = os.environ.get("AIRFLOW_SSH_KEY_NAME")
-
-airflow_instance = None
-if ssh_key_name:
-    airflow_instance = Ec2Airflow(
-        "airflow",
-        vpc_id=vpc.vpc.id,
-        subnet_id=vpc.public_subnet_1.id,  # Public subnet for direct access
-        db_security_group_id=db.security_group.id,
-        ssh_key_name=ssh_key_name,
-        database_url=db.connection_string,
-        twitterx_apikey=twitterx_apikey,
-        anthropic_api_key=anthropic_apikey,
-        gemini_api_key=pulumi.Output.secret(require_env("GEMINI_API_KEY")),
-        groq_api_key=pulumi.Output.secret(require_env("GROQ_API_KEY")),
-        instance_type="t3.small",  # 2 vCPU, 2GB RAM
-    )
 
 # =============================================================================
 # Stack Outputs - Infrastructure References
