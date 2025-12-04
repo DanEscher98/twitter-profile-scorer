@@ -9,6 +9,9 @@
  *   1 - Label as TRUE
  *   2 - Label as FALSE
  *   3 - Label as NULL (uncertain)
+ *   8 - Class: HUMAN
+ *   9 - Class: ENTITY
+ *   0 - Class: OTHER
  *   Enter - Save current label and move to next profile
  *   Tab - Focus on reason editor
  *   Ctrl+S - Save progress to CSV
@@ -50,11 +53,14 @@ interface HaikuLabel {
   reason: string;
 }
 
+type ProfileClass = "human" | "entity" | "other" | null;
+
 interface LabeledProfile extends ProfileData {
   modelLabel: boolean | null;
   modelReason: string;
   humanLabel?: boolean | null;
   humanReason?: string;
+  humanClass?: ProfileClass;
 }
 
 interface Stats {
@@ -73,6 +79,7 @@ let profiles: LabeledProfile[] = [];
 let currentIndex = 0;
 let stats: Stats = { total: 0, labeled: 0, trueCount: 0, falseCount: 0, nullCount: 0 };
 let currentLabel: boolean | null = null;
+let currentClass: ProfileClass = null;
 let currentReason: string = "";
 let unsavedChanges = false;
 let isEditingReason = false;
@@ -84,6 +91,7 @@ let progressBar: blessed.Widgets.ProgressBarElement;
 let dataBox: blessed.Widgets.BoxElement;
 let reasonEditor: blessed.Widgets.TextareaElement;
 let labelButtons: blessed.Widgets.BoxElement;
+let classButtons: blessed.Widgets.BoxElement;
 let helpBox: blessed.Widgets.BoxElement;
 
 // ============================================================================
@@ -221,8 +229,8 @@ function loadBatches(): LabeledProfile[] {
 /**
  * Load existing progress from CSV.
  */
-function loadProgress(): Map<string, { label: boolean | null; reason: string }> {
-  const progress = new Map<string, { label: boolean | null; reason: string }>();
+function loadProgress(): Map<string, { label: boolean | null; reason: string; profileClass: ProfileClass }> {
+  const progress = new Map<string, { label: boolean | null; reason: string; profileClass: ProfileClass }>();
 
   if (!fs.existsSync(OUTPUT_CSV)) {
     return progress;
@@ -238,12 +246,18 @@ function loadProgress(): Map<string, { label: boolean | null; reason: string }> 
       const handle = fields[0].trim();
       const labelStr = fields[1].trim().toLowerCase();
       const reason = fields[2].trim();
+      const classStr = fields.length >= 4 ? fields[3].trim().toLowerCase() : "";
 
       let label: boolean | null = null;
       if (labelStr === "true") label = true;
       else if (labelStr === "false") label = false;
 
-      progress.set(handle.toLowerCase(), { label, reason });
+      let profileClass: ProfileClass = null;
+      if (classStr === "human") profileClass = "human";
+      else if (classStr === "entity") profileClass = "entity";
+      else if (classStr === "other") profileClass = "other";
+
+      progress.set(handle.toLowerCase(), { label, reason, profileClass });
     }
   }
 
@@ -254,13 +268,14 @@ function loadProgress(): Map<string, { label: boolean | null; reason: string }> 
  * Save progress to CSV.
  */
 function saveProgress() {
-  const lines = ["HANDLE,LABEL,REASON"];
+  const lines = ["HANDLE,LABEL,REASON,CLASS"];
 
   for (const profile of profiles) {
     if (profile.humanLabel !== undefined) {
       const labelStr = profile.humanLabel === null ? "null" : String(profile.humanLabel);
       const reason = (profile.humanReason ?? "").replace(/"/g, '""');
-      lines.push(`${profile.handle},${labelStr},"${reason}"`);
+      const classStr = profile.humanClass ?? "";
+      lines.push(`${profile.handle},${labelStr},"${reason}",${classStr}`);
     }
   }
 
@@ -330,7 +345,7 @@ function initTUI() {
       border: { fg: "yellow" },
       fg: "gray",
     },
-    content: "{bold}1{/bold}=TRUE  {bold}2{/bold}=FALSE  {bold}3{/bold}=NULL  |  {bold}Enter{/bold}=Save & Next  |  {bold}Up/Down{/bold}=Navigate  |  {bold}Tab{/bold}=Edit  |  {bold}Ctrl+S{/bold}=Save  |  {bold}q{/bold}=Quit",
+    content: "{bold}1{/bold}=TRUE  {bold}2{/bold}=FALSE  {bold}3{/bold}=NULL  |  {bold}8{/bold}=HUMAN  {bold}9{/bold}=ENTITY  {bold}0{/bold}=OTHER\n{bold}Enter{/bold}=Save & Next  |  {bold}Up/Down{/bold}=Navigate  |  {bold}Tab{/bold}=Edit  |  {bold}Ctrl+S{/bold}=Save  |  {bold}q{/bold}=Quit",
   });
 
   // Data box (profile info)
@@ -375,13 +390,28 @@ function initTUI() {
     parent: screen,
     top: 28,
     left: 0,
-    width: "100%",
+    width: "50%",
     height: 5,
     border: { type: "line" },
     label: " Label Selection ",
     tags: true,
     style: {
       border: { fg: "blue" },
+    },
+  });
+
+  // Class buttons
+  classButtons = blessed.box({
+    parent: screen,
+    top: 28,
+    left: "50%",
+    width: "50%",
+    height: 5,
+    border: { type: "line" },
+    label: " Class Selection ",
+    tags: true,
+    style: {
+      border: { fg: "magenta" },
     },
   });
 
@@ -408,6 +438,24 @@ function setupKeyBindings() {
   screen.key(["3"], () => {
     if (!isEditingReason) {
       setLabel(null);
+    }
+  });
+
+  screen.key(["8"], () => {
+    if (!isEditingReason) {
+      setClass("human");
+    }
+  });
+
+  screen.key(["9"], () => {
+    if (!isEditingReason) {
+      setClass("entity");
+    }
+  });
+
+  screen.key(["0"], () => {
+    if (!isEditingReason) {
+      setClass("other");
     }
   });
 
@@ -577,9 +625,38 @@ function updateLabelButtons() {
 
   labelButtons.setContent(
     `\n` +
-      `    ${trueStyle}[1] TRUE${modelIndicator(true)}${trueEnd}` +
-      `        ${falseStyle}[2] FALSE${modelIndicator(false)}${falseEnd}` +
-      `        ${nullStyle}[3] NULL${modelIndicator(null)}${nullEnd}`
+      ` ${trueStyle}[1] TRUE${modelIndicator(true)}${trueEnd}` +
+      `  ${falseStyle}[2] FALSE${modelIndicator(false)}${falseEnd}` +
+      `  ${nullStyle}[3] NULL${modelIndicator(null)}${nullEnd}`
+  );
+
+  screen.render();
+}
+
+function updateClassButtons() {
+  const profile = profiles[currentIndex];
+  const savedClass = profile?.humanClass;
+
+  // Only highlight if there's a saved class or a current selection
+  const getStyle = (cls: ProfileClass) => {
+    if (currentClass === cls) {
+      return { start: "{white-bg}{black-fg}", end: "{/black-fg}{/white-bg}" };
+    }
+    if (savedClass === cls && currentClass === null) {
+      return { start: "{cyan-fg}", end: "{/cyan-fg}" };
+    }
+    return { start: "{gray-fg}", end: "{/gray-fg}" };
+  };
+
+  const humanStyle = getStyle("human");
+  const entityStyle = getStyle("entity");
+  const otherStyle = getStyle("other");
+
+  classButtons.setContent(
+    `\n` +
+      ` ${humanStyle.start}[8] HUMAN${humanStyle.end}` +
+      `  ${entityStyle.start}[9] ENTITY${entityStyle.end}` +
+      `  ${otherStyle.start}[0] OTHER${otherStyle.end}`
   );
 
   screen.render();
@@ -592,16 +669,24 @@ function loadCurrentProfile() {
 
   // Set label to human label if exists, otherwise model label
   currentLabel = profile.humanLabel !== undefined ? profile.humanLabel : profile.modelLabel;
+  // Set class to saved human class (may be null/undefined)
+  currentClass = profile.humanClass ?? null;
 
   updateDataBox();
   updateReasonEditor();
   updateLabelButtons();
+  updateClassButtons();
   updateStats();
 }
 
 function setLabel(label: boolean | null) {
   currentLabel = label;
   updateLabelButtons();
+}
+
+function setClass(profileClass: ProfileClass) {
+  currentClass = profileClass;
+  updateClassButtons();
 }
 
 function saveCurrentAndNext() {
@@ -617,6 +702,7 @@ function saveCurrentAndNext() {
   const oldLabel = profile.humanLabel;
   profile.humanLabel = currentLabel;
   profile.humanReason = currentReason;
+  profile.humanClass = currentClass;
   unsavedChanges = true;
 
   // Update stats
@@ -747,6 +833,7 @@ async function main() {
     if (saved) {
       profiles[i].humanLabel = saved.label;
       profiles[i].humanReason = saved.reason;
+      profiles[i].humanClass = saved.profileClass;
 
       // Update stats
       stats.labeled++;
