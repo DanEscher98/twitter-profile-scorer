@@ -284,14 +284,25 @@ def start_training(config: dict, wait: bool = False) -> str:
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     job_name = f"profile-scorer-mistral-{timestamp}"
 
-    # Upload training script
+    # Upload training script as tarball (required by SageMaker)
+    import io
+    import tarfile
+
     script_content = get_training_script()
+    tar_buffer = io.BytesIO()
+    with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
+        script_bytes = script_content.encode("utf-8")
+        tarinfo = tarfile.TarInfo(name="train.py")
+        tarinfo.size = len(script_bytes)
+        tar.addfile(tarinfo, io.BytesIO(script_bytes))
+    tar_buffer.seek(0)
+
     s3.put_object(
         Bucket=config["bucket"],
-        Key="training/train.py",
-        Body=script_content,
+        Key="training/sourcedir.tar.gz",
+        Body=tar_buffer.getvalue(),
     )
-    print(f"Uploaded training script to s3://{config['bucket']}/training/train.py")
+    print(f"Uploaded training script to s3://{config['bucket']}/training/sourcedir.tar.gz")
 
     # HuggingFace PyTorch training container
     image_uri = f"763104351884.dkr.ecr.{config['region']}.amazonaws.com/huggingface-pytorch-training:2.1.0-transformers4.36.0-gpu-py310-cu121-ubuntu20.04"
@@ -306,7 +317,7 @@ def start_training(config: dict, wait: bool = False) -> str:
         },
         "HyperParameters": {
             "sagemaker_program": "train.py",
-            "sagemaker_submit_directory": f"s3://{config['bucket']}/training",
+            "sagemaker_submit_directory": f"s3://{config['bucket']}/training/sourcedir.tar.gz",
         },
         "InputDataConfig": [
             {
