@@ -159,7 +159,7 @@ if ssh_key_name:
         anthropic_api_key=anthropic_apikey,
         gemini_api_key=pulumi.Output.secret(require_env("GEMINI_API_KEY")),
         groq_api_key=pulumi.Output.secret(require_env("GROQ_API_KEY")),
-        instance_type="t3.small",  # 2 vCPU, 2GB RAM
+        instance_type="t3.medium",  # 2 vCPU, 4GB RAM - needed for PyTorch
     )
 
 # =============================================================================

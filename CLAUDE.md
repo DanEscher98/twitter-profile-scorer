@@ -29,7 +29,7 @@ The `airflow/` directory is a **git submodule** pointing to a separate repositor
 ```
 VPC (10.0.0.0/16)
 ├── Public Subnets (10.0.1-2.0/24)
-│   ├── EC2 (t3.small) - Apache Airflow 3.x with Docker
+│   ├── EC2 (t3.medium) - Apache Airflow 3.x with Docker
 │   └── RDS PostgreSQL (dev access)
 ├── Private Subnets (10.0.10-11.0/24) - unused (NAT removed)
 └── Isolated Subnets (10.0.20-21.0/24) - unused
@@ -179,4 +179,4 @@ ssh -i ~/.ssh/airflow.pem ec2-user@<ip> 'cd /opt/airflow && docker-compose exec 
 
 - **Airflow UI:** https://profile-scorer.admin.ateliertech.xyz
 - **CloudWatch Dashboard:** [profile-scorer](https://us-east-2.console.aws.amazon.com/cloudwatch/home?region=us-east-2#dashboards:name=profile-scorer)
-- **AWS Budget:** $10/month limit with alerts at 50%, 80%, 100%
+- **AWS Budget:** $50/month limit with alerts at 50%, 80%, 100%

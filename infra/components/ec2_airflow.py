@@ -2,10 +2,11 @@
 EC2 Airflow Component - Airflow Server Infrastructure
 
 This module creates an EC2 instance for running Apache Airflow with:
-- t3.small instance (2 vCPU, 2GB RAM) - sufficient for LocalExecutor
+- t3.medium instance (2 vCPU, 4GB RAM) - required for PyTorch/sentence-transformers
 - Public subnet with Elastic IP for HTTPS access
 - Security group allowing SSH, HTTP, HTTPS
 - IAM role for CloudWatch logging
+- CloudWatch alarm for auto-recovery on status check failure
 
 Deployment Workflow:
 --------------------
@@ -48,7 +49,7 @@ class Ec2Airflow(pulumi.ComponentResource):
         anthropic_api_key: pulumi.Input[str],
         gemini_api_key: pulumi.Input[str],
         groq_api_key: pulumi.Input[str],
-        instance_type: str = "t3.small",
+        instance_type: str = "t3.medium",
         opts: pulumi.ResourceOptions = None,
     ):
         """Create EC2 Airflow infrastructure.
@@ -64,7 +65,7 @@ class Ec2Airflow(pulumi.ComponentResource):
             anthropic_api_key: Anthropic API key for Claude.
             gemini_api_key: Google AI API key for Gemini.
             groq_api_key: Groq API key for Meta/Llama.
-            instance_type: EC2 instance type (default: t3.small).
+            instance_type: EC2 instance type (default: t3.medium).
             opts: Pulumi resource options.
         """
         super().__init__("custom:compute:Ec2Airflow", name, None, opts)
@@ -195,6 +196,15 @@ set -e
 # Update system
 dnf update -y
 
+# Create 2GB swap file for memory-intensive workloads (PyTorch, Docker builds)
+if [ ! -f /swapfile ]; then
+    dd if=/dev/zero of=/swapfile bs=1M count=2048
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo '/swapfile swap swap defaults 0 0' >> /etc/fstab
+fi
+
 # Install Docker
 dnf install -y docker
 systemctl enable docker
@@ -276,6 +286,33 @@ echo "Deploy application with: ./deploy.sh <elastic-ip> <ssh-key-name>"
             instance=self.instance.id,
             domain="vpc",
             tags={"Name": f"{name}-airflow-eip"},
+            opts=pulumi.ResourceOptions(parent=self),
+        )
+
+        # =====================================================================
+        # CloudWatch Alarm - Auto-Recovery on Status Check Failure
+        # =====================================================================
+        # This alarm triggers auto-recovery when the instance becomes unresponsive
+        # (e.g., due to OOM during Docker builds or PyTorch inference)
+        self.recovery_alarm = aws.cloudwatch.MetricAlarm(
+            f"{name}-airflow-recovery-alarm",
+            name=f"{name}-airflow-status-check-failed",
+            comparison_operator="GreaterThanThreshold",
+            evaluation_periods=2,
+            metric_name="StatusCheckFailed_System",
+            namespace="AWS/EC2",
+            period=60,
+            statistic="Maximum",
+            threshold=0,
+            alarm_description="Auto-recover instance when status checks fail",
+            dimensions={"InstanceId": self.instance.id},
+            alarm_actions=[
+                # Auto-recovery action: stop and start the instance
+                self.instance.id.apply(
+                    lambda id: f"arn:aws:automate:us-east-2:ec2:recover"
+                ),
+            ],
+            tags={"Name": f"{name}-airflow-recovery"},
             opts=pulumi.ResourceOptions(parent=self),
         )
 

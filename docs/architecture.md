@@ -7,7 +7,7 @@ Profile Scorer uses Apache Airflow on EC2 to orchestrate a multi-platform social
 ```mermaid
 graph TB
     subgraph Region["AWS us-east-2"]
-        subgraph "EC2 t3.small"
+        subgraph "EC2 t3.medium"
             AF[Apache Airflow 3.x]
             PS_DAG[profile_search DAG]
             LLM_DAG[llm_scoring DAG]
@@ -225,17 +225,23 @@ The dashboard provides a unified view of all system components:
 
 | Resource              | Link                                                                                                                  |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **AWS Budget**        | [profile-scorer-monthly](https://us-east-1.console.aws.amazon.com/billing/home#/budgets) - $10/month limit            |
+| **AWS Budget**        | [profile-scorer-monthly](https://us-east-1.console.aws.amazon.com/billing/home#/budgets) - $50/month limit            |
 | **Cost Explorer**     | [By Service](https://us-east-1.console.aws.amazon.com/cost-management/home#/cost-explorer)                            |
 | **Anomaly Detection** | [Default-Services-Monitor](https://us-east-1.console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors) |
 
 **Current Cost Breakdown (December 2025):**
 
-| Service    | Cost   | Notes                   |
-| ---------- | ------ | ----------------------- |
-| EC2        | ~$8.50 | t3.small (Airflow host) |
-| RDS        | ~$0.24 | PostgreSQL db.t4g.micro |
-| CloudWatch | $0.00  | Basic metrics           |
+| Service    | Cost    | Notes                                                    |
+| ---------- | ------- | -------------------------------------------------------- |
+| EC2        | ~$30.00 | t3.medium (4GB RAM - required for PyTorch/transformers)  |
+| RDS        | ~$13.00 | PostgreSQL db.t4g.micro                                  |
+| CloudWatch | ~$0.30  | Basic metrics + status check alarm                       |
+| **Total**  | **~$43** | Monthly estimate                                        |
+
+> **Note:** EC2 was upgraded from t3.small (2GB) to t3.medium (4GB) in Dec 2025
+> to prevent OOM during DAG execution with sentence-transformers/PyTorch.
+> A CloudWatch auto-recovery alarm was added to automatically recover the instance
+> if system status checks fail.
 
 **To enable tag-based filtering:**
 

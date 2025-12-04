@@ -37,7 +37,7 @@ A lookalike audience builder for Twitter ad targeting. Given a curated set of se
 │                           PROFILE SCORER PIPELINE                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  Apache Airflow 3.x on EC2 (t3.small)                                       │
+│  Apache Airflow 3.x on EC2 (t3.medium)                                      │
 │  ─────────────────────────────────────                                      │
 │                                                                             │
 │  PHASE 1: Collection (profile_search DAG - every 15 min)                    │
@@ -106,17 +106,18 @@ The [profile-scorer dashboard](https://us-east-2.console.aws.amazon.com/cloudwat
 
 | Tool                   | Purpose                               |
 | ---------------------- | ------------------------------------- |
-| AWS Budget             | $10/month limit with threshold alerts |
+| AWS Budget             | $50/month limit with threshold alerts |
 | Cost Explorer          | Service breakdown, tag filtering      |
 | Cost Anomaly Detection | ML-based unusual spending alerts      |
 
-**Estimated Monthly Cost (after Lambda removal):**
+**Estimated Monthly Cost:**
 
-| Service    | Cost   | Notes                   |
-| ---------- | ------ | ----------------------- |
-| EC2        | ~$8.50 | t3.small (Airflow host) |
-| RDS        | ~$0.24 | PostgreSQL db.t4g.micro |
-| CloudWatch | $0.00  | Basic metrics           |
+| Service    | Cost    | Notes                                                   |
+| ---------- | ------- | ------------------------------------------------------- |
+| EC2        | ~$30.00 | t3.medium (4GB RAM - required for PyTorch/transformers) |
+| RDS        | ~$13.00 | PostgreSQL db.t4g.micro                                 |
+| CloudWatch | ~$0.30  | Basic metrics + status check alarm                      |
+| **Total**  | **~$43**| Monthly estimate                                        |
 
 **To enable tag-based cost filtering:**
 
