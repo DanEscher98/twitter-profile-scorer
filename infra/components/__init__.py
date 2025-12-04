@@ -1,6 +1,7 @@
 from .billing import CostAnomalyMonitor, ProjectBudget
 from .dashboard import SystemDashboard
 from .database import Database
+from .datasets_bucket import DatasetsBucket
 from .ec2_airflow import Ec2Airflow
 from .lambda_function import LambdaFunction, ScheduledLambda
 from .sagemaker_llm import SageMakerLlm
@@ -12,6 +13,7 @@ from .vpc import Vpc
 __all__ = [
     "CostAnomalyMonitor",
     "Database",
+    "DatasetsBucket",
     "Ec2Airflow",
     "LambdaFunction",
     "ProjectBudget",

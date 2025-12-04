@@ -24,6 +24,7 @@ import pulumi_aws as aws
 
 from components import (
     Database,
+    DatasetsBucket,
     Ec2Airflow,
     ProjectBudget,
     SageMakerLlm,
@@ -221,6 +222,20 @@ budget = ProjectBudget(
 # https://console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors
 
 # =============================================================================
+# Datasets Bucket - S3 Storage for Curated Datasets
+# =============================================================================
+# Stores curated datasets like hand-picked ground truth labels for model
+# evaluation in the dashboard.
+#
+# Structure:
+#   s3://profile-scorer-datasets/curated/hand_picked-<timestamp>.csv
+#
+# Upload command:
+#   aws s3 cp data/dataset/hand_picked.csv s3://profile-scorer-datasets/curated/hand_picked-$(date +%Y%m%d).csv
+
+datasets_bucket = DatasetsBucket("profile-scorer")
+
+# =============================================================================
 # SageMaker - Custom LLM Training and Inference (Optional)
 # =============================================================================
 # Infrastructure for fine-tuning Mistral-7B on profile classification task.
@@ -302,3 +317,7 @@ if sagemaker_llm:
     ))
     if sagemaker_llm.endpoint:
         pulumi.export("sagemaker_endpoint_name", sagemaker_llm.endpoint.name)
+
+# Datasets Bucket
+pulumi.export("datasets_bucket", datasets_bucket.bucket.id)
+pulumi.export("datasets_curated_url", datasets_bucket.curated_url)
