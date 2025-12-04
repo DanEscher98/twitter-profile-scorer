@@ -152,9 +152,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Upgrade tokenizers to fix Mistral tokenizer compatibility
+# Upgrade tokenizers to fix Mistral tokenizer compatibility (must be <0.19 for transformers 4.36)
 logger.info("Upgrading tokenizers library for Mistral compatibility...")
-subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "tokenizers>=0.15.0"], check=True)
+subprocess.run([sys.executable, "-m", "pip", "install", "tokenizers>=0.15.0,<0.19.0"], check=True)
 logger.info("Tokenizers upgraded successfully")
 
 
