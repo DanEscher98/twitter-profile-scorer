@@ -236,7 +236,9 @@ def main():
         trust_remote_code=True,
     )
     logger.info("Model loaded, preparing for k-bit training...")
-    model = prepare_model_for_kbit_training(model)
+    # Disable gradient checkpointing to avoid attention mask size mismatch
+    # We have 48GB VRAM (4x T4) so memory shouldn't be an issue
+    model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=False)
 
     # Configure LoRA
     logger.info("Configuring LoRA adapters...")
