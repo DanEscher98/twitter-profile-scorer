@@ -188,6 +188,15 @@ llm-toggle action="":
 llm-info:
     cd infra && uv run python ../scripts/training/sagemaker_cli.py info
 
+# Repack model.tar.gz on EC2 to fix directory structure for TGI
+# Usage: just llm-repack profile-scorer-mistral-20251204-110901
+llm-repack model:
+    #!/usr/bin/env bash
+    IP=$(cd infra && uv run pulumi stack output airflow_public_ip)
+    echo "Running repack script on EC2 ($IP)..."
+    scp -i ~/.ssh/airflow.pem scripts/training/repack_model_ec2.sh ec2-user@$IP:/tmp/
+    ssh -i ~/.ssh/airflow.pem ec2-user@$IP "chmod +x /tmp/repack_model_ec2.sh && /tmp/repack_model_ec2.sh {{model}}"
+
 # Enable SageMaker infrastructure (run once before training)
 llm-setup:
     cd infra && ENABLE_SAGEMAKER=true PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pulumi up --yes

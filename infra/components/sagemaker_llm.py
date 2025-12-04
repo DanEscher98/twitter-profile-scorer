@@ -30,7 +30,7 @@ Airflow DAGs call the endpoint via boto3 SageMaker runtime:
 Cost Considerations:
 --------------------
 - Training: ml.g4dn.xlarge spot ($0.15/hr) - ~2-3 hours for 500 samples
-- Inference: ml.g4dn.xlarge on-demand ($0.526/hr) - for demo, delete when not needed
+- Inference: ml.g5.xlarge on-demand ($1.41/hr) - 24GB VRAM for Mistral-7B, delete when not needed
 - S3: Minimal (~$0.02/month for model artifacts)
 
 Note: For production, consider:
@@ -52,7 +52,7 @@ class SageMakerLlm(pulumi.ComponentResource):
         self,
         name: str,
         model_s3_uri: pulumi.Input[str] | None = None,
-        instance_type: str = "ml.g4dn.xlarge",
+        instance_type: str = "ml.g5.xlarge",
         enable_endpoint: bool = True,
         opts: pulumi.ResourceOptions = None,
     ):
@@ -179,8 +179,8 @@ class SageMakerLlm(pulumi.ComponentResource):
             container_image = f"763104351884.dkr.ecr.{region.name}.amazonaws.com/huggingface-pytorch-tgi-inference:2.1.1-tgi1.4.0-gpu-py310-cu121-ubuntu20.04"
 
             self.model = aws.sagemaker.Model(
-                f"{name}-model",
-                name=f"{name}-profile-scorer-model",
+                f"{name}-llm-model",
+                name=f"{name}-llm-model",
                 execution_role_arn=self.role.arn,
                 primary_container=aws.sagemaker.ModelPrimaryContainerArgs(
                     image=container_image,
@@ -188,20 +188,21 @@ class SageMakerLlm(pulumi.ComponentResource):
                     environment={
                         "HF_MODEL_ID": "/opt/ml/model",
                         "SM_NUM_GPUS": "1",
-                        "MAX_INPUT_LENGTH": "2048",
-                        "MAX_TOTAL_TOKENS": "4096",
+                        "MAX_INPUT_LENGTH": "1024",
+                        "MAX_TOTAL_TOKENS": "2048",
+                        "MAX_BATCH_PREFILL_TOKENS": "2048",  # A10G has 24GB VRAM
                     },
                 ),
                 tags={
-                    "Name": f"{name}-profile-scorer-model",
+                    "Name": f"{name}-llm-model",
                     "Project": "profile-scorer-saas",
                 },
                 opts=pulumi.ResourceOptions(parent=self),
             )
 
             self.endpoint_config = aws.sagemaker.EndpointConfiguration(
-                f"{name}-endpoint-config",
-                name=f"{name}-profile-scorer-config",
+                f"{name}-llm-config",
+                name=f"{name}-llm-config",
                 production_variants=[
                     aws.sagemaker.EndpointConfigurationProductionVariantArgs(
                         variant_name="primary",
@@ -212,18 +213,18 @@ class SageMakerLlm(pulumi.ComponentResource):
                     ),
                 ],
                 tags={
-                    "Name": f"{name}-profile-scorer-config",
+                    "Name": f"{name}-llm-config",
                     "Project": "profile-scorer-saas",
                 },
                 opts=pulumi.ResourceOptions(parent=self),
             )
 
             self.endpoint = aws.sagemaker.Endpoint(
-                f"{name}-endpoint",
-                name=f"{name}-profile-scorer-endpoint",
+                f"{name}-llm-endpoint",
+                name=f"{name}-llm-endpoint",
                 endpoint_config_name=self.endpoint_config.name,
                 tags={
-                    "Name": f"{name}-profile-scorer-endpoint",
+                    "Name": f"{name}-llm-endpoint",
                     "Project": "profile-scorer-saas",
                 },
                 opts=pulumi.ResourceOptions(parent=self),

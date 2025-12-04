@@ -184,6 +184,32 @@ class Ec2Airflow(pulumi.ComponentResource):
             opts=pulumi.ResourceOptions(parent=self),
         )
 
+        # S3 access to SageMaker bucket (for model repack operations)
+        sagemaker_s3_policy = """{
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Action": [
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:ListBucket",
+                    "s3:GetObjectTagging",
+                    "s3:PutObjectTagging"
+                ],
+                "Resource": [
+                    "arn:aws:s3:::profile-scorer-sagemaker-*",
+                    "arn:aws:s3:::profile-scorer-sagemaker-*/*"
+                ]
+            }]
+        }"""
+
+        aws.iam.RolePolicy(
+            f"{name}-airflow-sagemaker-s3",
+            role=self.role.name,
+            policy=sagemaker_s3_policy,
+            opts=pulumi.ResourceOptions(parent=self),
+        )
+
         # Instance profile (required to attach role to EC2)
         self.instance_profile = aws.iam.InstanceProfile(
             f"{name}-airflow-profile",
@@ -325,9 +351,8 @@ echo "Deploy application with: ./deploy.sh <elastic-ip> <ssh-key-name>"
             dimensions={"InstanceId": self.instance.id},
             alarm_actions=[
                 # Auto-recovery action: stop and start the instance
-                self.instance.id.apply(
-                    lambda id: f"arn:aws:automate:us-east-2:ec2:recover"
-                ),
+                # Region must be dynamic to work across AWS regions
+                f"arn:aws:automate:{aws.get_region().name}:ec2:recover",
             ],
             tags={"Name": f"{name}-airflow-recovery"},
             opts=pulumi.ResourceOptions(parent=self),

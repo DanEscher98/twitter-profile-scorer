@@ -161,7 +161,7 @@ if ssh_key_name:
         anthropic_api_key=anthropic_apikey,
         gemini_api_key=pulumi.Output.secret(require_env("GEMINI_API_KEY")),
         groq_api_key=pulumi.Output.secret(require_env("GROQ_API_KEY")),
-        instance_type="t3.medium",  # 2 vCPU, 4GB RAM - needed for PyTorch
+        # instance_type uses component default (t3.medium)
     )
 
 # =============================================================================
@@ -258,7 +258,7 @@ sagemaker_model_uri = os.environ.get("SAGEMAKER_MODEL_S3_URI", "")
 sagemaker_llm = SageMakerLlm(
     "profile-scorer",
     model_s3_uri=sagemaker_model_uri if sagemaker_model_uri else None,
-    instance_type="ml.g4dn.xlarge",
+    # instance_type uses component default (ml.g5.xlarge)
     enable_endpoint=bool(sagemaker_model_uri),
 )
 

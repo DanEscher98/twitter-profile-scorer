@@ -89,7 +89,7 @@ def get_config() -> dict:
         "bucket": bucket,
         "role_arn": role_arn,
         "region": region,
-        "endpoint_name": "profile-scorer-profile-scorer-endpoint",
+        "endpoint_name": "profile-scorer-llm-endpoint",
     }
 
 
@@ -302,8 +302,9 @@ def main():
     logger.info("Training complete!")
     logger.info("=" * 60)
 
-    # Save LoRA adapters first (before unloading)
-    adapters_path = Path(model_dir) / "adapters"
+    # Save LoRA adapters to a temp directory (before unloading)
+    # We use /tmp to avoid polluting model_dir with intermediate files
+    adapters_path = Path("/tmp/adapters")
     adapters_path.mkdir(parents=True, exist_ok=True)
     logger.info(f"Saving LoRA adapters to: {adapters_path}")
     model.save_pretrained(str(adapters_path))
@@ -340,21 +341,20 @@ def main():
     merged_model = model_with_adapters.merge_and_unload()
     logger.info("Adapters merged")
 
-    # Save merged model in .bin format (not safetensors)
-    # The HuggingFace TGI container we're using only supports .bin format
-    merged_path = Path(model_dir) / "merged"
-    merged_path.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Saving merged model to: {merged_path}")
-    merged_model.save_pretrained(str(merged_path), safe_serialization=False)
-    tokenizer.save_pretrained(str(merged_path))
-    logger.info("Merged model saved successfully (pytorch .bin format)")
+    # Save merged model DIRECTLY to model_dir (not a subdirectory!)
+    # SageMaker auto-tars everything in model_dir as model.tar.gz
+    # TGI expects model files at /opt/ml/model/
+    # Using safetensors format (TGI prefers this and /opt/ml/model is read-only
+    # so TGI can't convert .bin to .safetensors at runtime)
+    logger.info(f"Saving merged model directly to: {model_dir}")
+    merged_model.save_pretrained(model_dir, safe_serialization=True)
+    tokenizer.save_pretrained(model_dir)
+    logger.info("Merged model saved successfully (safetensors format)")
 
-    # Create model.tar.gz for SageMaker deployment
-    tar_path = Path(model_dir) / "model.tar.gz"
-    logger.info(f"Creating model archive: {tar_path}")
-    with tarfile.open(tar_path, "w:gz") as tar:
-        tar.add(merged_path, arcname=".")
-    logger.info(f"Model archive created: {tar_path}")
+    # List final model files for verification
+    logger.info("Final model directory contents:")
+    for f in Path(model_dir).iterdir():
+        logger.info(f"  - {f.name} ({f.stat().st_size} bytes)")
 
 
 if __name__ == "__main__":
@@ -676,14 +676,14 @@ def delete_endpoint(config: dict) -> None:
     # Also delete endpoint config and model
     try:
         sagemaker.delete_endpoint_config(
-            EndpointConfigName="profile-scorer-profile-scorer-config"
+            EndpointConfigName="profile-scorer-llm-config"
         )
         print("Deleted endpoint configuration.")
     except ClientError:
         pass
 
     try:
-        sagemaker.delete_model(ModelName="profile-scorer-profile-scorer-model")
+        sagemaker.delete_model(ModelName="profile-scorer-llm-model")
         print("Deleted model.")
     except ClientError:
         pass
