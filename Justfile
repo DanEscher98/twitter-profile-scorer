@@ -137,13 +137,13 @@ test-scorer: test-install
 
 # Train a new LLM model on SageMaker
 # Usage: just train-llm training_data.jsonl
-# The training job runs on ml.g4dn.xlarge (spot ~$0.15/hr, ~2-3 hours)
+# The training job runs on ml.g4dn.12xlarge (~$3.91/hr, ~1 hour)
 train-llm data:
-    cd scripts && uv run python training/sagemaker_cli.py train {{data}}
+    cd infra && uv run python ../scripts/training/sagemaker_cli.py train ../{{data}}
 
 # Train and wait for completion
 train-llm-wait data:
-    cd scripts && uv run python training/sagemaker_cli.py train {{data}} --wait
+    cd infra && uv run python ../scripts/training/sagemaker_cli.py train ../{{data}} --wait
 
 # Deploy trained model to SageMaker endpoint
 # Usage: just deploy-llm [model-name]
@@ -151,9 +151,9 @@ train-llm-wait data:
 deploy-llm model="":
     #!/usr/bin/env bash
     if [ -z "{{model}}" ]; then
-        cd scripts && uv run python training/sagemaker_cli.py deploy
+        cd infra && uv run python ../scripts/training/sagemaker_cli.py deploy
     else
-        cd scripts && uv run python training/sagemaker_cli.py deploy {{model}}
+        cd infra && uv run python ../scripts/training/sagemaker_cli.py deploy {{model}}
     fi
 
 # Check training job status
@@ -161,32 +161,32 @@ deploy-llm model="":
 llm-status job="":
     #!/usr/bin/env bash
     if [ -z "{{job}}" ]; then
-        cd scripts && uv run python training/sagemaker_cli.py status
+        cd infra && uv run python ../scripts/training/sagemaker_cli.py status
     else
-        cd scripts && uv run python training/sagemaker_cli.py status {{job}}
+        cd infra && uv run python ../scripts/training/sagemaker_cli.py status {{job}}
     fi
 
 # List available trained models
 llm-list:
-    cd scripts && uv run python training/sagemaker_cli.py list
+    cd infra && uv run python ../scripts/training/sagemaker_cli.py list
 
 # Delete SageMaker endpoint (saves ~$0.52/hr)
 llm-delete:
-    cd scripts && uv run python training/sagemaker_cli.py delete
+    cd infra && uv run python ../scripts/training/sagemaker_cli.py delete
 
 # Toggle endpoint on/off (to save costs when not in use)
 # Usage: just llm-toggle [on|off]
 llm-toggle action="":
     #!/usr/bin/env bash
     if [ -z "{{action}}" ]; then
-        cd scripts && uv run python training/sagemaker_cli.py toggle
+        cd infra && uv run python ../scripts/training/sagemaker_cli.py toggle
     else
-        cd scripts && uv run python training/sagemaker_cli.py toggle {{action}}
+        cd infra && uv run python ../scripts/training/sagemaker_cli.py toggle {{action}}
     fi
 
 # Show LLM infrastructure status (endpoint, models, training jobs)
 llm-info:
-    cd scripts && uv run python training/sagemaker_cli.py info
+    cd infra && uv run python ../scripts/training/sagemaker_cli.py info
 
 # Enable SageMaker infrastructure (run once before training)
 llm-setup:

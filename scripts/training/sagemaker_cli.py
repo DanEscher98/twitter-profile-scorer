@@ -325,15 +325,16 @@ def start_training(config: dict, wait: bool = False) -> str:
             "S3OutputPath": f"s3://{config['bucket']}/models/",
         },
         "ResourceConfig": {
-            "InstanceType": "ml.g4dn.xlarge",
+            "InstanceType": "ml.g4dn.12xlarge",  # 4x T4 GPUs, 48GB VRAM
             "InstanceCount": 1,
             "VolumeSizeInGB": 100,
         },
         "StoppingCondition": {
             "MaxRuntimeInSeconds": 7200,
-            "MaxWaitTimeInSeconds": 10800,
         },
-        "EnableManagedSpotTraining": True,
+        # Note: Spot training disabled - requires quota request
+        # "EnableManagedSpotTraining": True,
+        # "MaxWaitTimeInSeconds": 10800,
     }
 
     response = sagemaker.create_training_job(**training_params)
