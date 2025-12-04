@@ -130,6 +130,69 @@ test-scorer: test-install
     cd infra && PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pytest tests/e2e/test_llm_scorer.py -v --log-level=INFO
 
 # ============================================================================
+# Custom LLM Training (SageMaker)
+# ============================================================================
+# Train and deploy custom Mistral-7B model for profile classification
+# Prerequisites: ENABLE_SAGEMAKER=true pulumi up (creates S3 bucket + IAM role)
+
+# Train a new LLM model on SageMaker
+# Usage: just train-llm training_data.jsonl
+# The training job runs on ml.g4dn.xlarge (spot ~$0.15/hr, ~2-3 hours)
+train-llm data:
+    cd scripts && uv run python training/sagemaker_cli.py train {{data}}
+
+# Train and wait for completion
+train-llm-wait data:
+    cd scripts && uv run python training/sagemaker_cli.py train {{data}} --wait
+
+# Deploy trained model to SageMaker endpoint
+# Usage: just deploy-llm [model-name]
+# If model-name not specified, deploys latest completed training job
+deploy-llm model="":
+    #!/usr/bin/env bash
+    if [ -z "{{model}}" ]; then
+        cd scripts && uv run python training/sagemaker_cli.py deploy
+    else
+        cd scripts && uv run python training/sagemaker_cli.py deploy {{model}}
+    fi
+
+# Check training job status
+# Usage: just llm-status [job-name]
+llm-status job="":
+    #!/usr/bin/env bash
+    if [ -z "{{job}}" ]; then
+        cd scripts && uv run python training/sagemaker_cli.py status
+    else
+        cd scripts && uv run python training/sagemaker_cli.py status {{job}}
+    fi
+
+# List available trained models
+llm-list:
+    cd scripts && uv run python training/sagemaker_cli.py list
+
+# Delete SageMaker endpoint (saves ~$0.52/hr)
+llm-delete:
+    cd scripts && uv run python training/sagemaker_cli.py delete
+
+# Toggle endpoint on/off (to save costs when not in use)
+# Usage: just llm-toggle [on|off]
+llm-toggle action="":
+    #!/usr/bin/env bash
+    if [ -z "{{action}}" ]; then
+        cd scripts && uv run python training/sagemaker_cli.py toggle
+    else
+        cd scripts && uv run python training/sagemaker_cli.py toggle {{action}}
+    fi
+
+# Show LLM infrastructure status (endpoint, models, training jobs)
+llm-info:
+    cd scripts && uv run python training/sagemaker_cli.py info
+
+# Enable SageMaker infrastructure (run once before training)
+llm-setup:
+    cd infra && ENABLE_SAGEMAKER=true PULUMI_CONFIG_PASSPHRASE="$PULUMI_CONFIG_PASSPHRASE" uv run pulumi up --yes
+
+# ============================================================================
 # Scripts
 # ============================================================================
 
