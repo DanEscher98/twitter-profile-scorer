@@ -167,6 +167,23 @@ class Ec2Airflow(pulumi.ComponentResource):
             opts=pulumi.ResourceOptions(parent=self),
         )
 
+        # SageMaker invoke endpoint policy for custom LLM
+        sagemaker_invoke_policy = """{
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Action": "sagemaker:InvokeEndpoint",
+                "Resource": "arn:aws:sagemaker:*:*:endpoint/profile-scorer-*"
+            }]
+        }"""
+
+        aws.iam.RolePolicy(
+            f"{name}-airflow-sagemaker",
+            role=self.role.name,
+            policy=sagemaker_invoke_policy,
+            opts=pulumi.ResourceOptions(parent=self),
+        )
+
         # Instance profile (required to attach role to EC2)
         self.instance_profile = aws.iam.InstanceProfile(
             f"{name}-airflow-profile",
