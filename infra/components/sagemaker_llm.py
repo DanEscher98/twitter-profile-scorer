@@ -74,12 +74,15 @@ class SageMakerLlm(pulumi.ComponentResource):
         self.bucket = aws.s3.Bucket(
             f"{name}-sagemaker-bucket",
             bucket=f"{name}-sagemaker-{pulumi.get_stack()}",
-            force_destroy=True,  # Allow deletion even with objects (dev only)
+            force_destroy=False,  # Prevent deletion with objects (training data/models)
             tags={
                 "Name": f"{name}-sagemaker-bucket",
                 "Project": "profile-scorer-saas",
             },
-            opts=pulumi.ResourceOptions(parent=self),
+            opts=pulumi.ResourceOptions(
+                parent=self,
+                protect=True,  # Protect training data and model artifacts
+            ),
         )
 
         # Block public access
