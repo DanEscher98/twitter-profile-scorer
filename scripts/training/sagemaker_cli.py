@@ -302,9 +302,43 @@ def main():
     logger.info("Training complete!")
     logger.info("=" * 60)
 
-    # Merge LoRA adapters with base model
+    # Save LoRA adapters first (before unloading)
+    adapters_path = Path(model_dir) / "adapters"
+    adapters_path.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Saving LoRA adapters to: {adapters_path}")
+    model.save_pretrained(str(adapters_path))
+    tokenizer.save_pretrained(str(adapters_path))
+    logger.info("LoRA adapters saved")
+
+    # Free up memory from quantized model
+    del model
+    del trainer
+    import gc
+    gc.collect()
+    torch.cuda.empty_cache()
+    logger.info("Freed memory from training model")
+
+    # Reload base model in FP16 (not quantized) for merging
+    logger.info("Reloading base model in FP16 for merging...")
+    from peft import PeftModel
+
+    base_model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch.float16,
+        device_map="auto",
+        trust_remote_code=True,
+    )
+    logger.info("Base model loaded in FP16")
+
+    # Load LoRA adapters onto FP16 model
+    logger.info("Loading LoRA adapters...")
+    model_with_adapters = PeftModel.from_pretrained(base_model, str(adapters_path))
+    logger.info("Adapters loaded")
+
+    # Merge adapters with base model
     logger.info("Merging LoRA adapters with base model...")
-    merged_model = model.merge_and_unload()
+    merged_model = model_with_adapters.merge_and_unload()
+    logger.info("Adapters merged")
 
     # Save merged model
     merged_path = Path(model_dir) / "merged"
