@@ -236,31 +236,31 @@ budget = ProjectBudget(
 datasets_bucket = DatasetsBucket("profile-scorer")
 
 # =============================================================================
-# SageMaker - Custom LLM Training and Inference (Optional)
+# SageMaker - Custom LLM Training and Inference
 # =============================================================================
 # Infrastructure for fine-tuning Mistral-7B on profile classification task.
 #
+# The S3 bucket and IAM role are ALWAYS created to store training data and models.
+# The endpoint is only created when SAGEMAKER_MODEL_S3_URI is set.
+#
 # Workflow:
-# 1. First run: Set SAGEMAKER_MODEL_S3_URI="" to create only bucket/role
-# 2. Upload training data: aws s3 cp training.jsonl s3://<bucket>/training/
-# 3. Run training: python scripts/training/run_sagemaker_training.py
-# 4. Update SAGEMAKER_MODEL_S3_URI with output model path
-# 5. Second run: Creates endpoint pointing to trained model
+# 1. pulumi up -> Creates bucket and role (always)
+# 2. Upload training data: just train-llm <data.jsonl>
+# 3. Deploy endpoint: just deploy-llm
 #
 # Cost: ~$0.50/hr for ml.g4dn.xlarge inference endpoint
-# Delete endpoint when not in use to save costs.
+# Use `just llm-toggle off` when not testing to save costs.
 
 sagemaker_model_uri = os.environ.get("SAGEMAKER_MODEL_S3_URI", "")
-enable_sagemaker = os.environ.get("ENABLE_SAGEMAKER", "false").lower() == "true"
 
-sagemaker_llm = None
-if enable_sagemaker:
-    sagemaker_llm = SageMakerLlm(
-        "profile-scorer",
-        model_s3_uri=sagemaker_model_uri if sagemaker_model_uri else None,
-        instance_type="ml.g4dn.xlarge",
-        enable_endpoint=bool(sagemaker_model_uri),
-    )
+# Always create SageMaker infrastructure (bucket + role for training)
+# Only create endpoint when model_s3_uri is provided
+sagemaker_llm = SageMakerLlm(
+    "profile-scorer",
+    model_s3_uri=sagemaker_model_uri if sagemaker_model_uri else None,
+    instance_type="ml.g4dn.xlarge",
+    enable_endpoint=bool(sagemaker_model_uri),
+)
 
 # =============================================================================
 # Stack Outputs - Infrastructure References
@@ -308,15 +308,14 @@ if airflow_instance:
     ))
     pulumi.export("airflow_url", "https://profile-scorer.admin.ateliertech.xyz")
 
-# SageMaker LLM (if enabled)
-if sagemaker_llm:
-    pulumi.export("sagemaker_bucket", sagemaker_llm.bucket.id)
-    pulumi.export("sagemaker_role_arn", sagemaker_llm.role.arn)
-    pulumi.export("sagemaker_training_data_uri", sagemaker_llm.bucket.id.apply(
-        lambda b: f"s3://{b}/training/"
-    ))
-    if sagemaker_llm.endpoint:
-        pulumi.export("sagemaker_endpoint_name", sagemaker_llm.endpoint.name)
+# SageMaker LLM (always created for training infrastructure)
+pulumi.export("sagemaker_bucket", sagemaker_llm.bucket.id)
+pulumi.export("sagemaker_role_arn", sagemaker_llm.role.arn)
+pulumi.export("sagemaker_training_data_uri", sagemaker_llm.bucket.id.apply(
+    lambda b: f"s3://{b}/training/"
+))
+if sagemaker_llm.endpoint:
+    pulumi.export("sagemaker_endpoint_name", sagemaker_llm.endpoint.name)
 
 # Datasets Bucket
 pulumi.export("datasets_bucket", datasets_bucket.bucket.id)
