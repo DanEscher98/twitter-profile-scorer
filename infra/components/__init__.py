@@ -3,6 +3,7 @@ from .dashboard import SystemDashboard
 from .database import Database
 from .ec2_airflow import Ec2Airflow
 from .lambda_function import LambdaFunction, ScheduledLambda
+from .sagemaker_llm import SageMakerLlm
 from .simple_dashboard import SimpleDashboard
 from .simple_vpc import SimpleVpc
 from .sqs_queue import SqsQueue, SqsTriggeredLambda
@@ -14,6 +15,7 @@ __all__ = [
     "Ec2Airflow",
     "LambdaFunction",
     "ProjectBudget",
+    "SageMakerLlm",
     "ScheduledLambda",
     "SimpleDashboard",
     "SimpleVpc",
