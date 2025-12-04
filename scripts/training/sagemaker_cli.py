@@ -130,45 +130,87 @@ def upload_training_data(data_path: str, config: dict) -> str:
 def get_training_script() -> str:
     """Generate the training script to run inside SageMaker."""
     return '''#!/usr/bin/env python3
-"""SageMaker training script for Mistral-7B fine-tuning with QLoRA."""
+"""SageMaker training script for Mistral-7B fine-tuning with QLoRA.
+
+Logs are written to stdout and captured by CloudWatch at:
+/aws/sagemaker/TrainingJobs/<job-name>
+"""
 
 import json
+import logging
 import os
+import subprocess
+import sys
 import tarfile
 from pathlib import Path
 
-import torch
-from datasets import load_dataset
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    TrainingArguments,
+# Configure logging to stdout (CloudWatch captures this)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
-from trl import SFTTrainer
+logger = logging.getLogger(__name__)
+
+# Upgrade tokenizers to fix Mistral tokenizer compatibility
+logger.info("Upgrading tokenizers library for Mistral compatibility...")
+subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "tokenizers>=0.15.0"], check=True)
+logger.info("Tokenizers upgraded successfully")
 
 
 def main():
+    logger.info("=" * 60)
+    logger.info("Starting SageMaker training job")
+    logger.info("=" * 60)
+
     # SageMaker paths
     model_dir = os.environ.get("SM_MODEL_DIR", "/opt/ml/model")
     train_dir = os.environ.get("SM_CHANNEL_TRAINING", "/opt/ml/input/data/training")
 
-    print(f"Model output dir: {model_dir}")
-    print(f"Training data dir: {train_dir}")
+    logger.info(f"Model output dir: {model_dir}")
+    logger.info(f"Training data dir: {train_dir}")
+
+    # List directory contents for debugging
+    logger.info(f"Contents of {train_dir}:")
+    for f in Path(train_dir).iterdir():
+        logger.info(f"  - {f.name} ({f.stat().st_size} bytes)")
 
     # Find training file
     train_files = list(Path(train_dir).glob("*.jsonl"))
     if not train_files:
+        logger.error(f"No .jsonl files found in {train_dir}")
         raise FileNotFoundError(f"No .jsonl files found in {train_dir}")
     train_file = str(train_files[0])
-    print(f"Training file: {train_file}")
+    logger.info(f"Training file: {train_file}")
+
+    # Import ML libraries (after logging setup)
+    logger.info("Importing ML libraries...")
+    import torch
+    from datasets import load_dataset
+    from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+    from transformers import (
+        AutoModelForCausalLM,
+        AutoTokenizer,
+        BitsAndBytesConfig,
+        TrainingArguments,
+    )
+    from trl import SFTTrainer
+
+    logger.info(f"PyTorch version: {torch.__version__}")
+    logger.info(f"CUDA available: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        logger.info(f"CUDA device count: {torch.cuda.device_count()}")
+        for i in range(torch.cuda.device_count()):
+            logger.info(f"  GPU {i}: {torch.cuda.get_device_name(i)}")
 
     # Load dataset
+    logger.info("Loading dataset...")
     dataset = load_dataset("json", data_files=train_file, split="train")
-    print(f"Loaded {len(dataset)} training examples")
+    logger.info(f"Loaded {len(dataset)} training examples")
+    logger.info(f"Dataset columns: {dataset.column_names}")
 
     # Configure 4-bit quantization
+    logger.info("Configuring 4-bit quantization...")
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
@@ -178,21 +220,26 @@ def main():
 
     # Load model and tokenizer
     model_name = "mistralai/Mistral-7B-Instruct-v0.2"
-    print(f"Loading model: {model_name}")
+    logger.info(f"Loading tokenizer: {model_name}")
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    # Use use_fast=False to avoid tokenizer compatibility issues
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
+    logger.info("Tokenizer loaded successfully")
 
+    logger.info(f"Loading model: {model_name}")
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         quantization_config=bnb_config,
         device_map="auto",
         trust_remote_code=True,
     )
+    logger.info("Model loaded, preparing for k-bit training...")
     model = prepare_model_for_kbit_training(model)
 
     # Configure LoRA
+    logger.info("Configuring LoRA adapters...")
     lora_config = LoraConfig(
         r=16,
         lora_alpha=32,
@@ -205,6 +252,7 @@ def main():
     model.print_trainable_parameters()
 
     # Format dataset for Mistral Instruct
+    logger.info("Formatting dataset for Mistral Instruct format...")
     def formatting_function(examples):
         texts = []
         for instruction, output in zip(examples["instruction"], examples["output"]):
@@ -213,8 +261,10 @@ def main():
         return {"text": texts}
 
     dataset = dataset.map(formatting_function, batched=True, remove_columns=dataset.column_names)
+    logger.info(f"Dataset formatted, {len(dataset)} examples ready")
 
     # Training arguments
+    logger.info("Setting up training arguments...")
     training_args = TrainingArguments(
         output_dir="/opt/ml/checkpoints",
         per_device_train_batch_size=2,
@@ -228,9 +278,11 @@ def main():
         save_total_limit=2,
         optim="paged_adamw_8bit",
         seed=42,
+        report_to="none",  # Disable wandb/tensorboard
     )
 
     # Train
+    logger.info("Creating SFTTrainer...")
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
@@ -240,26 +292,32 @@ def main():
         args=training_args,
     )
 
-    print("Starting training...")
+    logger.info("=" * 60)
+    logger.info("Starting training...")
+    logger.info("=" * 60)
     trainer.train()
-    print("Training complete!")
+    logger.info("=" * 60)
+    logger.info("Training complete!")
+    logger.info("=" * 60)
 
     # Merge LoRA adapters with base model
-    print("Merging LoRA adapters...")
+    logger.info("Merging LoRA adapters with base model...")
     merged_model = model.merge_and_unload()
 
     # Save merged model
     merged_path = Path(model_dir) / "merged"
     merged_path.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Saving merged model to: {merged_path}")
     merged_model.save_pretrained(str(merged_path))
     tokenizer.save_pretrained(str(merged_path))
-    print(f"Merged model saved to: {merged_path}")
+    logger.info("Merged model saved successfully")
 
     # Create model.tar.gz for SageMaker deployment
     tar_path = Path(model_dir) / "model.tar.gz"
+    logger.info(f"Creating model archive: {tar_path}")
     with tarfile.open(tar_path, "w:gz") as tar:
         tar.add(merged_path, arcname=".")
-    print(f"Model archive created: {tar_path}")
+    logger.info(f"Model archive created: {tar_path}")
 
 
 if __name__ == "__main__":
