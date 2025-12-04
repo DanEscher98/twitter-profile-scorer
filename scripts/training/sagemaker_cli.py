@@ -340,13 +340,14 @@ def main():
     merged_model = model_with_adapters.merge_and_unload()
     logger.info("Adapters merged")
 
-    # Save merged model
+    # Save merged model in .bin format (not safetensors)
+    # The HuggingFace TGI container we're using only supports .bin format
     merged_path = Path(model_dir) / "merged"
     merged_path.mkdir(parents=True, exist_ok=True)
     logger.info(f"Saving merged model to: {merged_path}")
-    merged_model.save_pretrained(str(merged_path))
+    merged_model.save_pretrained(str(merged_path), safe_serialization=False)
     tokenizer.save_pretrained(str(merged_path))
-    logger.info("Merged model saved successfully")
+    logger.info("Merged model saved successfully (pytorch .bin format)")
 
     # Create model.tar.gz for SageMaker deployment
     tar_path = Path(model_dir) / "model.tar.gz"
