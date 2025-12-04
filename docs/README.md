@@ -12,6 +12,8 @@ A lookalike audience builder for Twitter ad targeting. Given a curated set of se
 | **Cost Explorer**          | [By Service](https://us-east-1.console.aws.amazon.com/cost-management/home#/cost-explorer)                                 |
 | **Cost Anomaly Detection** | [Monitors](https://us-east-1.console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors)                      |
 | **Airflow UI**             | [profile-scorer.admin.ateliertech.xyz](https://profile-scorer.admin.ateliertech.xyz)                                       |
+| **Datasets Bucket**        | [profile-scorer-datasets](https://s3.console.aws.amazon.com/s3/buckets/profile-scorer-datasets)                            |
+| **SageMaker Bucket**       | [profile-scorer-sagemaker-dev](https://s3.console.aws.amazon.com/s3/buckets/profile-scorer-sagemaker-dev)                  |
 
 ## Table of Contents
 
@@ -54,9 +56,10 @@ A lookalike audience builder for Twitter ad targeting. Given a curated set of se
 │  Batch 25 profiles → TOON format → Claude/Gemini/Groq → ScoredUser          │
 │  Final Score = f(HAS, LLM_score)                                            │
 │                                                                             │
-│  PHASE 4: Custom Model (Future)                                             │
-│  ──────────────────────────────                                             │
-│  Generate dataset → Fine-tune Mistral-7B → Deploy GGUF via Ollama           │
+│  PHASE 4: Custom Model (SageMaker)                                          │
+│  ──────────────────────────────────                                         │
+│  Training data → QLoRA fine-tune Mistral-7B → SageMaker endpoint            │
+│  Model alias: profile-scorer-v1 (via just train-llm / just deploy-llm)      │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -106,18 +109,20 @@ The [profile-scorer dashboard](https://us-east-2.console.aws.amazon.com/cloudwat
 
 | Tool                   | Purpose                               |
 | ---------------------- | ------------------------------------- |
-| AWS Budget             | $50/month limit with threshold alerts |
+| AWS Budget             | $10/month limit with threshold alerts |
 | Cost Explorer          | Service breakdown, tag filtering      |
 | Cost Anomaly Detection | ML-based unusual spending alerts      |
 
 **Estimated Monthly Cost:**
 
-| Service    | Cost    | Notes                                                   |
-| ---------- | ------- | ------------------------------------------------------- |
-| EC2        | ~$30.00 | t3.medium (4GB RAM - required for PyTorch/transformers) |
-| RDS        | ~$13.00 | PostgreSQL db.t4g.micro                                 |
-| CloudWatch | ~$0.30  | Basic metrics + status check alarm                      |
-| **Total**  | **~$43**| Monthly estimate                                        |
+| Service           | Cost        | Notes                                                   |
+| ----------------- | ----------- | ------------------------------------------------------- |
+| EC2               | ~$30.00     | t3.medium (4GB RAM - required for PyTorch/transformers) |
+| RDS               | ~$13.00     | PostgreSQL db.t4g.micro                                 |
+| CloudWatch        | ~$0.30      | Basic metrics + status check alarm                      |
+| S3                | ~$0.05      | SageMaker + datasets buckets                            |
+| **Base Total**    | **~$43**    | Monthly estimate (always-on services)                   |
+| SageMaker (opt.)  | ~$0.52/hr   | Custom LLM endpoint (toggle on/off)                     |
 
 **To enable tag-based cost filtering:**
 
@@ -127,15 +132,18 @@ The [profile-scorer dashboard](https://us-east-2.console.aws.amazon.com/cloudwat
 
 ## Current Status
 
-- [x] Infrastructure (VPC, RDS, EC2)
+- [x] Infrastructure (VPC, RDS, EC2, S3)
 - [x] Database schema (Drizzle ORM + Alembic migrations)
 - [x] HAS heuristic implementation (`airflow/packages/scoring`)
 - [x] `profile_search` DAG with multi-platform support
-- [x] `llm_scoring` DAG (multi-model: Haiku, Gemini, Groq)
+- [x] `llm_scoring` DAG (multi-model: Haiku, Sonnet, Gemini, Groq)
 - [x] `keyword_stats` DAG
 - [x] CloudWatch Dashboard
 - [x] AWS Budget and cost monitoring
 - [x] GitHub Actions CI/CD for Airflow
 - [x] GitHub Actions CI/CD for Infrastructure
+- [x] SageMaker infrastructure (S3 bucket, IAM role)
+- [x] Custom LLM training pipeline (QLoRA fine-tuning)
+- [x] SageMaker endpoint integration in Airflow
 - [ ] Seed profile validation
-- [ ] Training pipeline (Phase 2)
+- [ ] Custom model evaluation against API models

@@ -177,15 +177,65 @@ graph TB
 
 **Cost Optimization:** NAT Gateway was removed (saves ~$32/month). EC2 in public subnet accesses internet directly.
 
+## S3 Storage
+
+| Bucket                        | Purpose                                  | Access       |
+| ----------------------------- | ---------------------------------------- | ------------ |
+| `profile-scorer-sagemaker-dev` | Training data, model artifacts          | Private      |
+| `profile-scorer-datasets`      | Curated datasets for evaluation         | Public read  |
+
+### Datasets Bucket
+
+The `profile-scorer-datasets` bucket stores curated datasets for dashboard evaluation:
+
+```
+s3://profile-scorer-datasets/
+└── curated/
+    └── hand_picked-<timestamp>.csv    # Ground truth labels
+```
+
+**Public URL:** `https://profile-scorer-datasets.s3.amazonaws.com/curated/`
+
+Upload command:
+```bash
+aws s3 cp data/hand_picked.csv s3://profile-scorer-datasets/curated/hand_picked-$(date +%Y%m%d).csv
+```
+
+### SageMaker Bucket
+
+The `profile-scorer-sagemaker-dev` bucket stores training data and model artifacts:
+
+```
+s3://profile-scorer-sagemaker-dev/
+├── training/
+│   └── profile_scorer_train.jsonl     # Training data
+└── models/
+    └── <job-name>/output/model.tar.gz # Trained model
+```
+
+**Protected:** This bucket has `force_destroy=False` and `protect=True` to prevent accidental data loss.
+
 ## LLM Scoring System
 
 The Airflow DAGs support multiple LLM models with probability-based invocation.
 
-| Alias              | Full Name                                    | Probability | Batch Size |
-| ------------------ | -------------------------------------------- | ----------- | ---------- |
-| `meta-maverick-17b`  | `meta-llama/llama-4-maverick-17b-128e-instruct` | 0.7 (70%)   | 25         |
-| `claude-haiku-4.5`   | `claude-haiku-4-5-20251001`                    | 0.6 (60%)   | 25         |
-| `gemini-flash-2.0`   | `gemini-2.0-flash`                             | 0.4 (40%)   | 15         |
+| Alias               | Full Name                                       | Provider   | Probability | Batch Size |
+| ------------------- | ----------------------------------------------- | ---------- | ----------- | ---------- |
+| `meta-maverick-17b` | `meta-llama/llama-4-maverick-17b-128e-instruct` | Groq       | 0.8 (80%)   | 25         |
+| `claude-haiku-4.5`  | `claude-haiku-4-5-20251001`                     | Anthropic  | 0.7 (70%)   | 25         |
+| `claude-sonnet-4.5` | `claude-sonnet-4-5-20250929`                    | Anthropic  | 0.3 (30%)   | 15         |
+| `gemini-flash-2.0`  | `gemini-2.0-flash`                              | Google     | 0.4 (40%)   | 15         |
+| `profile-scorer-v1` | `profile-scorer-profile-scorer-endpoint`        | SageMaker  | 1.0 (100%)  | 10         |
+
+### Custom LLM (SageMaker)
+
+A fine-tuned Mistral-7B model is available for profile classification at zero per-token cost:
+
+- **Training:** QLoRA fine-tuning on ml.g4dn.12xlarge (~$3.91/hr)
+- **Inference:** ml.g4dn.xlarge endpoint (~$0.52/hr when running)
+- **Model alias:** `profile-scorer-v1`
+
+See [`airflow/docs/sagemaker_training.md`](../airflow/docs/sagemaker_training.md) for training workflow.
 
 **Scoring Flow:**
 1. Profiles serialized in TOON format
@@ -225,18 +275,28 @@ The dashboard provides a unified view of all system components:
 
 | Resource              | Link                                                                                                                  |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **AWS Budget**        | [profile-scorer-monthly](https://us-east-1.console.aws.amazon.com/billing/home#/budgets) - $50/month limit            |
+| **AWS Budget**        | [profile-scorer-monthly](https://us-east-1.console.aws.amazon.com/billing/home#/budgets) - $10/month limit            |
 | **Cost Explorer**     | [By Service](https://us-east-1.console.aws.amazon.com/cost-management/home#/cost-explorer)                            |
 | **Anomaly Detection** | [Default-Services-Monitor](https://us-east-1.console.aws.amazon.com/cost-management/home#/anomaly-detection/monitors) |
 
 **Current Cost Breakdown (December 2025):**
 
-| Service    | Cost    | Notes                                                    |
-| ---------- | ------- | -------------------------------------------------------- |
-| EC2        | ~$30.00 | t3.medium (4GB RAM - required for PyTorch/transformers)  |
-| RDS        | ~$13.00 | PostgreSQL db.t4g.micro                                  |
-| CloudWatch | ~$0.30  | Basic metrics + status check alarm                       |
-| **Total**  | **~$43** | Monthly estimate                                        |
+| Service           | Cost        | Notes                                                    |
+| ----------------- | ----------- | -------------------------------------------------------- |
+| EC2               | ~$30.00     | t3.medium (4GB RAM - required for PyTorch/transformers)  |
+| RDS               | ~$13.00     | PostgreSQL db.t4g.micro                                  |
+| CloudWatch        | ~$0.30      | Basic metrics + status check alarm                       |
+| S3                | ~$0.05      | SageMaker + datasets buckets                             |
+| **Base Total**    | **~$43**    | Monthly estimate (always-on services)                    |
+
+**Optional SageMaker Costs:**
+
+| Resource              | Cost         | Notes                                       |
+| --------------------- | ------------ | ------------------------------------------- |
+| Training (spot)       | ~$0.50/run   | 2-3 hours on ml.g4dn.12xlarge               |
+| Inference endpoint    | ~$0.52/hr    | ml.g4dn.xlarge (toggle off when not needed) |
+
+Use `just llm-toggle off` to disable the SageMaker endpoint when not testing.
 
 > **Note:** EC2 was upgraded from t3.small (2GB) to t3.medium (4GB) in Dec 2025
 > to prevent OOM during DAG execution with sentence-transformers/PyTorch.
@@ -268,6 +328,12 @@ uv run pulumi stack output budget_name
 
 # Resource Group
 uv run pulumi stack output resource_group_arn
+
+# S3 Buckets
+uv run pulumi stack output datasets_bucket
+uv run pulumi stack output datasets_curated_url
+uv run pulumi stack output sagemaker_bucket
+uv run pulumi stack output sagemaker_training_data_uri
 ```
 
 ## Deployment
